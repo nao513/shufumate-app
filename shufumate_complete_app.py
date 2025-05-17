@@ -6,7 +6,7 @@ st.set_page_config(page_title="ShufuMate｜主婦の味方アプリ", layout="wi
 
 # --- ヘッダー ---
 st.title("👩‍🍳 ShufuMate｜主婦の味方アプリ")
-st.caption("ダイエット・家計・予定・教育・人生設計・お得情報を一元管理")
+st.caption("ダイエット・家計・予定・教育・人生設計・お得情報を総合管理")
 
 # --- サイドバー機能選択 ---
 mode = st.sidebar.radio("機能を選んでください", [
