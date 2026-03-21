@@ -135,23 +135,18 @@ elif mode == "AI献立・運動プラン":
     target_weight = st.number_input("目標体重（kg）", min_value=30.0, max_value=200.0, value=55.0)
     body_fat = st.number_input("体脂肪率（%）", min_value=5.0, max_value=60.0, value=28.0)
 
-    days = st.slider("何日分作りますか？", 1, 30, 7)
+    auto_today = st.checkbox("今日のプランを自動表示する", value=True)
+    days = st.slider("まとめて何日分作りますか？", 1, 30, 7)
 
-    if st.button("AIでプラン作成"):
-        try:
-            from openai import OpenAI
-            client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
-        except Exception:
-            st.error("APIキーが設定されていません（Secretsを確認）")
-            st.stop()
+    try:
+        from openai import OpenAI
+        client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+    except Exception:
+        st.error("APIキーが設定されていません（Secretsを確認）")
+        st.stop()
 
-        results = []
-
-        with st.spinner("AIがプランを作成中..."):
-            for i in range(days):
-                date = (datetime.today() + timedelta(days=i)).strftime("%Y-%m-%d")
-
-                prompt = f"""
+    def create_plan_for_date(date_str: str) -> str:
+        prompt = f"""
 あなたは優秀な管理栄養士とトレーナーです。
 
 条件:
@@ -161,7 +156,7 @@ elif mode == "AI献立・運動プラン":
 - 体脂肪率: {body_fat}%
 - 目標体重: {target_weight}kg
 
-{date}の1日の健康的なダイエットプランを作ってください。
+{date_str}の1日の健康的なダイエットプランを作ってください。
 
 以下の形式で日本語で分かりやすく出力してください。
 
@@ -170,15 +165,37 @@ elif mode == "AI献立・運動プラン":
 ■夕食：
 ■運動：
 """
+        res = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": prompt}],
+        )
+        return res.choices[0].message.content
 
-                res = client.chat.completions.create(
-                    model="gpt-4o-mini",
-                    messages=[{"role": "user", "content": prompt}],
-                )
+    today_str = datetime.today().strftime("%Y-%m-%d")
+    cache_key = f"today_plan_{today_str}_{gender}_{age}_{weight}_{target_weight}_{body_fat}"
 
+    if auto_today:
+        st.subheader(f"📅 今日のプラン（{today_str}）")
+
+        if cache_key not in st.session_state:
+            with st.spinner("今日のプランを自動生成中..."):
+                st.session_state[cache_key] = create_plan_for_date(today_str)
+
+        st.markdown(st.session_state[cache_key])
+
+    st.divider()
+    st.subheader("📦 まとめて作成")
+
+    if st.button("AIで複数日プラン作成"):
+        results = []
+
+        with st.spinner("AIが複数日プランを作成中..."):
+            for i in range(days):
+                date = (datetime.today() + timedelta(days=i)).strftime("%Y-%m-%d")
+                plan_text = create_plan_for_date(date)
                 results.append({
                     "日付": date,
-                    "プラン": res.choices[0].message.content
+                    "プラン": plan_text
                 })
 
         df = pd.DataFrame(results)
