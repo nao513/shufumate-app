@@ -1,9 +1,3 @@
-mode = st.sidebar.radio("機能を選んでください", [
-    "今日のおすすめ", "ダイエット管理", "家計簿", "スケジュール",
-    "教育費・人生設計", "お得情報",
-    "AI献立・運動プラン",  # ← これ追加
-    "設定"
-])
 import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta
@@ -82,8 +76,9 @@ elif mode == "教育費・人生設計":
             "すべて私立": ["私立"] * 4
         }[edu_type]
         levels = ["小学校", "中学校", "高校", "大学"]
+        offsets = [0, 6, 9, 12]
         for j, level in enumerate(levels):
-            y = current_year + (6 - age) + sum([6,3,3,0][:j])
+            y = current_year + (6 - age) + offsets[j]
             cost = edu_costs[plan[j]][level]
             st.write(f"{y}年 - {level}（{plan[j]}）: {cost}万円")
             total_cost += cost
@@ -92,8 +87,10 @@ elif mode == "教育費・人生設計":
 # --- お得情報（Google Sheets連携） ---
 elif mode == "お得情報":
     st.header("📢 地域のお得情報")
-    sheet_url = st.text_input("スプレッドシートCSVリンク", 
-        value="https://docs.google.com/spreadsheets/d/1cLT1eqx7A-XpPvuUSqwxayfXpu5j0xy3YV3opDmcgfU/export?format=csv")
+    sheet_url = st.text_input(
+        "スプレッドシートCSVリンク",
+        value="https://docs.google.com/spreadsheets/d/1cLT1eqx7A-XpPvuUSqwxayfXpu5j0xy3YV3opDmcgfU/export?format=csv"
+    )
     try:
         df_info = pd.read_csv(sheet_url)
         pref = st.selectbox("地域を選択", df_info["地域"].unique())
@@ -101,7 +98,7 @@ elif mode == "お得情報":
         filtered = df_info[(df_info["地域"] == pref) & (df_info["カテゴリ"] == category)]
         for _, row in filtered.iterrows():
             st.markdown(f"- {row['情報内容']}（{row['備考']}）")
-    except:
+    except Exception:
         st.error("スプレッドシートの読み込みに失敗しました。")
 
 # --- 設定 ---
@@ -110,64 +107,3 @@ elif mode == "設定":
     theme = st.selectbox("テーマ選択", ["ライト", "ダーク"])
     st.write(f"選択中のテーマ：{theme}")
     st.caption("※ 見た目の切り替えには再読み込みが必要な場合があります")
-    # --- AI献立・運動プラン ---
-elif mode == "AI献立・運動プラン":
-    import openai
-
-    st.header("🧠 AI献立＆運動プラン（最大30日）")
-
-    # 入力
-    gender = st.radio("性別", ["女性", "男性"], horizontal=True)
-    age = st.number_input("年齢", 10, 100, 40)
-    weight = st.number_input("現在の体重（kg）", 30.0, 200.0, 60.0)
-    target_weight = st.number_input("目標体重（kg）", 30.0, 200.0, 55.0)
-    body_fat = st.number_input("体脂肪率（%）", 5.0, 60.0, 28.0)
-
-    days = st.slider("何日分作りますか？", 1, 30, 7)
-
-    api_key = st.text_input("OpenAI APIキー", type="password")
-
-    def create_prompt(date):
-        return f"""
-あなたは優秀な管理栄養士とトレーナーです。
-
-条件：
-・{gender}
-・年齢{age}
-・体重{weight}kg
-・体脂肪率{body_fat}%
-・目標体重{target_weight}kg
-
-{date}の1日のプランを作成してください
-
-■朝食：
-■昼食：
-■夕食：
-■運動：
-"""
-
-    if st.button("まとめて作成") and api_key:
-        openai.api_key = api_key
-
-        results = []
-
-        with st.spinner("作成中..."):
-            for i in range(days):
-                date = (datetime.today() + timedelta(days=i)).strftime("%Y-%m-%d")
-
-                response = openai.ChatCompletion.create(
-                    model="gpt-3.5-turbo",
-                    messages=[{"role": "user", "content": create_prompt(date)}]
-                )
-
-                text = response.choices[0].message.content
-                results.append({"日付": date, "プラン": text})
-
-        df = pd.DataFrame(results)
-
-        st.success("完成！")
-        st.dataframe(df)
-
-        # CSV保存
-        csv = df.to_csv(index=False).encode("utf-8-sig")
-        st.download_button("📥 CSVダウンロード", csv, "plan.csv")
