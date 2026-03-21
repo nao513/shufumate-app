@@ -142,7 +142,7 @@ elif mode == "AI献立・運動プラン":
         from openai import OpenAI
         client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
     except Exception:
-        st.error("APIキーが設定されていません（Secretsを確認）")
+        st.error("APIキーが設定されていません（Secretsを確認してください）")
         st.stop()
 
     def create_plan_for_date(date_str: str) -> str:
