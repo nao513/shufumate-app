@@ -164,6 +164,10 @@ elif mode == "AI献立・運動プラン":
 ■昼食：
 ■夕食：
 ■運動：
+■買い物リスト：
+- 食材名
+- 食材名
+- 食材名
 """
         res = client.chat.completions.create(
             model="gpt-4o-mini",
@@ -210,6 +214,38 @@ elif mode == "AI献立・運動プラン":
             file_name="plan.csv",
             mime="text/csv"
         )
+
+        st.subheader("🛒 買い物リストまとめ")
+
+        shopping_items = []
+
+        for plan in df["プラン"]:
+            lines = plan.splitlines()
+            in_shopping = False
+            for line in lines:
+                if "■買い物リスト" in line:
+                    in_shopping = True
+                    continue
+                if in_shopping:
+                    if line.startswith("■"):
+                        break
+                    item = line.replace("-", "").replace("・", "").strip()
+                    if item:
+                        shopping_items.append(item)
+
+        if shopping_items:
+            shopping_df = pd.DataFrame(sorted(set(shopping_items)), columns=["食材"])
+            st.dataframe(shopping_df, use_container_width=True)
+
+            shopping_csv = shopping_df.to_csv(index=False).encode("utf-8-sig")
+            st.download_button(
+                "📥 買い物リストCSVダウンロード",
+                data=shopping_csv,
+                file_name="shopping_list.csv",
+                mime="text/csv"
+            )
+        else:
+            st.info("買い物リストを抽出できませんでした。")
 
 # --- 設定 ---
 elif mode == "設定":
