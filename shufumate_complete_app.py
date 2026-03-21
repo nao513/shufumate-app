@@ -134,22 +134,24 @@ elif mode == "AI献立・運動プラン":
     weight = st.number_input("現在の体重（kg）", min_value=30.0, max_value=200.0, value=60.0)
     target_weight = st.number_input("目標体重（kg）", min_value=30.0, max_value=200.0, value=55.0)
     body_fat = st.number_input("体脂肪率（%）", min_value=5.0, max_value=60.0, value=28.0)
+
     days = st.slider("何日分作りますか？", 1, 30, 7)
 
-    api_key = st.text_input("OpenAI APIキー", type="password")
-
     if st.button("AIでプラン作成"):
-        if not api_key:
-            st.warning("OpenAI APIキーを入力してください。")
-        else:
-            client = OpenAI(api_key=api_key)
-            results = []
+        try:
+            from openai import OpenAI
+            client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+        except Exception:
+            st.error("APIキーが設定されていません（Secretsを確認）")
+            st.stop()
 
-            with st.spinner("AIがプランを作成中..."):
-                for i in range(days):
-                    date = (datetime.today() + timedelta(days=i)).strftime("%Y-%m-%d")
+        results = []
 
-                    prompt = f"""
+        with st.spinner("AIがプランを作成中..."):
+            for i in range(days):
+                date = (datetime.today() + timedelta(days=i)).strftime("%Y-%m-%d")
+
+                prompt = f"""
 あなたは優秀な管理栄養士とトレーナーです。
 
 条件:
@@ -169,27 +171,28 @@ elif mode == "AI献立・運動プラン":
 ■運動：
 """
 
-                    res = client.chat.completions.create(
-                        model="gpt-4o-mini",
-                        messages=[{"role": "user", "content": prompt}],
-                    )
+                res = client.chat.completions.create(
+                    model="gpt-4o-mini",
+                    messages=[{"role": "user", "content": prompt}],
+                )
 
-                    results.append({
-                        "日付": date,
-                        "プラン": res.choices[0].message.content
-                    })
+                results.append({
+                    "日付": date,
+                    "プラン": res.choices[0].message.content
+                })
 
-            df = pd.DataFrame(results)
-            st.success("プラン完成✨")
-            st.dataframe(df, use_container_width=True)
+        df = pd.DataFrame(results)
 
-            csv = df.to_csv(index=False).encode("utf-8-sig")
-            st.download_button(
-                "📥 CSVダウンロード",
-                data=csv,
-                file_name="plan.csv",
-                mime="text/csv"
-            )
+        st.success("プラン完成✨")
+        st.dataframe(df, use_container_width=True)
+
+        csv = df.to_csv(index=False).encode("utf-8-sig")
+        st.download_button(
+            "📥 CSVダウンロード",
+            data=csv,
+            file_name="plan.csv",
+            mime="text/csv"
+        )
 
 # --- 設定 ---
 elif mode == "設定":
