@@ -163,3 +163,61 @@ elif mode == "AI献立・運動プラン":
 
         csv = df.to_csv(index=False).encode("utf-8-sig")
         st.download_button("CSVダウンロード", csv, "plan.csv")
+
+elif mode == "AI献立・運動プラン":
+    import openai
+
+    st.header("🧠 AI献立＆運動プラン")
+
+    # 入力
+    gender = st.radio("性別", ["女性", "男性"], horizontal=True)
+    age = st.number_input("年齢", 10, 100, 40)
+    weight = st.number_input("現在の体重（kg）", 30.0, 200.0, 60.0)
+    target_weight = st.number_input("目標体重（kg）", 30.0, 200.0, 55.0)
+    body_fat = st.number_input("体脂肪率（%）", 5.0, 60.0, 28.0)
+
+    days = st.slider("何日分作りますか？", 1, 30, 7)
+
+    api_key = st.text_input("OpenAI APIキー", type="password")
+
+    if st.button("AIでプラン作成") and api_key:
+        openai.api_key = api_key
+
+        results = []
+
+        with st.spinner("AIがプランを作成中..."):
+            for i in range(days):
+                date = (datetime.today() + timedelta(days=i)).strftime("%Y-%m-%d")
+
+                prompt = f"""
+あなたは優秀な管理栄養士とトレーナーです。
+
+{gender}、{age}歳、体重{weight}kg、体脂肪率{body_fat}%
+目標体重{target_weight}kg
+
+{date}の1日のプランを作ってください
+
+■朝食：
+■昼食：
+■夕食：
+■運動：
+"""
+
+                res = openai.ChatCompletion.create(
+                    model="gpt-3.5-turbo",
+                    messages=[{"role": "user", "content": prompt}]
+                )
+
+                results.append({
+                    "日付": date,
+                    "プラン": res.choices[0].message.content
+                })
+
+        df = pd.DataFrame(results)
+
+        st.success("プラン完成✨")
+        st.dataframe(df)
+
+        # CSVダウンロード
+        csv = df.to_csv(index=False).encode("utf-8-sig")
+        st.download_button("📥 CSVダウンロード", csv, "plan.csv")
