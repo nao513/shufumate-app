@@ -163,5 +163,3 @@ elif mode == "AI献立・運動プラン":
 
         csv = df.to_csv(index=False).encode("utf-8-sig")
         st.download_button("CSVダウンロード", csv, "plan.csv")
-"AI献立・運動プラン",
-"AI献立・運動プラン","AI献立・運動プラン",
