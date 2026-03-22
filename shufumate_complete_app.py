@@ -1,3 +1,15 @@
+# --- 共通データ初期値 ---
+if "common_age" not in st.session_state:
+    st.session_state["common_age"] = 40
+
+if "common_weight" not in st.session_state:
+    st.session_state["common_weight"] = 60.0
+
+if "common_target_weight" not in st.session_state:
+    st.session_state["common_target_weight"] = 55.0
+
+if "common_body_fat" not in st.session_state:
+    st.session_state["common_body_fat"] = 28.0
 import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta
@@ -164,31 +176,18 @@ if mode == "今日のおすすめ":
 elif mode == "ダイエット管理":
     st.header("⚖️ ダイエット管理")
 
-    col1, col2 = st.columns(2)
-    with col1:
-        gender = st.radio("性別", ["女性", "男性"], horizontal=True)
-        age = st.number_input("年齢", min_value=10, max_value=100, value=40, step=1)
-        height_cm = st.number_input("身長（cm）", min_value=120, max_value=220, value=160, step=1)
-        weight = st.number_input("現在の体重（kg）", min_value=30.0, max_value=200.0, value=60.0, step=0.1)
-        target_weight = st.number_input("目標体重（kg）", min_value=30.0, max_value=200.0, value=55.0, step=0.1)
-        weeks = st.slider("目標達成までの期間（週）", 1, 52, 4)
+    age = st.number_input("年齢", 10, 100, key="common_age")
+    weight = st.number_input("現在の体重（kg）", 30.0, 200.0, key="common_weight")
+    target_weight = st.number_input("目標体重（kg）", 30.0, 200.0, key="common_target_weight")
+    body_fat = st.number_input("体脂肪率（%）", 5.0, 60.0, key="common_body_fat")
 
-    with col2:
-        bmi = weight / ((height_cm / 100) ** 2)
-        if gender == "男性":
-            body_fat = 1.20 * bmi + 0.23 * age - 16.2
-            bmr = 10 * weight + 6.25 * height_cm - 5 * age + 5
-        else:
-            body_fat = 1.20 * bmi + 0.23 * age - 5.4
-            bmr = 10 * weight + 6.25 * height_cm - 5 * age - 161
+    weeks = st.slider("目標達成までの期間（週）", 1, 52, 4)
 
-        cal_deficit = ((weight - target_weight) * 7200) / (weeks * 7) if weeks > 0 else 0
-        goal_calories = bmr - cal_deficit
+    bmr = weight * 22 * 1.5
+    cal_deficit = ((weight - target_weight) * 7200) / (weeks * 7)
+    goal_calories = bmr - cal_deficit
 
-        st.metric("BMI", f"{bmi:.1f}")
-        st.metric("推定体脂肪率", f"{body_fat:.1f}%")
-        st.metric("基礎代謝", f"{bmr:.0f} kcal")
-        st.metric("目標摂取カロリー", f"{goal_calories:.0f} kcal/日")
+    st.metric("目標摂取カロリー", f"{goal_calories:.0f} kcal/日")
 
 # -----------------------------
 # 家計簿
@@ -338,81 +337,46 @@ elif mode == "お得情報":
 
 # -----------------------------
 # 献立・運動プラン
-# -----------------------------
-elif mode == "献立・運動プラン":
+# -----------------------------elif mode == "献立・運動プラン":
     st.header("献立＆運動プラン")
 
     gender = st.radio("性別", ["女性", "男性"], horizontal=True)
-    age = st.number_input("年齢", min_value=10, max_value=100, value=40)
-    weight = st.number_input("現在の体重（kg）", min_value=30.0, max_value=200.0, value=60.0)
-    target_weight = st.number_input("目標体重（kg）", min_value=30.0, max_value=200.0, value=55.0)
-    body_fat = st.number_input("体脂肪率（%）", min_value=5.0, max_value=60.0, value=28.0)
 
-    auto_today = st.checkbox("今日のプランを自動表示する", value=True)
+    age = st.number_input("年齢", 10, 100, key="common_age")
+    weight = st.number_input("現在の体重（kg）", 30.0, 200.0, key="common_weight")
+    target_weight = st.number_input("目標体重（kg）", 30.0, 200.0, key="common_target_weight")
+    body_fat = st.number_input("体脂肪率（%）", 5.0, 60.0, key="common_body_fat")
+
     days = st.slider("まとめて何日分作りますか？", 1, 30, 7)
 
     client = get_openai_client()
 
     today_str = datetime.today().strftime("%Y-%m-%d")
-    cache_key = f"today_plan_{today_str}_{gender}_{age}_{weight}_{target_weight}_{body_fat}"
 
-    if auto_today:
-        st.subheader(f"📅 今日のプラン（{today_str}）")
-        if cache_key not in st.session_state:
-            with st.spinner("今日のプランを自動生成中..."):
-                st.session_state[cache_key] = create_plan_for_date(
-                    client, today_str, gender, age, weight, body_fat, target_weight
-                )
-        st.markdown(st.session_state[cache_key])
+    # 🔥 ボタン化した部分
+    if st.button("📅 今日のプランを表示"):
+        with st.spinner("生成中..."):
+            plan = create_plan_for_date(
+                client, today_str, gender, age, weight, body_fat, target_weight
+            )
+        st.markdown(plan)
 
     st.divider()
-    st.subheader("まとめて作成")
 
+    # 🔥 複数日
     if st.button("複数日プラン作成"):
         results = []
 
-        with st.spinner("AIが複数日プランを作成中..."):
+        with st.spinner("生成中..."):
             for i in range(days):
                 date = (datetime.today() + timedelta(days=i)).strftime("%Y-%m-%d")
-                plan_text = create_plan_for_date(client, date, gender, age, weight, body_fat, target_weight)
-                results.append({
-                    "日付": date,
-                    "プラン": plan_text
-                })
+                plan_text = create_plan_for_date(
+                    client, date, gender, age, weight, body_fat, target_weight
+                )
+                results.append({"日付": date, "プラン": plan_text})
 
         df = pd.DataFrame(results)
-
-        st.success("プラン完成✨")
         st.dataframe(df, use_container_width=True)
-
-        csv = df.to_csv(index=False).encode("utf-8-sig")
-        st.download_button(
-            "📥 献立・運動プランCSVダウンロード",
-            data=csv,
-            file_name="plan.csv",
-            mime="text/csv"
-        )
-
-        st.subheader("🛒 買い物リストまとめ")
-        shopping_df = extract_shopping_items(df["プラン"].tolist())
-
-        if not shopping_df.empty:
-            st.dataframe(shopping_df, use_container_width=True)
-
-            for category in shopping_df["カテゴリ"].unique():
-                st.markdown(f"### {category}")
-                for item in shopping_df[shopping_df["カテゴリ"] == category]["食材"]:
-                    st.write(f"- {item}")
-
-            shopping_csv = shopping_df.to_csv(index=False).encode("utf-8-sig")
-            st.download_button(
-                "📥 買い物リストCSVダウンロード",
-                data=shopping_csv,
-                file_name="shopping_list.csv",
-                mime="text/csv"
-            )
-        else:
-            st.info("買い物リストを抽出できませんでした。")
 
 # -----------------------------
 # 設定
