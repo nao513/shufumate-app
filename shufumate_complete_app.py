@@ -1,3 +1,10 @@
+import streamlit as st
+import pandas as pd
+from datetime import datetime, timedelta
+from openai import OpenAI
+
+st.set_page_config(page_title="ShufuMate｜主婦の味方アプリ", layout="wide")
+
 # --- 共通データ初期値 ---
 if "common_age" not in st.session_state:
     st.session_state["common_age"] = 40
@@ -10,12 +17,6 @@ if "common_target_weight" not in st.session_state:
 
 if "common_body_fat" not in st.session_state:
     st.session_state["common_body_fat"] = 28.0
-import streamlit as st
-import pandas as pd
-from datetime import datetime, timedelta
-from openai import OpenAI
-
-st.set_page_config(page_title="ShufuMate｜主婦の味方アプリ", layout="wide")
 
 # -----------------------------
 # 共通関数
