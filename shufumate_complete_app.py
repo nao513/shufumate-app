@@ -26,6 +26,21 @@ if "common_body_fat" not in st.session_state:
 if "common_target_body_fat" not in st.session_state:
     st.session_state["common_target_body_fat"] = 22.0
 
+if "diet_logs" not in st.session_state:
+    st.session_state["diet_logs"] = []
+
+if "today_plan_text" not in st.session_state:
+    st.session_state["today_plan_text"] = ""
+
+if "today_plan_date" not in st.session_state:
+    st.session_state["today_plan_date"] = ""
+
+if "expenses" not in st.session_state:
+    st.session_state["expenses"] = []
+
+if "schedules" not in st.session_state:
+    st.session_state["schedules"] = []
+
 # -----------------------------
 # 共通関数
 # -----------------------------
@@ -71,8 +86,10 @@ def create_plan_for_date(client, date_str, gender, age, height_cm, weight, body_
 def categorize_item(item: str) -> str:
     meat_egg = ["鶏", "豚", "牛", "ひき肉", "ささみ", "むね肉", "もも肉", "ベーコン", "ハム", "卵"]
     seafood = ["鮭", "さば", "サバ", "まぐろ", "ツナ", "ぶり", "たら", "エビ", "いか", "あさり", "魚"]
-    vegetables = ["キャベツ", "レタス", "白菜", "ほうれん草", "小松菜", "ブロッコリー", "トマト", "きゅうり",
-                  "にんじん", "玉ねぎ", "ねぎ", "大根", "もやし", "ピーマン", "ナス", "じゃがいも", "さつまいも"]
+    vegetables = [
+        "キャベツ", "レタス", "白菜", "ほうれん草", "小松菜", "ブロッコリー", "トマト", "きゅうり",
+        "にんじん", "玉ねぎ", "ねぎ", "大根", "もやし", "ピーマン", "ナス", "じゃがいも", "さつまいも"
+    ]
     mushroom_seaweed = ["しめじ", "えのき", "しいたけ", "まいたけ", "きのこ", "わかめ", "ひじき", "のり", "昆布"]
     staple = ["米", "ご飯", "玄米", "もち麦", "オートミール", "パン", "うどん", "そば", "パスタ"]
     dairy_soy = ["牛乳", "ヨーグルト", "チーズ", "豆腐", "納豆", "豆乳", "油揚げ", "厚揚げ"]
@@ -99,7 +116,6 @@ def categorize_item(item: str) -> str:
     for word in seasoning_other:
         if word in item:
             return "調味料・その他"
-
     return "その他"
 
 def extract_shopping_items(plan_texts):
@@ -121,16 +137,10 @@ def extract_shopping_items(plan_texts):
 
     unique_items = sorted(set(shopping_items))
     categorized_rows = [{"カテゴリ": categorize_item(item), "食材": item} for item in unique_items]
-    return pd.DataFrame(categorized_rows).sort_values(["カテゴリ", "食材"]) if categorized_rows else pd.DataFrame(columns=["カテゴリ", "食材"])
 
-# -----------------------------
-# セッション初期化
-# -----------------------------
-if "expenses" not in st.session_state:
-    st.session_state["expenses"] = []
-
-if "schedules" not in st.session_state:
-    st.session_state["schedules"] = []
+    if categorized_rows:
+        return pd.DataFrame(categorized_rows).sort_values(["カテゴリ", "食材"])
+    return pd.DataFrame(columns=["カテゴリ", "食材"])
 
 # -----------------------------
 # ヘッダー
@@ -157,25 +167,32 @@ mode = st.sidebar.radio("機能を選んでください", [
 # -----------------------------
 if mode == "今日のおすすめ":
     st.header("👉 今日のおすすめ")
-    col1, col2, col3 = st.columns(3)
+
+    today_str = datetime.today().strftime("%Y-%m-%d")
+    col1, col2 = st.columns(2)
 
     with col1:
-        st.subheader("🍽 今日の献立例")
-        st.write("・朝：オートミール、ゆで卵、ヨーグルト")
-        st.write("・昼：鶏むね肉サラダ、玄米")
-        st.write("・夜：豆腐と野菜の味噌汁、焼き魚")
+        st.subheader("📊 今日のダイエット状況")
+
+        if st.session_state["diet_logs"]:
+            latest = st.session_state["diet_logs"][-1]
+            st.write(f"体重：{latest['体重(kg)']} kg")
+            st.write(f"体脂肪率：{latest['体脂肪率(%)']} %")
+            st.write(f"目標体重：{latest['目標体重(kg)']} kg")
+            st.write(f"目標体脂肪率：{latest['目標体脂肪率(%)']} %")
+            st.write(f"BMI：{latest['BMI']}")
+            st.write(f"摂取目標：{latest['目標摂取カロリー']} kcal")
+        else:
+            st.info("まだ記録がありません")
 
     with col2:
-        st.subheader("💪 今日の運動例")
-        st.write("・スクワット 10回 × 3セット")
-        st.write("・ウォーキング 15分")
-        st.write("・ストレッチ 5分")
+        st.subheader("🥗 今日の献立＆運動")
 
-    with col3:
-        st.subheader("💰 家計ワンポイント")
-        st.write("・買い物前に冷蔵庫チェック")
-        st.write("・特売日をまとめ買いに活用")
-        st.write("・ポイント還元日を意識")
+        if st.session_state["today_plan_text"] and st.session_state["today_plan_date"] == today_str:
+            st.markdown(st.session_state["today_plan_text"])
+        else:
+            st.info("まだプランがありません")
+            st.caption("👉『献立・運動プラン』で作成してください")
 
 # -----------------------------
 # ダイエット管理
@@ -244,6 +261,38 @@ elif mode == "ダイエット管理":
 
     st.caption(f"現在体脂肪率: {body_fat:.1f}% / 目標体脂肪率: {target_body_fat:.1f}%")
 
+    if st.button("📌 今日のデータを記録"):
+        st.session_state["diet_logs"].append({
+            "日付": datetime.today().strftime("%Y-%m-%d"),
+            "年齢": age,
+            "身長(cm)": height_cm,
+            "体重(kg)": weight,
+            "目標体重(kg)": target_weight,
+            "体脂肪率(%)": body_fat,
+            "目標体脂肪率(%)": target_body_fat,
+            "BMI": round(bmi, 1),
+            "目標摂取カロリー": round(goal_calories, 0),
+        })
+        st.success("記録しました✨")
+
+    if st.session_state["diet_logs"]:
+        st.subheader("📘 ダイエット履歴")
+
+        df = pd.DataFrame(st.session_state["diet_logs"])
+        st.dataframe(df, use_container_width=True)
+
+        df["日付"] = pd.to_datetime(df["日付"])
+        df = df.sort_values("日付")
+
+        col1, col2 = st.columns(2)
+        with col1:
+            st.write("📈 体重推移")
+            st.line_chart(df.set_index("日付")["体重(kg)"])
+
+        with col2:
+            st.write("📉 体脂肪率推移")
+            st.line_chart(df.set_index("日付")["体脂肪率(%)"])
+
 # -----------------------------
 # 献立・運動プラン
 # -----------------------------
@@ -300,10 +349,14 @@ elif mode == "献立・運動プラン":
     today_str = datetime.today().strftime("%Y-%m-%d")
 
     if st.button("📅 今日のプランを表示"):
-        with st.spinner("今日のプランを生成中..."):
+        with st.spinner("生成中..."):
             plan = create_plan_for_date(
                 client, today_str, gender, age, height_cm, weight, body_fat, target_weight, target_body_fat
             )
+
+        st.session_state["today_plan_text"] = plan
+        st.session_state["today_plan_date"] = today_str
+
         st.subheader(f"今日のプラン（{today_str}）")
         st.markdown(plan)
 
