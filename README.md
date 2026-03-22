@@ -11,13 +11,13 @@
 
 ---
 
-## アプリを使う
+## 📱アプリを使う
 
 🔗 [アプリはこちらで公開中](https://shufumate-app-7xezdpnsmwfhnkbr7ezn7n.streamlit.app)
 
 ---
 
-## 機能一覧
+## 📝機能一覧
 
 | カテゴリ | 内容 |
 |----------|------|
