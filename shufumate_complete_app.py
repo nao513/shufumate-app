@@ -181,7 +181,7 @@ if mode == "今日のおすすめ":
 # ダイエット管理
 # -----------------------------
 elif mode == "ダイエット管理":
-    st.header("⚖️ ダイエット管理")
+    st.header("📝 ダイエット管理")
 
     age = st.number_input("年齢", min_value=10, max_value=100, step=1, key="common_age")
 
