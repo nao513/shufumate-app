@@ -150,7 +150,7 @@ mode = st.sidebar.radio("機能を選んでください", [
 # 今日のおすすめ
 # -----------------------------
 if mode == "今日のおすすめ":
-    st.header("🌞 今日のおすすめ")
+    st.header("今日のおすすめ")
     col1, col2, col3 = st.columns(3)
 
     with col1:
@@ -160,13 +160,13 @@ if mode == "今日のおすすめ":
         st.write("・夜：豆腐と野菜の味噌汁、焼き魚")
 
     with col2:
-        st.subheader("💪 今日の運動例")
+        st.subheader("今日の運動例")
         st.write("・スクワット 10回 × 3セット")
         st.write("・ウォーキング 15分")
         st.write("・ストレッチ 5分")
 
     with col3:
-        st.subheader("💰 家計ワンポイント")
+        st.subheader("家計ワンポイント")
         st.write("・買い物前に冷蔵庫チェック")
         st.write("・特売日をまとめ買いに活用")
         st.write("・ポイント還元日を意識")
@@ -175,7 +175,7 @@ if mode == "今日のおすすめ":
 # ダイエット管理
 # -----------------------------
 elif mode == "ダイエット管理":
-    st.header("⚖️ ダイエット管理")
+    st.header("ダイエット管理")
 
     age = st.number_input("年齢", 10, 100, key="common_age")
     weight = st.number_input("現在の体重（kg）", 30.0, 200.0, key="common_weight")
@@ -194,7 +194,7 @@ elif mode == "ダイエット管理":
 # 家計簿
 # -----------------------------
 elif mode == "家計簿":
-    st.header("💰 家計簿入力")
+    st.header("家計簿入力")
 
     with st.form("budget_form"):
         date = st.date_input("日付", datetime.today())
@@ -229,7 +229,7 @@ elif mode == "家計簿":
 # スケジュール
 # -----------------------------
 elif mode == "スケジュール":
-    st.header("🗓 スケジュール登録")
+    st.header("スケジュール登録")
 
     with st.form("schedule_form"):
         date = st.date_input("予定日", datetime.today())
@@ -254,7 +254,7 @@ elif mode == "スケジュール":
 # 教育費・人生設計
 # -----------------------------
 elif mode == "教育費・人生設計":
-    st.header("📘 教育費・人生プラン")
+    st.header("教育費・人生プラン")
 
     num_children = st.number_input("子どもの人数", min_value=0, max_value=5, value=1)
     edu_type = st.selectbox(
@@ -292,7 +292,7 @@ elif mode == "教育費・人生設計":
     st.metric("想定教育費合計", f"{total_cost} 万円")
 
     st.divider()
-    st.subheader("🏠 住宅ローン・賃貸比較")
+    st.subheader("住宅ローン・賃貸比較")
 
     col1, col2 = st.columns(2)
     with col1:
@@ -314,7 +314,7 @@ elif mode == "教育費・人生設計":
 # お得情報
 # -----------------------------
 elif mode == "お得情報":
-    st.header("📢 地域のお得情報")
+    st.header("地域のお得情報")
 
     sheet_url = st.text_input(
         "スプレッドシートCSVリンク",
