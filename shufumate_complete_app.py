@@ -183,11 +183,11 @@ if mode == "今日のおすすめ":
 elif mode == "ダイエット管理":
     st.header("📝 ダイエット管理")
 
-    age = st.number_input("年齢", min_value=10, max_value=100, step=1, key="common_age")
+    age = st.number_input("年齢", min_value=20, max_value=100, step=1, key="common_age")
 
     height_cm = st.number_input(
         "身長（cm）",
-        min_value=120.0,
+        min_value=145.0,
         max_value=200.0,
         step=0.5,
         format="%.1f",
@@ -196,7 +196,7 @@ elif mode == "ダイエット管理":
 
     weight = st.number_input(
         "現在の体重（kg）",
-        min_value=45.0,
+        min_value=50.0,
         max_value=200.0,
         step=0.1,
         format="%.1f",
@@ -214,7 +214,7 @@ elif mode == "ダイエット管理":
 
     body_fat = st.number_input(
         "体脂肪率（%）",
-        min_value=20.0,
+        min_value=25.0,
         max_value=60.0,
         step=0.1,
         format="%.1f",
@@ -223,7 +223,7 @@ elif mode == "ダイエット管理":
 
     target_body_fat = st.number_input(
         "目標体脂肪率（%）",
-        min_value=15.0,
+        min_value=20.0,
         max_value=50.0,
         step=0.1,
         format="%.1f",
@@ -252,10 +252,10 @@ elif mode == "献立・運動プラン":
 
     gender = st.radio("性別", ["女性", "男性"], horizontal=True)
 
-    age = st.number_input("年齢", min_value=10, max_value=100, step=1, key="common_age")
+    age = st.number_input("年齢", min_value=20, max_value=100, step=1, key="common_age")
     height_cm = st.number_input(
         "身長（cm）",
-        min_value=120.0,
+        min_value=145.0,
         max_value=200.0,
         step=0.5,
         format="%.1f",
@@ -263,7 +263,7 @@ elif mode == "献立・運動プラン":
     )
     weight = st.number_input(
         "現在の体重（kg）",
-        min_value=45.0,
+        min_value=50.0,
         max_value=200.0,
         step=0.1,
         format="%.1f",
