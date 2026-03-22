@@ -214,7 +214,7 @@ elif mode == "ダイエット管理":
 
     body_fat = st.number_input(
         "体脂肪率（%）",
-        min_value=25.0,
+        min_value=20.0,
         max_value=60.0,
         step=0.1,
         format="%.1f",
@@ -223,7 +223,7 @@ elif mode == "ダイエット管理":
 
     target_body_fat = st.number_input(
         "目標体脂肪率（%）",
-        min_value=20.0,
+        min_value=15.0,
         max_value=50.0,
         step=0.1,
         format="%.1f",
