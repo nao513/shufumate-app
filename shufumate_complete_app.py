@@ -2,8 +2,126 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta
 from openai import OpenAI
+import gspread
+from google.oauth2.service_account import Credentials
 
 st.set_page_config(page_title="ShufuMate｜主婦の味方アプリ", layout="wide")
+
+# -----------------------------
+# Google Sheets 保存
+# -----------------------------
+USER_ID = "nao513"
+
+def get_gspread_client():
+    creds_dict = dict(st.secrets["gcp_service_account"])
+    scopes = [
+        "https://www.googleapis.com/auth/spreadsheets",
+        "https://www.googleapis.com/auth/drive"
+    ]
+    creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
+    return gspread.authorize(creds)
+
+def get_sheet(tab_name: str):
+    gc = get_gspread_client()
+    sh = gc.open_by_key(st.secrets["GOOGLE_SHEET_ID"])
+    return sh.worksheet(tab_name)
+
+def ensure_headers():
+    settings_ws = get_sheet("Settings")
+    diet_ws = get_sheet("DietLogs")
+
+    if not settings_ws.get_all_values():
+        settings_ws.append_row([
+            "user_id", "age", "height_cm", "start_weight",
+            "target_weight", "start_body_fat", "target_body_fat"
+        ])
+
+    if not diet_ws.get_all_values():
+        diet_ws.append_row([
+            "user_id", "date", "age", "height_cm", "weight",
+            "target_weight", "body_fat", "target_body_fat",
+            "bmi", "goal_calories"
+        ])
+
+def load_user_settings():
+    ensure_headers()
+    ws = get_sheet("Settings")
+    records = ws.get_all_records()
+
+    for row in records:
+        if row["user_id"] == USER_ID:
+            return {
+                "common_age": int(row["age"]),
+                "common_height": float(row["height_cm"]),
+                "common_weight": float(row["start_weight"]),
+                "common_target_weight": float(row["target_weight"]),
+                "common_body_fat": float(row["start_body_fat"]),
+                "common_target_body_fat": float(row["target_body_fat"]),
+            }
+    return None
+
+def save_user_settings():
+    ensure_headers()
+    ws = get_sheet("Settings")
+    records = ws.get_all_records()
+
+    values = [
+        USER_ID,
+        st.session_state["common_age"],
+        st.session_state["common_height"],
+        st.session_state["common_weight"],
+        st.session_state["common_target_weight"],
+        st.session_state["common_body_fat"],
+        st.session_state["common_target_body_fat"],
+    ]
+
+    row_index = None
+    for i, row in enumerate(records, start=2):
+        if row["user_id"] == USER_ID:
+            row_index = i
+            break
+
+    if row_index:
+        ws.update(f"A{row_index}:G{row_index}", [values])
+    else:
+        ws.append_row(values)
+
+def load_diet_logs():
+    ensure_headers()
+    ws = get_sheet("DietLogs")
+    records = ws.get_all_records()
+
+    logs = []
+    for row in records:
+        if row["user_id"] == USER_ID:
+            logs.append({
+                "日付": row["date"],
+                "年齢": row["age"],
+                "身長(cm)": row["height_cm"],
+                "体重(kg)": row["weight"],
+                "目標体重(kg)": row["target_weight"],
+                "体脂肪率(%)": row["body_fat"],
+                "目標体脂肪率(%)": row["target_body_fat"],
+                "BMI": row["bmi"],
+                "目標摂取カロリー": row["goal_calories"],
+            })
+    return logs
+
+def append_diet_log(log_dict):
+    ensure_headers()
+    ws = get_sheet("DietLogs")
+    ws.append_row([
+        USER_ID,
+        log_dict["日付"],
+        log_dict["年齢"],
+        log_dict["身長(cm)"],
+        log_dict["体重(kg)"],
+        log_dict["目標体重(kg)"],
+        log_dict["体脂肪率(%)"],
+        log_dict["目標体脂肪率(%)"],
+        log_dict["BMI"],
+        log_dict["目標摂取カロリー"],
+    ])
 
 # -----------------------------
 # 共通データ初期値
@@ -40,6 +158,18 @@ if "expenses" not in st.session_state:
 
 if "schedules" not in st.session_state:
     st.session_state["schedules"] = []
+
+# -----------------------------
+# 初回ロード
+# -----------------------------
+if "settings_loaded" not in st.session_state:
+    saved = load_user_settings()
+    if saved:
+        for k, v in saved.items():
+            st.session_state[k] = v
+
+    st.session_state["diet_logs"] = load_diet_logs()
+    st.session_state["settings_loaded"] = True
 
 # -----------------------------
 # 共通関数
@@ -262,7 +392,7 @@ elif mode == "ダイエット管理":
     st.caption(f"現在体脂肪率: {body_fat:.1f}% / 目標体脂肪率: {target_body_fat:.1f}%")
 
     if st.button("📌 今日のデータを記録"):
-        st.session_state["diet_logs"].append({
+        log = {
             "日付": datetime.today().strftime("%Y-%m-%d"),
             "年齢": age,
             "身長(cm)": height_cm,
@@ -272,7 +402,9 @@ elif mode == "ダイエット管理":
             "目標体脂肪率(%)": target_body_fat,
             "BMI": round(bmi, 1),
             "目標摂取カロリー": round(goal_calories, 0),
-        })
+        }
+        st.session_state["diet_logs"].append(log)
+        append_diet_log(log)
         st.success("記録しました✨")
 
     if st.session_state["diet_logs"]:
@@ -542,6 +674,15 @@ elif mode == "お得情報":
 # -----------------------------
 elif mode == "設定":
     st.header("⚙️ アプリ設定")
-    theme = st.selectbox("テーマ選択", ["ライト", "ダーク"])
-    st.write(f"選択中のテーマ：{theme}")
-    st.caption("※ 見た目の切り替えには再読み込みが必要な場合があります")
+
+    st.subheader("📌 初期設定")
+    st.number_input("年齢", min_value=20, max_value=100, step=1, key="common_age")
+    st.number_input("身長（cm）", min_value=145.0, max_value=200.0, step=0.5, format="%.1f", key="common_height")
+    st.number_input("スタート時の体重（kg）", min_value=40.0, max_value=200.0, step=0.1, format="%.1f", key="common_weight")
+    st.number_input("目標体重（kg）", min_value=40.0, max_value=100.0, step=0.1, format="%.1f", key="common_target_weight")
+    st.number_input("スタート時の体脂肪率（%）", min_value=15.0, max_value=60.0, step=0.1, format="%.1f", key="common_body_fat")
+    st.number_input("目標体脂肪率（%）", min_value=10.0, max_value=50.0, step=0.1, format="%.1f", key="common_target_body_fat")
+
+    if st.button("💾 初期設定を保存"):
+        save_user_settings()
+        st.success("初期設定を保存しました。次回もこの値が反映されます。")
