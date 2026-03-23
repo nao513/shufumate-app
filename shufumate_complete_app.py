@@ -172,13 +172,13 @@ if "common_height" not in st.session_state:
     st.session_state["common_height"] = 160.0
 
 if "common_weight" not in st.session_state:
-    st.session_state["common_weight"] = 50.0
+    st.session_state["common_weight"] = 40.0
 
 if "common_target_weight" not in st.session_state:
     st.session_state["common_target_weight"] = 45.0
 
 if "common_body_fat" not in st.session_state:
-    st.session_state["common_body_fat"] = 28.0
+    st.session_state["common_body_fat"] = 15.0
 
 if "common_target_body_fat" not in st.session_state:
     st.session_state["common_target_body_fat"] = 22.0
@@ -380,7 +380,7 @@ elif mode == "ダイエット管理":
 
     weight = st.number_input(
         "現在の体重（kg）",
-        min_value=50.0,
+        min_value=40.0,
         max_value=200.0,
         step=0.1,
         format="%.1f",
@@ -398,7 +398,7 @@ elif mode == "ダイエット管理":
 
     body_fat = st.number_input(
         "体脂肪率（%）",
-        min_value=20.0,
+        min_value=15.0,
         max_value=60.0,
         step=0.1,
         format="%.1f",
@@ -481,7 +481,7 @@ elif mode == "献立・運動プラン":
     )
     weight = st.number_input(
         "現在の体重（kg）",
-        min_value=50.0,
+        min_value=40.0,
         max_value=200.0,
         step=0.1,
         format="%.1f",
@@ -497,7 +497,7 @@ elif mode == "献立・運動プラン":
     )
     body_fat = st.number_input(
         "体脂肪率（%）",
-        min_value=20.0,
+        min_value=15.0,
         max_value=60.0,
         step=0.1,
         format="%.1f",
