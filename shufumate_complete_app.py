@@ -16,7 +16,7 @@ def get_gspread_client():
     creds_dict = dict(st.secrets["gcp_service_account"])
     scopes = [
         "https://www.googleapis.com/auth/spreadsheets",
-        "https://www.googleapis.com/auth/drive"
+        "https://www.googleapis.com/auth/drive",
     ]
     creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
     return gspread.authorize(creds)
@@ -30,42 +30,72 @@ def ensure_headers():
     settings_ws = get_sheet("Settings")
     diet_ws = get_sheet("DietLogs")
 
-    if not settings_ws.get_all_values():
-        settings_ws.append_row([
-            "user_id", "age", "height_cm", "start_weight",
-            "target_weight", "start_body_fat", "target_body_fat"
-        ])
+    settings_header = [
+        "user_id", "age", "height_cm", "start_weight",
+        "target_weight", "start_body_fat", "target_body_fat"
+    ]
+    diet_header = [
+        "user_id", "date", "age", "height_cm", "weight",
+        "target_weight", "body_fat", "target_body_fat",
+        "bmi", "goal_calories"
+    ]
 
-    if not diet_ws.get_all_values():
-        diet_ws.append_row([
-            "user_id", "date", "age", "height_cm", "weight",
-            "target_weight", "body_fat", "target_body_fat",
-            "bmi", "goal_calories"
-        ])
+    settings_values = settings_ws.get_all_values()
+    diet_values = diet_ws.get_all_values()
+
+    if not settings_values:
+        settings_ws.append_row(settings_header)
+    elif settings_values[0] != settings_header:
+        settings_ws.clear()
+        settings_ws.append_row(settings_header)
+
+    if not diet_values:
+        diet_ws.append_row(diet_header)
+    elif diet_values[0] != diet_header:
+        diet_ws.clear()
+        diet_ws.append_row(diet_header)
 
 def load_user_settings():
     ensure_headers()
     ws = get_sheet("Settings")
-    records = ws.get_all_records()
+    values = ws.get_all_values()
 
-    for row in records:
-        if row["user_id"] == USER_ID:
+    if len(values) < 2:
+        return None
+
+    header = values[0]
+    data_rows = values[1:]
+
+    for row in data_rows:
+        if not row or len(row) < len(header):
+            continue
+        row_dict = dict(zip(header, row))
+        if row_dict.get("user_id") == USER_ID:
             return {
-                "common_age": int(row["age"]),
-                "common_height": float(row["height_cm"]),
-                "common_weight": float(row["start_weight"]),
-                "common_target_weight": float(row["target_weight"]),
-                "common_body_fat": float(row["start_body_fat"]),
-                "common_target_body_fat": float(row["target_body_fat"]),
+                "common_age": int(float(row_dict["age"])),
+                "common_height": float(row_dict["height_cm"]),
+                "common_weight": float(row_dict["start_weight"]),
+                "common_target_weight": float(row_dict["target_weight"]),
+                "common_body_fat": float(row_dict["start_body_fat"]),
+                "common_target_body_fat": float(row_dict["target_body_fat"]),
             }
     return None
 
 def save_user_settings():
     ensure_headers()
     ws = get_sheet("Settings")
-    records = ws.get_all_records()
+    values = ws.get_all_values()
 
-    values = [
+    header = [
+        "user_id", "age", "height_cm", "start_weight",
+        "target_weight", "start_body_fat", "target_body_fat"
+    ]
+
+    if not values:
+        ws.append_row(header)
+        values = [header]
+
+    values_to_save = [
         USER_ID,
         st.session_state["common_age"],
         st.session_state["common_height"],
@@ -76,34 +106,43 @@ def save_user_settings():
     ]
 
     row_index = None
-    for i, row in enumerate(records, start=2):
-        if row["user_id"] == USER_ID:
+    for i, row in enumerate(values[1:], start=2):
+        if row and len(row) > 0 and row[0] == USER_ID:
             row_index = i
             break
 
     if row_index:
-        ws.update(f"A{row_index}:G{row_index}", [values])
+        ws.update(f"A{row_index}:G{row_index}", [values_to_save])
     else:
-        ws.append_row(values)
+        ws.append_row(values_to_save)
 
 def load_diet_logs():
     ensure_headers()
     ws = get_sheet("DietLogs")
-    records = ws.get_all_records()
+    values = ws.get_all_values()
 
+    if len(values) < 2:
+        return []
+
+    header = values[0]
+    data_rows = values[1:]
     logs = []
-    for row in records:
-        if row["user_id"] == USER_ID:
+
+    for row in data_rows:
+        if not row or len(row) < len(header):
+            continue
+        row_dict = dict(zip(header, row))
+        if row_dict.get("user_id") == USER_ID:
             logs.append({
-                "日付": row["date"],
-                "年齢": row["age"],
-                "身長(cm)": row["height_cm"],
-                "体重(kg)": row["weight"],
-                "目標体重(kg)": row["target_weight"],
-                "体脂肪率(%)": row["body_fat"],
-                "目標体脂肪率(%)": row["target_body_fat"],
-                "BMI": row["bmi"],
-                "目標摂取カロリー": row["goal_calories"],
+                "日付": row_dict["date"],
+                "年齢": float(row_dict["age"]),
+                "身長(cm)": float(row_dict["height_cm"]),
+                "体重(kg)": float(row_dict["weight"]),
+                "目標体重(kg)": float(row_dict["target_weight"]),
+                "体脂肪率(%)": float(row_dict["body_fat"]),
+                "目標体脂肪率(%)": float(row_dict["target_body_fat"]),
+                "BMI": float(row_dict["bmi"]),
+                "目標摂取カロリー": float(row_dict["goal_calories"]),
             })
     return logs
 
@@ -303,7 +342,6 @@ if mode == "今日のおすすめ":
 
     with col1:
         st.subheader("📊 今日のダイエット状況")
-
         if st.session_state["diet_logs"]:
             latest = st.session_state["diet_logs"][-1]
             st.write(f"体重：{latest['体重(kg)']} kg")
@@ -317,7 +355,6 @@ if mode == "今日のおすすめ":
 
     with col2:
         st.subheader("🥗 今日の献立＆運動")
-
         if st.session_state["today_plan_text"] and st.session_state["today_plan_date"] == today_str:
             st.markdown(st.session_state["today_plan_text"])
         else:
