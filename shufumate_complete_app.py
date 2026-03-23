@@ -69,6 +69,7 @@ def load_user_settings():
     for row in data_rows:
         if not row or len(row) < len(header):
             continue
+
         row_dict = dict(zip(header, row))
         if row_dict.get("user_id") == USER_ID:
             return {
@@ -116,6 +117,14 @@ def save_user_settings():
     else:
         ws.append_row(values_to_save)
 
+def reset_user_settings():
+    st.session_state["common_age"] = 40
+    st.session_state["common_height"] = 160.0
+    st.session_state["common_weight"] = 40.0
+    st.session_state["common_target_weight"] = 45.0
+    st.session_state["common_body_fat"] = 15.0
+    st.session_state["common_target_body_fat"] = 22.0
+
 def load_diet_logs():
     ensure_headers()
     ws = get_sheet("DietLogs")
@@ -131,6 +140,7 @@ def load_diet_logs():
     for row in data_rows:
         if not row or len(row) < len(header):
             continue
+
         row_dict = dict(zip(header, row))
         if row_dict.get("user_id") == USER_ID:
             logs.append({
@@ -144,12 +154,31 @@ def load_diet_logs():
                 "BMI": float(row_dict["bmi"]),
                 "目標摂取カロリー": float(row_dict["goal_calories"]),
             })
+
     return logs
 
-def append_diet_log(log_dict):
+def upsert_diet_log(log_dict):
     ensure_headers()
     ws = get_sheet("DietLogs")
-    ws.append_row([
+    values = ws.get_all_values()
+
+    header = [
+        "user_id", "date", "age", "height_cm", "weight",
+        "target_weight", "body_fat", "target_body_fat",
+        "bmi", "goal_calories"
+    ]
+
+    if not values:
+        ws.append_row(header)
+        values = [header]
+
+    row_index = None
+    for i, row in enumerate(values[1:], start=2):
+        if len(row) >= 2 and row[0] == USER_ID and row[1] == log_dict["日付"]:
+            row_index = i
+            break
+
+    row_values = [
         USER_ID,
         log_dict["日付"],
         log_dict["年齢"],
@@ -160,7 +189,12 @@ def append_diet_log(log_dict):
         log_dict["目標体脂肪率(%)"],
         log_dict["BMI"],
         log_dict["目標摂取カロリー"],
-    ])
+    ]
+
+    if row_index:
+        ws.update(f"A{row_index}:J{row_index}", [row_values])
+    else:
+        ws.append_row(row_values)
 
 # -----------------------------
 # 共通データ初期値
@@ -440,9 +474,19 @@ elif mode == "ダイエット管理":
             "BMI": round(bmi, 1),
             "目標摂取カロリー": round(goal_calories, 0),
         }
-        st.session_state["diet_logs"].append(log)
-        append_diet_log(log)
-        st.success("記録しました✨")
+
+        updated = False
+        for i, existing in enumerate(st.session_state["diet_logs"]):
+            if existing["日付"] == log["日付"]:
+                st.session_state["diet_logs"][i] = log
+                updated = True
+                break
+
+        if not updated:
+            st.session_state["diet_logs"].append(log)
+
+        upsert_diet_log(log)
+        st.success("今日の記録を保存しました✨")
 
     if st.session_state["diet_logs"]:
         st.subheader("📘 ダイエット履歴")
@@ -720,6 +764,15 @@ elif mode == "設定":
     st.number_input("スタート時の体脂肪率（%）", min_value=15.0, max_value=60.0, step=0.1, format="%.1f", key="common_body_fat")
     st.number_input("目標体脂肪率（%）", min_value=10.0, max_value=50.0, step=0.1, format="%.1f", key="common_target_body_fat")
 
-    if st.button("💾 初期設定を保存"):
-        save_user_settings()
-        st.success("初期設定を保存しました。次回もこの値が反映されます。")
+    col1, col2 = st.columns(2)
+
+    with col1:
+        if st.button("💾 初期設定を保存"):
+            save_user_settings()
+            st.success("初期設定を保存しました。次回もこの値が反映されます。")
+
+    with col2:
+        if st.button("↺ 初期設定をリセット"):
+            reset_user_settings()
+            save_user_settings()
+            st.success("初期設定をリセットしました。")
