@@ -29,6 +29,7 @@ def get_sheet(tab_name: str):
 def ensure_headers():
     settings_ws = get_sheet("Settings")
     diet_ws = get_sheet("DietLogs")
+    plans_ws = get_sheet("TodayPlans")
 
     settings_header = [
         "user_id", "age", "height_cm", "start_weight",
@@ -39,9 +40,11 @@ def ensure_headers():
         "target_weight", "body_fat", "target_body_fat",
         "bmi", "goal_calories"
     ]
+    plan_header = ["user_id", "date", "plan_text"]
 
     settings_values = settings_ws.get_all_values()
     diet_values = diet_ws.get_all_values()
+    plan_values = plans_ws.get_all_values()
 
     if not settings_values:
         settings_ws.append_row(settings_header)
@@ -54,6 +57,12 @@ def ensure_headers():
     elif diet_values[0] != diet_header:
         diet_ws.clear()
         diet_ws.append_row(diet_header)
+
+    if not plan_values:
+        plans_ws.append_row(plan_header)
+    elif plan_values[0] != plan_header:
+        plans_ws.clear()
+        plans_ws.append_row(plan_header)
 
 def load_user_settings():
     ensure_headers()
@@ -124,6 +133,16 @@ def reset_user_settings():
     st.session_state["common_target_weight"] = 45.0
     st.session_state["common_body_fat"] = 15.0
     st.session_state["common_target_body_fat"] = 22.0
+
+def sync_settings_from_sheet():
+    saved = load_user_settings()
+    if saved:
+        st.session_state["common_age"] = saved["common_age"]
+        st.session_state["common_height"] = saved["common_height"]
+        st.session_state["common_weight"] = saved["common_weight"]
+        st.session_state["common_target_weight"] = saved["common_target_weight"]
+        st.session_state["common_body_fat"] = saved["common_body_fat"]
+        st.session_state["common_target_body_fat"] = saved["common_target_body_fat"]
 
 def load_diet_logs():
     ensure_headers()
@@ -196,6 +215,57 @@ def upsert_diet_log(log_dict):
     else:
         ws.append_row(row_values)
 
+def load_today_plan():
+    ensure_headers()
+    ws = get_sheet("TodayPlans")
+    values = ws.get_all_values()
+
+    if len(values) < 2:
+        return None, None
+
+    header = values[0]
+    data_rows = values[1:]
+
+    latest_date = None
+    latest_text = None
+
+    for row in data_rows:
+        if not row or len(row) < len(header):
+            continue
+
+        row_dict = dict(zip(header, row))
+        if row_dict.get("user_id") == USER_ID:
+            row_date = row_dict.get("date", "")
+            if latest_date is None or row_date >= latest_date:
+                latest_date = row_date
+                latest_text = row_dict.get("plan_text", "")
+
+    return latest_date, latest_text
+
+def upsert_today_plan(date_str, plan_text):
+    ensure_headers()
+    ws = get_sheet("TodayPlans")
+    values = ws.get_all_values()
+
+    header = ["user_id", "date", "plan_text"]
+
+    if not values:
+        ws.append_row(header)
+        values = [header]
+
+    row_index = None
+    for i, row in enumerate(values[1:], start=2):
+        if len(row) >= 2 and row[0] == USER_ID and row[1] == date_str:
+            row_index = i
+            break
+
+    row_values = [USER_ID, date_str, plan_text]
+
+    if row_index:
+        ws.update(f"A{row_index}:C{row_index}", [row_values])
+    else:
+        ws.append_row(row_values)
+
 # -----------------------------
 # 共通データ初期値
 # -----------------------------
@@ -242,6 +312,12 @@ if "settings_loaded" not in st.session_state:
             st.session_state[k] = v
 
     st.session_state["diet_logs"] = load_diet_logs()
+
+    saved_plan_date, saved_plan_text = load_today_plan()
+    if saved_plan_date and saved_plan_text:
+        st.session_state["today_plan_date"] = saved_plan_date
+        st.session_state["today_plan_text"] = saved_plan_text
+
     st.session_state["settings_loaded"] = True
 
 # -----------------------------
@@ -376,6 +452,8 @@ if mode == "今日のおすすめ":
 
     with col1:
         st.subheader("📊 今日のダイエット状況")
+        st.session_state["diet_logs"] = load_diet_logs()
+
         if st.session_state["diet_logs"]:
             latest = st.session_state["diet_logs"][-1]
             st.write(f"体重：{latest['体重(kg)']} kg")
@@ -389,6 +467,11 @@ if mode == "今日のおすすめ":
 
     with col2:
         st.subheader("🥗 今日の献立＆運動")
+        saved_plan_date, saved_plan_text = load_today_plan()
+        if saved_plan_date and saved_plan_text:
+            st.session_state["today_plan_date"] = saved_plan_date
+            st.session_state["today_plan_text"] = saved_plan_text
+
         if st.session_state["today_plan_text"] and st.session_state["today_plan_date"] == today_str:
             st.markdown(st.session_state["today_plan_text"])
         else:
@@ -399,10 +482,12 @@ if mode == "今日のおすすめ":
 # ダイエット管理
 # -----------------------------
 elif mode == "ダイエット管理":
+    sync_settings_from_sheet()
+    st.session_state["diet_logs"] = load_diet_logs()
+
     st.header("📝 ダイエット管理")
 
     age = st.number_input("年齢", min_value=20, max_value=100, step=1, key="common_age")
-
     height_cm = st.number_input(
         "身長（cm）",
         min_value=145.0,
@@ -411,7 +496,6 @@ elif mode == "ダイエット管理":
         format="%.1f",
         key="common_height"
     )
-
     weight = st.number_input(
         "現在の体重（kg）",
         min_value=40.0,
@@ -420,7 +504,6 @@ elif mode == "ダイエット管理":
         format="%.1f",
         key="common_weight"
     )
-
     target_weight = st.number_input(
         "目標体重（kg）",
         min_value=40.0,
@@ -429,7 +512,6 @@ elif mode == "ダイエット管理":
         format="%.1f",
         key="common_target_weight"
     )
-
     body_fat = st.number_input(
         "体脂肪率（%）",
         min_value=15.0,
@@ -438,7 +520,6 @@ elif mode == "ダイエット管理":
         format="%.1f",
         key="common_body_fat"
     )
-
     target_body_fat = st.number_input(
         "目標体脂肪率（%）",
         min_value=15.0,
@@ -486,7 +567,9 @@ elif mode == "ダイエット管理":
             st.session_state["diet_logs"].append(log)
 
         upsert_diet_log(log)
+        st.session_state["diet_logs"] = load_diet_logs()
         st.success("今日の記録を保存しました✨")
+        st.rerun()
 
     if st.session_state["diet_logs"]:
         st.subheader("📘 ダイエット履歴")
@@ -501,7 +584,6 @@ elif mode == "ダイエット管理":
         with col1:
             st.write("📈 体重推移")
             st.line_chart(df.set_index("日付")["体重(kg)"])
-
         with col2:
             st.write("📉 体脂肪率推移")
             st.line_chart(df.set_index("日付")["体脂肪率(%)"])
@@ -510,6 +592,9 @@ elif mode == "ダイエット管理":
 # 献立・運動プラン
 # -----------------------------
 elif mode == "献立・運動プラン":
+    sync_settings_from_sheet()
+    st.session_state["diet_logs"] = load_diet_logs()
+
     st.header("🥗献立＆🏃運動プラン")
 
     gender = st.radio("性別", ["女性", "男性"], horizontal=True)
@@ -569,6 +654,7 @@ elif mode == "献立・運動プラン":
 
         st.session_state["today_plan_text"] = plan
         st.session_state["today_plan_date"] = today_str
+        upsert_today_plan(today_str, plan)
 
         st.subheader(f"今日のプラン（{today_str}）")
         st.markdown(plan)
@@ -754,6 +840,8 @@ elif mode == "お得情報":
 # 設定
 # -----------------------------
 elif mode == "設定":
+    sync_settings_from_sheet()
+
     st.header("⚙️ アプリ設定")
 
     st.subheader("📌 初期設定")
@@ -769,10 +857,14 @@ elif mode == "設定":
     with col1:
         if st.button("💾 初期設定を保存"):
             save_user_settings()
+            sync_settings_from_sheet()
             st.success("初期設定を保存しました。次回もこの値が反映されます。")
+            st.rerun()
 
     with col2:
         if st.button("↺ 初期設定をリセット"):
             reset_user_settings()
             save_user_settings()
+            sync_settings_from_sheet()
             st.success("初期設定をリセットしました。")
+            st.rerun()
