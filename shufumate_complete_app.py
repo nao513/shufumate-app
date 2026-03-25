@@ -12,6 +12,7 @@ st.set_page_config(page_title="ShufuMate｜主婦の味方アプリ", layout="wi
 # -----------------------------
 USER_ID = "nao513"
 
+@st.cache_resource
 def get_gspread_client():
     creds_dict = dict(st.secrets["gcp_service_account"])
     scopes = [
@@ -482,7 +483,6 @@ if mode == "今日のおすすめ":
 # ダイエット管理
 # -----------------------------
 elif mode == "ダイエット管理":
-    sync_settings_from_sheet()
     st.session_state["diet_logs"] = load_diet_logs()
 
     st.header("📝 ダイエット管理")
@@ -592,7 +592,6 @@ elif mode == "ダイエット管理":
 # 献立・運動プラン
 # -----------------------------
 elif mode == "献立・運動プラン":
-    sync_settings_from_sheet()
     st.session_state["diet_logs"] = load_diet_logs()
 
     st.header("🥗献立＆🏃運動プラン")
@@ -840,8 +839,6 @@ elif mode == "お得情報":
 # 設定
 # -----------------------------
 elif mode == "設定":
-    sync_settings_from_sheet()
-
     st.header("⚙️ アプリ設定")
 
     st.subheader("📌 初期設定")
