@@ -23,9 +23,14 @@ def get_gspread_client():
     return gspread.authorize(creds)
 
 def get_sheet(tab_name: str):
-    gc = get_gspread_client()
-    sh = gc.open_by_key(st.secrets["GOOGLE_SHEET_ID"])
-    return sh.worksheet(tab_name)
+    try:
+        gc = get_gspread_client()
+        sh = gc.open_by_key(st.secrets["GOOGLE_SHEET_ID"])
+        return sh.worksheet(tab_name)
+    except Exception as e:
+        st.error(f"Google Sheets接続エラー: {tab_name} を開けませんでした。")
+        st.error("GOOGLE_SHEET_ID、シート共有、API有効化を確認してください。")
+        raise e
 
 def ensure_headers():
     settings_ws = get_sheet("Settings")
