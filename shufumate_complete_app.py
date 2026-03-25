@@ -23,20 +23,14 @@ def get_gspread_client():
     return gspread.authorize(creds)
 
 def get_sheet(tab_name: str):
-    try:
-        gc = get_gspread_client()
-        sh = gc.open_by_key(st.secrets["GOOGLE_SHEET_ID"])
-        return sh.worksheet(tab_name)
-    except Exception as e:
-        st.error(f"Google Sheets接続エラー: {tab_name} を開けませんでした。")
-        st.error("GOOGLE_SHEET_ID、シート共有、API有効化を確認してください。")
-        raise e
+    gc = get_gspread_client()
+    sh = gc.open_by_key(st.secrets["GOOGLE_SHEET_ID"])
+    return sh.worksheet(tab_name)
 
 def ensure_headers():
     settings_ws = get_sheet("Settings")
     diet_ws = get_sheet("DietLogs")
     plans_ws = get_sheet("TodayPlans")
-    ayurveda_ws = get_sheet("Ayurveda")
 
     settings_header = [
         "user_id", "age", "height_cm", "start_weight",
@@ -48,12 +42,10 @@ def ensure_headers():
         "bmi", "goal_calories"
     ]
     plan_header = ["user_id", "date", "plan_text"]
-    ayurveda_header = ["user_id", "dosha_type", "vata_score", "pitta_score", "kapha_score"]
 
     settings_values = settings_ws.get_all_values()
     diet_values = diet_ws.get_all_values()
     plan_values = plans_ws.get_all_values()
-    ayurveda_values = ayurveda_ws.get_all_values()
 
     if not settings_values:
         settings_ws.append_row(settings_header)
@@ -72,12 +64,6 @@ def ensure_headers():
     elif plan_values[0] != plan_header:
         plans_ws.clear()
         plans_ws.append_row(plan_header)
-
-    if not ayurveda_values:
-        ayurveda_ws.append_row(ayurveda_header)
-    elif ayurveda_values[0] != ayurveda_header:
-        ayurveda_ws.clear()
-        ayurveda_ws.append_row(ayurveda_header)
 
 def load_user_settings():
     ensure_headers()
@@ -282,66 +268,6 @@ def upsert_today_plan(date_str, plan_text):
         ws.append_row(row_values)
 
 # -----------------------------
-# アーユルヴェーダ保存
-# -----------------------------
-def load_ayurveda():
-    ensure_headers()
-    ws = get_sheet("Ayurveda")
-    values = ws.get_all_values()
-
-    if len(values) < 2:
-        return None
-
-    header = values[0]
-    data_rows = values[1:]
-
-    for row in data_rows:
-        if not row or len(row) < len(header):
-            continue
-
-        row_dict = dict(zip(header, row))
-        if row_dict.get("user_id") == USER_ID:
-            return {
-                "dosha_type": row_dict["dosha_type"],
-                "dosha_scores": {
-                    "ヴァータ": int(float(row_dict["vata_score"])),
-                    "ピッタ": int(float(row_dict["pitta_score"])),
-                    "カパ": int(float(row_dict["kapha_score"]))
-                }
-            }
-    return None
-
-def save_ayurveda(dosha_type, scores):
-    ensure_headers()
-    ws = get_sheet("Ayurveda")
-    values = ws.get_all_values()
-
-    header = ["user_id", "dosha_type", "vata_score", "pitta_score", "kapha_score"]
-
-    if not values:
-        ws.append_row(header)
-        values = [header]
-
-    row_values = [
-        USER_ID,
-        dosha_type,
-        scores["ヴァータ"],
-        scores["ピッタ"],
-        scores["カパ"]
-    ]
-
-    row_index = None
-    for i, row in enumerate(values[1:], start=2):
-        if row and len(row) > 0 and row[0] == USER_ID:
-            row_index = i
-            break
-
-    if row_index:
-        ws.update(f"A{row_index}:E{row_index}", [row_values])
-    else:
-        ws.append_row(row_values)
-
-# -----------------------------
 # アーユルヴェーダ
 # -----------------------------
 def diagnose_dosha(vata_score, pitta_score, kapha_score):
@@ -433,11 +359,6 @@ if "settings_loaded" not in st.session_state:
     if saved_plan_date and saved_plan_text:
         st.session_state["today_plan_date"] = saved_plan_date
         st.session_state["today_plan_text"] = saved_plan_text
-
-    saved_ayurveda = load_ayurveda()
-    if saved_ayurveda:
-        st.session_state["dosha_type"] = saved_ayurveda["dosha_type"]
-        st.session_state["dosha_scores"] = saved_ayurveda["dosha_scores"]
 
     st.session_state["settings_loaded"] = True
 
@@ -618,11 +539,6 @@ if mode == "今日のおすすめ":
     st.divider()
     st.subheader("🌿 今日の体質アドバイス")
 
-    saved_ayurveda = load_ayurveda()
-    if saved_ayurveda:
-        st.session_state["dosha_type"] = saved_ayurveda["dosha_type"]
-        st.session_state["dosha_scores"] = saved_ayurveda["dosha_scores"]
-
     if st.session_state["dosha_type"]:
         dosha = st.session_state["dosha_type"]
         advice = get_ayurveda_advice(dosha)
@@ -749,11 +665,6 @@ elif mode == "ダイエット管理":
 # -----------------------------
 elif mode == "献立・運動プラン":
     st.session_state["diet_logs"] = load_diet_logs()
-
-    saved_ayurveda = load_ayurveda()
-    if saved_ayurveda:
-        st.session_state["dosha_type"] = saved_ayurveda["dosha_type"]
-        st.session_state["dosha_scores"] = saved_ayurveda["dosha_scores"]
 
     st.header("🥗献立＆🏃運動プラン")
 
@@ -894,11 +805,6 @@ elif mode == "献立・運動プラン":
 # アーユルヴェーダ
 # -----------------------------
 elif mode == "アーユルヴェーダ":
-    saved_ayurveda = load_ayurveda()
-    if saved_ayurveda:
-        st.session_state["dosha_type"] = saved_ayurveda["dosha_type"]
-        st.session_state["dosha_scores"] = saved_ayurveda["dosha_scores"]
-
     st.header("🌿 アーユルヴェーダ体質チェック")
     st.write("質問に答えると、今の自分に近い体質傾向が分かります。")
 
@@ -982,7 +888,6 @@ elif mode == "アーユルヴェーダ":
 
         st.session_state["dosha_type"] = main_dosha
         st.session_state["dosha_scores"] = scores
-        save_ayurveda(main_dosha, scores)
 
         st.success(f"あなたの体質傾向は **{main_dosha}** タイプです。")
 
@@ -1006,7 +911,6 @@ elif mode == "アーユルヴェーダ":
     if st.button("↺ 体質診断をリセット"):
         st.session_state["dosha_type"] = ""
         st.session_state["dosha_scores"] = {"ヴァータ": 0, "ピッタ": 0, "カパ": 0}
-        save_ayurveda("", st.session_state["dosha_scores"])
         st.success("体質診断をリセットしました。")
 
 # -----------------------------
