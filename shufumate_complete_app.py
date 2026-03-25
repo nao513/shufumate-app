@@ -135,7 +135,7 @@ def reset_user_settings():
     st.session_state["common_body_fat"] = 15.0
     st.session_state["common_target_body_fat"] = 22.0
 
-def sync_settings_from_sheet():
+def # sync_settings_from_sheet()
     saved = load_user_settings()
     if saved:
         st.session_state["common_age"] = saved["common_age"]
