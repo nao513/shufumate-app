@@ -109,6 +109,7 @@ def save_user_settings():
     values_to_save = [
         USER_ID,
         st.session_state["common_age"],
+
         st.session_state["common_height"],
         st.session_state["common_weight"],
         st.session_state["common_target_weight"],
