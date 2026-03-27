@@ -135,6 +135,16 @@ def reset_user_settings():
     st.session_state["common_body_fat"] = 15.0
     st.session_state["common_target_body_fat"] = 22.0
 
+def sync_settings_from_sheet():
+    saved = load_user_settings()
+    if saved:
+        st.session_state["common_age"] = saved["common_age"]
+        st.session_state["common_height"] = saved["common_height"]
+        st.session_state["common_weight"] = saved["common_weight"]
+        st.session_state["common_target_weight"] = saved["common_target_weight"]
+        st.session_state["common_body_fat"] = saved["common_body_fat"]
+        st.session_state["common_target_body_fat"] = saved["common_target_body_fat"]
+
 def load_diet_logs():
     ensure_headers()
     ws = get_sheet("DietLogs")
@@ -1049,6 +1059,7 @@ elif mode == "設定":
     with col1:
         if st.button("💾 初期設定を保存"):
             save_user_settings()
+            sync_settings_from_sheet()
             st.success("初期設定を保存しました。次回もこの値が反映されます。")
             st.rerun()
 
@@ -1056,5 +1067,6 @@ elif mode == "設定":
         if st.button("↺ 初期設定をリセット"):
             reset_user_settings()
             save_user_settings()
+            sync_settings_from_sheet()
             st.success("初期設定をリセットしました。")
             st.rerun()
