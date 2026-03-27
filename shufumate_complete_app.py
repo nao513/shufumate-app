@@ -65,32 +65,57 @@ def ensure_headers():
         plans_ws.clear()
         plans_ws.append_row(plan_header)
 
-def load_user_settings():
-    ensure_headers()
-    ws = get_sheet("Settings")
-    values = ws.get_all_values()
+def ensure_headers():
+    settings_ws = get_sheet("Settings")
+    diet_ws = get_sheet("DietLogs")
+    plans_ws = get_sheet("TodayPlans")
 
-    if len(values) < 2:
-        return None
+    settings_header = [
+        "user_id", "age", "height_cm", "start_weight",
+        "target_weight", "start_body_fat", "target_body_fat"
+    ]
+    diet_header = [
+        "user_id", "date", "age", "height_cm", "weight",
+        "target_weight", "body_fat", "target_body_fat",
+        "bmi", "goal_calories"
+    ]
+    plan_header = ["user_id", "date", "plan_text"]
 
-    header = values[0]
-    data_rows = values[1:]
+    try:
+        settings_values = settings_ws.get_all_values()
+    except Exception:
+        settings_values = []
 
-    for row in data_rows:
-        if not row or len(row) < len(header):
-            continue
+    try:
+        diet_values = diet_ws.get_all_values()
+    except Exception:
+        diet_values = []
 
-        row_dict = dict(zip(header, row))
-        if row_dict.get("user_id") == USER_ID:
-            return {
-                "common_age": int(float(row_dict["age"])),
-                "common_height": float(row_dict["height_cm"]),
-                "common_weight": float(row_dict["start_weight"]),
-                "common_target_weight": float(row_dict["target_weight"]),
-                "common_body_fat": float(row_dict["start_body_fat"]),
-                "common_target_body_fat": float(row_dict["target_body_fat"]),
-            }
-    return None
+    try:
+        plan_values = plans_ws.get_all_values()
+    except Exception:
+        plan_values = []
+
+    if not settings_values:
+        settings_ws.clear()
+        settings_ws.append_row(settings_header)
+    elif settings_values[0] != settings_header:
+        settings_ws.clear()
+        settings_ws.append_row(settings_header)
+
+    if not diet_values:
+        diet_ws.clear()
+        diet_ws.append_row(diet_header)
+    elif diet_values[0] != diet_header:
+        diet_ws.clear()
+        diet_ws.append_row(diet_header)
+
+    if not plan_values:
+        plans_ws.clear()
+        plans_ws.append_row(plan_header)
+    elif plan_values[0] != plan_header:
+        plans_ws.clear()
+        plans_ws.append_row(plan_header)
 
 def save_user_settings():
     ensure_headers()
