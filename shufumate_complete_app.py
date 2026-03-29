@@ -31,7 +31,6 @@ def ensure_headers():
     settings_ws = get_sheet("Settings")
     diet_ws = get_sheet("DietLogs")
     plans_ws = get_sheet("TodayPlans")
-    ayurveda_ws = get_sheet("Ayurveda")
 
     settings_header = [
         "user_id", "age", "height_cm", "start_weight",
@@ -43,12 +42,10 @@ def ensure_headers():
         "bmi", "goal_calories"
     ]
     plan_header = ["user_id", "date", "plan_text"]
-    ayurveda_header = ["user_id", "dosha_type", "vata_score", "pitta_score", "kapha_score"]
 
     settings_values = settings_ws.get_all_values()
     diet_values = diet_ws.get_all_values()
     plan_values = plans_ws.get_all_values()
-    ayurveda_values = ayurveda_ws.get_all_values()
 
     if not settings_values:
         settings_ws.append_row(settings_header)
@@ -67,12 +64,6 @@ def ensure_headers():
     elif plan_values[0] != plan_header:
         plans_ws.clear()
         plans_ws.append_row(plan_header)
-
-    if not ayurveda_values:
-        ayurveda_ws.append_row(ayurveda_header)
-    elif ayurveda_values[0] != ayurveda_header:
-        ayurveda_ws.clear()
-        ayurveda_ws.append_row(ayurveda_header)
 
 def load_user_settings():
     ensure_headers()
@@ -277,101 +268,6 @@ def upsert_today_plan(date_str, plan_text):
         ws.append_row(row_values)
 
 # -----------------------------
-# アーユルヴェーダ保存
-# -----------------------------
-def load_ayurveda():
-    ensure_headers()
-    ws = get_sheet("Ayurveda")
-    values = ws.get_all_values()
-
-    if len(values) < 2:
-        return None
-
-    header = values[0]
-    data_rows = values[1:]
-
-    for row in data_rows:
-        if not row or len(row) < len(header):
-            continue
-
-        row_dict = dict(zip(header, row))
-        if row_dict.get("user_id") == USER_ID:
-            return {
-                "dosha_type": row_dict["dosha_type"],
-                "dosha_scores": {
-                    "ヴァータ": int(float(row_dict["vata_score"])),
-                    "ピッタ": int(float(row_dict["pitta_score"])),
-                    "カパ": int(float(row_dict["kapha_score"]))
-                }
-            }
-    return None
-
-def save_ayurveda(dosha_type, scores):
-    ensure_headers()
-    ws = get_sheet("Ayurveda")
-    values = ws.get_all_values()
-
-    header = ["user_id", "dosha_type", "vata_score", "pitta_score", "kapha_score"]
-
-    if not values:
-        ws.append_row(header)
-        values = [header]
-
-    row_values = [
-        USER_ID,
-        dosha_type,
-        scores["ヴァータ"],
-        scores["ピッタ"],
-        scores["カパ"]
-    ]
-
-    row_index = None
-    for i, row in enumerate(values[1:], start=2):
-        if row and len(row) > 0 and row[0] == USER_ID:
-            row_index = i
-            break
-
-    if row_index:
-        ws.update(f"A{row_index}:E{row_index}", [row_values])
-    else:
-        ws.append_row(row_values)
-
-# -----------------------------
-# アーユルヴェーダ
-# -----------------------------
-def diagnose_dosha(vata_score, pitta_score, kapha_score):
-    scores = {
-        "ヴァータ": vata_score,
-        "ピッタ": pitta_score,
-        "カパ": kapha_score
-    }
-    main_dosha = max(scores, key=scores.get)
-    return main_dosha, scores
-
-def get_ayurveda_advice(dosha):
-    advice_map = {
-        "ヴァータ": {
-            "特徴": "冷えやすい・乾燥しやすい・疲れやすい傾向",
-            "食事": "温かい汁物、やわらかいごはん、根菜、スープ系がおすすめです。",
-            "生活": "冷え対策をして、睡眠をしっかり取り、予定を詰め込みすぎないことが大切です。",
-            "運動": "やさしいヨガ、ストレッチ、ゆったり散歩が向いています。"
-        },
-        "ピッタ": {
-            "特徴": "暑がり・イライラしやすい・食欲が強い傾向",
-            "食事": "辛すぎるものや油っこいものを控え、野菜、豆類、やさしい味付けがおすすめです。",
-            "生活": "頑張りすぎを避けて、クールダウンする時間を意識すると整いやすいです。",
-            "運動": "中程度の運動、ウォーキング、ゆったりしたピラティスが向いています。"
-        },
-        "カパ": {
-            "特徴": "むくみやすい・重だるい・溜め込みやすい傾向",
-            "食事": "甘いものや重い食事を控えめにして、温野菜、スパイス、たんぱく質を意識するとよいです。",
-            "生活": "朝は早めに動き出し、ため込まず、こまめに体を動かすと整いやすいです。",
-            "運動": "しっかり歩く、有酸素運動、少し汗ばむ運動が向いています。"
-        }
-    }
-    return advice_map.get(dosha, {})
-
-# -----------------------------
 # 共通データ初期値
 # -----------------------------
 if "common_age" not in st.session_state:
@@ -407,12 +303,6 @@ if "expenses" not in st.session_state:
 if "schedules" not in st.session_state:
     st.session_state["schedules"] = []
 
-if "dosha_type" not in st.session_state:
-    st.session_state["dosha_type"] = ""
-
-if "dosha_scores" not in st.session_state:
-    st.session_state["dosha_scores"] = {"ヴァータ": 0, "ピッタ": 0, "カパ": 0}
-
 # -----------------------------
 # 初回ロード
 # -----------------------------
@@ -429,11 +319,6 @@ if "settings_loaded" not in st.session_state:
         st.session_state["today_plan_date"] = saved_plan_date
         st.session_state["today_plan_text"] = saved_plan_text
 
-    saved_ayurveda = load_ayurveda()
-    if saved_ayurveda:
-        st.session_state["dosha_type"] = saved_ayurveda["dosha_type"]
-        st.session_state["dosha_scores"] = saved_ayurveda["dosha_scores"]
-
     st.session_state["settings_loaded"] = True
 
 # -----------------------------
@@ -446,22 +331,9 @@ def get_openai_client():
         st.error("Streamlit Secrets に OPENAI_API_KEY が設定されていません。")
         st.stop()
 
-def create_plan_for_date(
-    client,
-    date_str,
-    gender,
-    age,
-    height_cm,
-    weight,
-    body_fat,
-    target_weight,
-    target_body_fat,
-    dosha_type=""
-):
-    dosha_line = f"- アーユルヴェーダ体質: {dosha_type}" if dosha_type else ""
-
+def create_plan_for_date(client, date_str, gender, age, height_cm, weight, body_fat, target_weight, target_body_fat):
     prompt = f"""
-あなたは優秀な管理栄養士、トレーナー、そしてアーユルヴェーダの生活アドバイザーです。
+あなたは優秀な管理栄養士とトレーナーです。
 
 条件:
 - 性別: {gender}
@@ -471,10 +343,8 @@ def create_plan_for_date(
 - 体脂肪率: {body_fat}%
 - 目標体重: {target_weight}kg
 - 目標体脂肪率: {target_body_fat}%
-{dosha_line}
 
 {date_str}の1日の健康的なダイエットプランを作ってください。
-体質が指定されている場合は、その体質傾向にも配慮してください。
 
 以下の形式で日本語で分かりやすく出力してください。
 
@@ -565,7 +435,6 @@ mode = st.sidebar.radio("機能を選んでください", [
     "今日のおすすめ",
     "ダイエット管理",
     "献立・運動プラン",
-    "アーユルヴェーダ",
     "家計簿",
     "スケジュール",
     "教育費・人生設計",
@@ -609,26 +478,6 @@ if mode == "今日のおすすめ":
         else:
             st.info("まだプランがありません")
             st.caption("👉『献立・運動プラン』で作成してください")
-
-    st.divider()
-    st.subheader("🌿 今日の体質アドバイス")
-
-    saved_ayurveda = load_ayurveda()
-    if saved_ayurveda:
-        st.session_state["dosha_type"] = saved_ayurveda["dosha_type"]
-        st.session_state["dosha_scores"] = saved_ayurveda["dosha_scores"]
-
-    if st.session_state["dosha_type"]:
-        dosha = st.session_state["dosha_type"]
-        advice = get_ayurveda_advice(dosha)
-
-        st.write(f"体質タイプ：**{dosha}**")
-        st.write(f"特徴：{advice['特徴']}")
-        st.write(f"食事：{advice['食事']}")
-        st.write(f"過ごし方：{advice['生活']}")
-        st.write(f"運動：{advice['運動']}")
-    else:
-        st.info("まだアーユルヴェーダ体質チェックが未実施です。")
 
 # -----------------------------
 # ダイエット管理
@@ -745,11 +594,6 @@ elif mode == "ダイエット管理":
 elif mode == "献立・運動プラン":
     st.session_state["diet_logs"] = load_diet_logs()
 
-    saved_ayurveda = load_ayurveda()
-    if saved_ayurveda:
-        st.session_state["dosha_type"] = saved_ayurveda["dosha_type"]
-        st.session_state["dosha_scores"] = saved_ayurveda["dosha_scores"]
-
     st.header("🥗献立＆🏃運動プラン")
 
     gender = st.radio("性別", ["女性", "男性"], horizontal=True)
@@ -796,9 +640,6 @@ elif mode == "献立・運動プラン":
         key="common_target_body_fat"
     )
 
-    if st.session_state["dosha_type"]:
-        st.info(f"🌿 現在の体質設定：{st.session_state['dosha_type']}")
-
     days = st.slider("まとめて何日分作りますか？", 1, 30, 7)
     client = get_openai_client()
 
@@ -807,16 +648,7 @@ elif mode == "献立・運動プラン":
     if st.button("📅 今日のプランを表示"):
         with st.spinner("生成中..."):
             plan = create_plan_for_date(
-                client,
-                today_str,
-                gender,
-                age,
-                height_cm,
-                weight,
-                body_fat,
-                target_weight,
-                target_body_fat,
-                st.session_state["dosha_type"]
+                client, today_str, gender, age, height_cm, weight, body_fat, target_weight, target_body_fat
             )
 
         st.session_state["today_plan_text"] = plan
@@ -835,16 +667,7 @@ elif mode == "献立・運動プラン":
             for i in range(days):
                 date = (datetime.today() + timedelta(days=i)).strftime("%Y-%m-%d")
                 plan_text = create_plan_for_date(
-                    client,
-                    date,
-                    gender,
-                    age,
-                    height_cm,
-                    weight,
-                    body_fat,
-                    target_weight,
-                    target_body_fat,
-                    st.session_state["dosha_type"]
+                    client, date, gender, age, height_cm, weight, body_fat, target_weight, target_body_fat
                 )
                 results.append({
                     "日付": date,
@@ -884,125 +707,6 @@ elif mode == "献立・運動プラン":
             )
         else:
             st.info("買い物リストを抽出できませんでした。")
-
-# -----------------------------
-# アーユルヴェーダ
-# -----------------------------
-elif mode == "アーユルヴェーダ":
-    saved_ayurveda = load_ayurveda()
-    if saved_ayurveda:
-        st.session_state["dosha_type"] = saved_ayurveda["dosha_type"]
-        st.session_state["dosha_scores"] = saved_ayurveda["dosha_scores"]
-
-    st.header("🌿 アーユルヴェーダ体質チェック")
-    st.write("質問に答えると、今の自分に近い体質傾向が分かります。")
-
-    st.subheader("1. 体型は？")
-    q1 = st.radio(
-        "体型",
-        ["細め・変化しやすい", "中くらい・筋肉質", "しっかり・丸みがある"],
-        key="ay_q1"
-    )
-
-    st.subheader("2. 肌や体の傾向は？")
-    q2 = st.radio(
-        "体の傾向",
-        ["乾燥しやすい・冷えやすい", "熱がこもりやすい・汗をかきやすい", "しっとり・むくみやすい"],
-        key="ay_q2"
-    )
-
-    st.subheader("3. 食欲の傾向は？")
-    q3 = st.radio(
-        "食欲",
-        ["ムラがある", "強い・食べないとイライラする", "安定していて食べるのが好き"],
-        key="ay_q3"
-    )
-
-    st.subheader("4. 性格の傾向は？")
-    q4 = st.radio(
-        "性格",
-        ["心配しやすい・気分が変わりやすい", "はっきりしている・せっかち", "穏やか・のんびり"],
-        key="ay_q4"
-    )
-
-    st.subheader("5. 疲れたときの傾向は？")
-    q5 = st.radio(
-        "疲れたとき",
-        ["不安っぽくなる・眠りが浅い", "イライラする・怒りっぽい", "だるい・やる気が出にくい"],
-        key="ay_q5"
-    )
-
-    if st.button("🌿 体質をチェック"):
-        vata_score = 0
-        pitta_score = 0
-        kapha_score = 0
-
-        if q1 == "細め・変化しやすい":
-            vata_score += 2
-        elif q1 == "中くらい・筋肉質":
-            pitta_score += 2
-        elif q1 == "しっかり・丸みがある":
-            kapha_score += 2
-
-        if q2 == "乾燥しやすい・冷えやすい":
-            vata_score += 2
-        elif q2 == "熱がこもりやすい・汗をかきやすい":
-            pitta_score += 2
-        elif q2 == "しっとり・むくみやすい":
-            kapha_score += 2
-
-        if q3 == "ムラがある":
-            vata_score += 2
-        elif q3 == "強い・食べないとイライラする":
-            pitta_score += 2
-        elif q3 == "安定していて食べるのが好き":
-            kapha_score += 2
-
-        if q4 == "心配しやすい・気分が変わりやすい":
-            vata_score += 2
-        elif q4 == "はっきりしている・せっかち":
-            pitta_score += 2
-        elif q4 == "穏やか・のんびり":
-            kapha_score += 2
-
-        if q5 == "不安っぽくなる・眠りが浅い":
-            vata_score += 2
-        elif q5 == "イライラする・怒りっぽい":
-            pitta_score += 2
-        elif q5 == "だるい・やる気が出にくい":
-            kapha_score += 2
-
-        main_dosha, scores = diagnose_dosha(vata_score, pitta_score, kapha_score)
-        advice = get_ayurveda_advice(main_dosha)
-
-        st.session_state["dosha_type"] = main_dosha
-        st.session_state["dosha_scores"] = scores
-        save_ayurveda(main_dosha, scores)
-
-        st.success(f"あなたの体質傾向は **{main_dosha}** タイプです。")
-
-        c1, c2, c3 = st.columns(3)
-        c1.metric("ヴァータ", scores["ヴァータ"])
-        c2.metric("ピッタ", scores["ピッタ"])
-        c3.metric("カパ", scores["カパ"])
-
-        st.subheader("🌿 体質の特徴")
-        st.write(advice["特徴"])
-
-        st.subheader("🍽 今日の食事アドバイス")
-        st.write(advice["食事"])
-
-        st.subheader("🛀 今日の過ごし方")
-        st.write(advice["生活"])
-
-        st.subheader("🏃 おすすめの運動")
-        st.write(advice["運動"])
-
-    if st.button("↺ 体質診断をリセット"):
-        st.session_state["dosha_type"] = ""
-        st.session_state["dosha_scores"] = {"ヴァータ": 0, "ピッタ": 0, "カパ": 0}
-        save_ayurveda("", st.session_state["dosha_scores"])
-        st.success("体質診断をリセットしました。")
 
 # -----------------------------
 # 家計簿
