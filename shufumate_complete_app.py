@@ -28,10 +28,8 @@ def get_gspread_client():
 def get_sheet(tab_name: str):
     gc = get_gspread_client()
     sh = gc.open_by_key(st.secrets["GOOGLE_SHEET_ID"])
-
-    st.write("現在のシートタイトル:", sh.title)
-    st.write("存在するタブ:", [ws.title for ws in sh.worksheets()])
-
+    st.write("接続シート名:", sh.title)
+    st.write("タブ一覧:", [ws.title for ws in sh.worksheets()])
     return sh.worksheet(tab_name)
 
 def ensure_headers():
