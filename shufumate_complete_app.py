@@ -26,16 +26,13 @@ def get_gspread_client():
     return gspread.authorize(creds)
 
 def get_sheet(tab_name: str):
-    try:
-        gc = get_gspread_client()
-        sheet_id = st.secrets["GOOGLE_SHEET_ID"]
-        sh = gc.open_by_key(sheet_id)
-        return sh.worksheet(tab_name)
-    except Exception as e:
-        st.error(f"Google Sheets接続エラー: {tab_name}")
-        st.write("使用中のGOOGLE_SHEET_ID:", st.secrets["GOOGLE_SHEET_ID"])
-        st.write("client_email:", st.secrets["gcp_service_account"]["client_email"])
-        raise e
+    gc = get_gspread_client()
+    sh = gc.open_by_key(st.secrets["GOOGLE_SHEET_ID"])
+
+    st.write("現在のシートタイトル:", sh.title)
+    st.write("存在するタブ:", [ws.title for ws in sh.worksheets()])
+
+    return sh.worksheet(tab_name)
 
 def ensure_headers():
     settings_ws = get_sheet("Settings")
