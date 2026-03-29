@@ -80,6 +80,14 @@ def ensure_headers():
         plans_ws.append_row(plan_header)
 
 def load_user_settings():
+    saved = load_user_settings()
+    if saved:
+        st.session_state["common_age"] = saved["common_age"]
+        st.session_state["common_height"] = saved["common_height"]
+        st.session_state["common_weight"] = saved["common_weight"]
+        st.session_state["common_target_weight"] = saved["common_target_weight"]
+        st.session_state["common_body_fat"] = saved["common_body_fat"]
+        st.session_state["common_target_body_fat"] = saved["common_target_body_fat"]
     ensure_headers()
     ws = get_sheet("Settings")
     values = ws.get_all_values()
