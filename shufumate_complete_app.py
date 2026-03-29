@@ -28,8 +28,6 @@ def get_gspread_client():
 def get_sheet(tab_name: str):
     gc = get_gspread_client()
     sh = gc.open_by_key(st.secrets["GOOGLE_SHEET_ID"])
-    st.write("接続シート名:", sh.title)
-    st.write("タブ一覧:", [ws.title for ws in sh.worksheets()])
     return sh.worksheet(tab_name)
 
 def ensure_headers():
@@ -465,7 +463,7 @@ if "settings_loaded" not in st.session_state:
     st.session_state["settings_loaded"] = True
 
 # -----------------------------
-# ヘッダー
+# UI
 # -----------------------------
 st.title("🍀 ShufuMate｜主婦の味方アプリ")
 st.caption("ダイエット・家計・予定・教育・人生設計・お得情報を総合管理")
@@ -482,9 +480,6 @@ mode = st.sidebar.radio("機能を選んでください", [
     "設定"
 ])
 
-# -----------------------------
-# 今日のおすすめ
-# -----------------------------
 if mode == "今日のおすすめ":
     st.header("👉 今日のおすすめ")
 
@@ -533,9 +528,6 @@ if mode == "今日のおすすめ":
     else:
         st.info("まだアーユルヴェーダ体質チェックが未実施です。")
 
-# -----------------------------
-# ダイエット管理
-# -----------------------------
 elif mode == "ダイエット管理":
     sync_settings_on_mode_enter(mode)
     st.session_state["diet_logs"] = load_diet_logs()
@@ -602,9 +594,6 @@ elif mode == "ダイエット管理":
             st.write("📉 体脂肪率推移")
             st.line_chart(df.set_index("日付")["体脂肪率(%)"])
 
-# -----------------------------
-# 献立・運動プラン
-# -----------------------------
 elif mode == "献立・運動プラン":
     sync_settings_on_mode_enter(mode)
     st.session_state["diet_logs"] = load_diet_logs()
@@ -682,9 +671,6 @@ elif mode == "献立・運動プラン":
         else:
             st.info("買い物リストを抽出できませんでした。")
 
-# -----------------------------
-# アーユルヴェーダ
-# -----------------------------
 elif mode == "アーユルヴェーダ":
     st.header("🌿 アーユルヴェーダ体質チェック")
     st.write("質問に答えると、今の自分に近い体質傾向が分かります。")
@@ -761,9 +747,6 @@ elif mode == "アーユルヴェーダ":
         st.session_state["dosha_scores"] = {"ヴァータ": 0, "ピッタ": 0, "カパ": 0}
         st.success("体質診断をリセットしました。")
 
-# -----------------------------
-# 家計簿
-# -----------------------------
 elif mode == "家計簿":
     st.header("💰 家計簿入力")
 
@@ -788,9 +771,6 @@ elif mode == "家計簿":
         st.subheader("📊 記録一覧")
         st.dataframe(df_exp, use_container_width=True)
 
-# -----------------------------
-# スケジュール
-# -----------------------------
 elif mode == "スケジュール":
     st.header("🗓 スケジュール登録")
 
@@ -813,9 +793,6 @@ elif mode == "スケジュール":
         st.subheader("📅 予定一覧")
         st.dataframe(df_sched, use_container_width=True)
 
-# -----------------------------
-# 教育費・人生設計
-# -----------------------------
 elif mode == "教育費・人生設計":
     st.header("📘 教育費・人生プラン")
 
@@ -851,16 +828,10 @@ elif mode == "教育費・人生設計":
 
     st.metric("想定教育費合計", f"{total_cost} 万円")
 
-# -----------------------------
-# お得情報
-# -----------------------------
 elif mode == "お得情報":
     st.header("📢 地域のお得情報")
     st.info("ここは今後拡張できます。")
 
-# -----------------------------
-# 設定
-# -----------------------------
 elif mode == "設定":
     sync_settings_on_mode_enter(mode)
 
