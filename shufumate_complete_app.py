@@ -43,37 +43,23 @@ def ensure_headers():
     ]
     plan_header = ["user_id", "date", "plan_text"]
 
-    try:
-        settings_values = settings_ws.get_all_values()
-    except Exception:
-        settings_values = []
-
-    try:
-        diet_values = diet_ws.get_all_values()
-    except Exception:
-        diet_values = []
-
-    try:
-        plan_values = plans_ws.get_all_values()
-    except Exception:
-        plan_values = []
+    settings_values = settings_ws.get_all_values()
+    diet_values = diet_ws.get_all_values()
+    plan_values = plans_ws.get_all_values()
 
     if not settings_values:
-        settings_ws.clear()
         settings_ws.append_row(settings_header)
     elif settings_values[0] != settings_header:
         settings_ws.clear()
         settings_ws.append_row(settings_header)
 
     if not diet_values:
-        diet_ws.clear()
         diet_ws.append_row(diet_header)
     elif diet_values[0] != diet_header:
         diet_ws.clear()
         diet_ws.append_row(diet_header)
 
     if not plan_values:
-        plans_ws.clear()
         plans_ws.append_row(plan_header)
     elif plan_values[0] != plan_header:
         plans_ws.clear()
@@ -148,6 +134,16 @@ def reset_user_settings():
     st.session_state["common_target_weight"] = 45.0
     st.session_state["common_body_fat"] = 15.0
     st.session_state["common_target_body_fat"] = 22.0
+
+def sync_settings_from_sheet():
+    saved = load_user_settings()
+    if saved:
+        st.session_state["common_age"] = saved["common_age"]
+        st.session_state["common_height"] = saved["common_height"]
+        st.session_state["common_weight"] = saved["common_weight"]
+        st.session_state["common_target_weight"] = saved["common_target_weight"]
+        st.session_state["common_body_fat"] = saved["common_body_fat"]
+        st.session_state["common_target_body_fat"] = saved["common_target_body_fat"]
 
 def load_diet_logs():
     ensure_headers()
@@ -1063,6 +1059,7 @@ elif mode == "設定":
     with col1:
         if st.button("💾 初期設定を保存"):
             save_user_settings()
+            sync_settings_from_sheet()
             st.success("初期設定を保存しました。次回もこの値が反映されます。")
             st.rerun()
 
@@ -1070,5 +1067,6 @@ elif mode == "設定":
         if st.button("↺ 初期設定をリセット"):
             reset_user_settings()
             save_user_settings()
+            sync_settings_from_sheet()
             st.success("初期設定をリセットしました。")
             st.rerun()
