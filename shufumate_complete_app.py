@@ -28,7 +28,13 @@ def get_gspread_client():
 def get_sheet(tab_name: str):
     gc = get_gspread_client()
     sh = gc.open_by_key(st.secrets["GOOGLE_SHEET_ID"])
-    return sh.worksheet(tab_name)
+
+    try:
+        return sh.worksheet(tab_name)
+    except Exception as e:
+        st.error(f"シート取得エラー: {tab_name}")
+        st.write("現在のタブ一覧:", [ws.title for ws in sh.worksheets()])
+        raise e
 
 def ensure_headers():
     settings_ws = get_sheet("Settings")
