@@ -25,21 +25,21 @@ def get_gspread_client():
     creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
     return gspread.authorize(creds)
 
-def get_sheet(tab_name: str):
+@st.cache_resource
+def get_spreadsheet():
     gc = get_gspread_client()
-    sh = gc.open_by_key(st.secrets["GOOGLE_SHEET_ID"])
+    return gc.open_by_key(st.secrets["GOOGLE_SHEET_ID"])
 
-    try:
-        return sh.worksheet(tab_name)
-    except Exception as e:
-        st.error(f"シート取得エラー: {tab_name}")
-        st.write("現在のタブ一覧:", [ws.title for ws in sh.worksheets()])
-        raise e
+def get_sheet(tab_name: str):
+    sh = get_spreadsheet()
+    return sh.worksheet(tab_name)
 
 def ensure_headers():
-    settings_ws = get_sheet("Settings")
-    diet_ws = get_sheet("DietLogs")
-    plans_ws = get_sheet("TodayPlans")
+    sh = get_spreadsheet()
+
+    settings_ws = sh.worksheet("Settings")
+    diet_ws = sh.worksheet("DietLogs")
+    plans_ws = sh.worksheet("TodayPlans")
 
     settings_header = [
         "user_id", "age", "height_cm", "start_weight",
@@ -52,20 +52,9 @@ def ensure_headers():
     ]
     plan_header = ["user_id", "date", "plan_text"]
 
-    try:
-        settings_values = settings_ws.get_all_values()
-    except Exception:
-        settings_values = []
-
-    try:
-        diet_values = diet_ws.get_all_values()
-    except Exception:
-        diet_values = []
-
-    try:
-        plan_values = plans_ws.get_all_values()
-    except Exception:
-        plan_values = []
+    settings_values = settings_ws.get_all_values()
+    diet_values = diet_ws.get_all_values()
+    plan_values = plans_ws.get_all_values()
 
     if not settings_values or settings_values[0] != settings_header:
         settings_ws.clear()
@@ -80,7 +69,6 @@ def ensure_headers():
         plans_ws.append_row(plan_header)
 
 def load_user_settings():
-    ensure_headers()
     ws = get_sheet("Settings")
     values = ws.get_all_values()
 
@@ -107,7 +95,6 @@ def load_user_settings():
     return None
 
 def save_user_settings():
-    ensure_headers()
     ws = get_sheet("Settings")
     values = ws.get_all_values()
 
@@ -151,7 +138,6 @@ def load_settings_into_session():
         st.session_state["common_target_body_fat"] = saved["common_target_body_fat"]
 
 def load_diet_logs():
-    ensure_headers()
     ws = get_sheet("DietLogs")
     values = ws.get_all_values()
 
@@ -183,7 +169,6 @@ def load_diet_logs():
     return logs
 
 def upsert_diet_log(log_dict):
-    ensure_headers()
     ws = get_sheet("DietLogs")
     values = ws.get_all_values()
 
@@ -212,7 +197,6 @@ def upsert_diet_log(log_dict):
         ws.append_row(row_values)
 
 def load_today_plan():
-    ensure_headers()
     ws = get_sheet("TodayPlans")
     values = ws.get_all_values()
 
@@ -239,7 +223,6 @@ def load_today_plan():
     return latest_date, latest_text
 
 def upsert_today_plan(date_str, plan_text):
-    ensure_headers()
     ws = get_sheet("TodayPlans")
     values = ws.get_all_values()
 
@@ -454,6 +437,8 @@ if "last_mode" not in st.session_state:
 # 初回ロード
 # -----------------------------
 if "settings_loaded" not in st.session_state:
+    ensure_headers()
+
     saved = load_user_settings()
     if saved:
         for k, v in saved.items():
