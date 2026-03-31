@@ -43,7 +43,8 @@ def ensure_headers():
 
     settings_header = [
         "user_id", "age", "height_cm", "start_weight",
-        "target_weight", "start_body_fat", "target_body_fat"
+        "target_weight", "start_body_fat", "target_body_fat",
+        "meal_style", "ease_level", "staple_preference"
     ]
     diet_header = [
         "user_id", "date", "age", "height_cm", "weight",
@@ -91,6 +92,9 @@ def load_user_settings():
                 "common_target_weight": float(row_dict["target_weight"]),
                 "common_body_fat": float(row_dict["start_body_fat"]),
                 "common_target_body_fat": float(row_dict["target_body_fat"]),
+                "meal_style": row_dict.get("meal_style", "和食中心"),
+                "ease_level": row_dict.get("ease_level", "超かんたん"),
+                "staple_preference": row_dict.get("staple_preference", "ごはん派"),
             }
     return None
 
@@ -106,6 +110,9 @@ def save_user_settings():
         st.session_state["common_target_weight"],
         st.session_state["common_body_fat"],
         st.session_state["common_target_body_fat"],
+        st.session_state["meal_style"],
+        st.session_state["ease_level"],
+        st.session_state["staple_preference"],
     ]
 
     row_index = None
@@ -115,7 +122,7 @@ def save_user_settings():
             break
 
     if row_index:
-        ws.update(f"A{row_index}:G{row_index}", [row_values])
+        ws.update(f"A{row_index}:J{row_index}", [row_values])
     else:
         ws.append_row(row_values)
 
@@ -126,6 +133,9 @@ def reset_user_settings():
     st.session_state["common_target_weight"] = 45.0
     st.session_state["common_body_fat"] = 15.0
     st.session_state["common_target_body_fat"] = 22.0
+    st.session_state["meal_style"] = "和食中心"
+    st.session_state["ease_level"] = "超かんたん"
+    st.session_state["staple_preference"] = "ごはん派"
 
 def load_settings_into_session():
     saved = load_user_settings()
@@ -136,6 +146,9 @@ def load_settings_into_session():
         st.session_state["common_target_weight"] = saved["common_target_weight"]
         st.session_state["common_body_fat"] = saved["common_body_fat"]
         st.session_state["common_target_body_fat"] = saved["common_target_body_fat"]
+        st.session_state["meal_style"] = saved["meal_style"]
+        st.session_state["ease_level"] = saved["ease_level"]
+        st.session_state["staple_preference"] = saved["staple_preference"]
 
 def load_diet_logs():
     ws = get_sheet("DietLogs")
@@ -259,14 +272,28 @@ def create_plan_for_date(
     body_fat,
     target_weight,
     target_body_fat,
-    dosha_type=""
+    dosha_type="",
+    meal_style="和食中心",
+    ease_level="超かんたん",
+    staple_preference="ごはん派",
+    fridge_items=""
 ):
-    dosha_line = f"- アーユルヴェーダ体質: {dosha_type}" if dosha_type else ""
+    dosha_rule = ""
+    if dosha_type == "ヴァータ":
+        dosha_rule = "温かい汁物、根菜、やわらかいごはん、消化にやさしい和食を優先してください。冷たいものや生野菜は控えめにしてください。"
+    elif dosha_type == "ピッタ":
+        dosha_rule = "刺激物や辛いものを控え、やさしい味付けの和食、野菜、豆腐、白身魚などを優先してください。"
+    elif dosha_type == "カパ":
+        dosha_rule = "脂っこいものや甘いものを控え、野菜多め、高たんぱく、温かく軽めの和食を優先してください。"
+
+    fridge_rule = ""
+    if fridge_items.strip():
+        fridge_rule = f"冷蔵庫にある食材をできるだけ優先して使ってください: {fridge_items}"
 
     prompt = f"""
-あなたは優秀な管理栄養士、トレーナー、そしてアーユルヴェーダの生活アドバイザーです。
+あなたは優秀な管理栄養士・時短料理アドバイザー・主婦向け献立アドバイザーです。
 
-条件:
+【利用者情報】
 - 性別: {gender}
 - 年齢: {age}歳
 - 身長: {height_cm}cm
@@ -274,13 +301,41 @@ def create_plan_for_date(
 - 体脂肪率: {body_fat}%
 - 目標体重: {target_weight}kg
 - 目標体脂肪率: {target_body_fat}%
-{dosha_line}
+- アーユルヴェーダ体質: {dosha_type if dosha_type else "未設定"}
+- 食事スタイル: {meal_style}
+- 調理レベル: {ease_level}
+- 主食の好み: {staple_preference}
+
+【重要ルール】
+- 日本の一般家庭で作りやすいメニューにしてください
+- スーパーで買いやすい食材だけを使ってください
+- 主婦向けに、手軽・簡単・現実的な献立にしてください
+- 難しい横文字料理や、おしゃれすぎるカフェ料理は避けてください
+- 朝食は特に手軽にしてください
+- できれば節約・時短も意識してください
+- たんぱく質をしっかり取れるようにしてください
+- おにぎり、味噌汁、納豆、豆腐、卵、鶏むね肉、鮭、さば等も積極的に使ってよいです
+- {dosha_rule}
+- {fridge_rule}
+
+【食事スタイルのルール】
+- 和食中心: 味噌汁、おにぎり、焼き魚、納豆、卵、豆腐、煮物などを優先
+- バランス: 和食中心だが洋風も少し可
+- おしゃれカフェ風: 少しおしゃれでもよいが、家庭で作りやすい範囲
+
+【調理レベルのルール】
+- 超かんたん: 10〜15分程度、工程少なめ
+- 普通: 20分程度
+- しっかり: 少し手間をかけてもよい
+
+【主食の好み】
+- ごはん派なら、ごはん・おにぎり中心
+- パン派なら、パン・トースト中心
+- どちらもなら、バランスよく
 
 {date_str}の1日の健康的なダイエットプランを作ってください。
-体質が指定されている場合は、その体質傾向にも配慮してください。
 
-以下の形式で日本語で分かりやすく出力してください。
-
+【出力形式】
 ■朝食：
 ■昼食：
 ■夕食：
@@ -416,6 +471,12 @@ if "common_body_fat" not in st.session_state:
     st.session_state["common_body_fat"] = 15.0
 if "common_target_body_fat" not in st.session_state:
     st.session_state["common_target_body_fat"] = 22.0
+if "meal_style" not in st.session_state:
+    st.session_state["meal_style"] = "和食中心"
+if "ease_level" not in st.session_state:
+    st.session_state["ease_level"] = "超かんたん"
+if "staple_preference" not in st.session_state:
+    st.session_state["staple_preference"] = "ごはん派"
 if "diet_logs" not in st.session_state:
     st.session_state["diet_logs"] = []
 if "today_plan_text" not in st.session_state:
@@ -594,22 +655,25 @@ elif mode == "献立・運動プラン":
     gender = st.radio("性別", ["女性", "男性"], horizontal=True)
     age, height_cm, weight, target_weight, body_fat, target_body_fat = render_common_body_inputs()
 
-    meal_style = st.radio(
+    st.radio(
         "食事スタイル",
         ["和食中心", "バランス", "おしゃれカフェ風"],
-        horizontal=True
+        horizontal=True,
+        key="meal_style"
     )
 
-    ease_level = st.radio(
+    st.radio(
         "調理レベル",
         ["超かんたん", "普通", "しっかり"],
-        horizontal=True
+        horizontal=True,
+        key="ease_level"
     )
 
-    staple_preference = st.radio(
+    st.radio(
         "主食の好み",
         ["ごはん派", "パン派", "どちらも"],
-        horizontal=True
+        horizontal=True,
+        key="staple_preference"
     )
 
     fridge_items = st.text_area(
@@ -637,9 +701,9 @@ elif mode == "献立・運動プラン":
                 target_weight,
                 target_body_fat,
                 st.session_state["dosha_type"],
-                meal_style,
-                ease_level,
-                staple_preference,
+                st.session_state["meal_style"],
+                st.session_state["ease_level"],
+                st.session_state["staple_preference"],
                 fridge_items
             )
 
@@ -669,9 +733,9 @@ elif mode == "献立・運動プラン":
                     target_weight,
                     target_body_fat,
                     st.session_state["dosha_type"],
-                    meal_style,
-                    ease_level,
-                    staple_preference,
+                    st.session_state["meal_style"],
+                    st.session_state["ease_level"],
+                    st.session_state["staple_preference"],
                     fridge_items
                 )
                 results.append({"日付": date, "プラン": plan_text})
@@ -700,66 +764,6 @@ elif mode == "献立・運動プラン":
                 file_name="shopping_list.csv",
                 mime="text/csv"
             )
-        else:
-            st.info("買い物リストを抽出できませんでした。")
-    if st.button("📅 今日のプランを表示"):
-        with st.spinner("生成中..."):
-            plan = create_plan_for_date(
-                client,
-                today_str,
-                gender,
-                age,
-                height_cm,
-                weight,
-                body_fat,
-                target_weight,
-                target_body_fat,
-                st.session_state["dosha_type"]
-            )
-
-        st.session_state["today_plan_text"] = plan
-        st.session_state["today_plan_date"] = today_str
-        upsert_today_plan(today_str, plan)
-
-        st.subheader(f"今日のプラン（{today_str}）")
-        st.markdown(plan)
-
-    st.divider()
-
-    if st.button("複数日プラン作成"):
-        results = []
-
-        with st.spinner("AIが複数日プランを作成中..."):
-            for i in range(days):
-                date = (datetime.today() + timedelta(days=i)).strftime("%Y-%m-%d")
-                plan_text = create_plan_for_date(
-                    client,
-                    date,
-                    gender,
-                    age,
-                    height_cm,
-                    weight,
-                    body_fat,
-                    target_weight,
-                    target_body_fat,
-                    st.session_state["dosha_type"]
-                )
-                results.append({"日付": date, "プラン": plan_text})
-
-        df = pd.DataFrame(results)
-        st.success("プラン完成✨")
-        st.dataframe(df, use_container_width=True)
-
-        csv = df.to_csv(index=False).encode("utf-8-sig")
-        st.download_button("📥 献立・運動プランCSVダウンロード", data=csv, file_name="plan.csv", mime="text/csv")
-
-        st.subheader("🛒 買い物リストまとめ")
-        shopping_df = extract_shopping_items(df["プラン"].tolist())
-
-        if not shopping_df.empty:
-            st.dataframe(shopping_df, use_container_width=True)
-            shopping_csv = shopping_df.to_csv(index=False).encode("utf-8-sig")
-            st.download_button("📥 買い物リストCSVダウンロード", data=shopping_csv, file_name="shopping_list.csv", mime="text/csv")
         else:
             st.info("買い物リストを抽出できませんでした。")
 
@@ -936,6 +940,27 @@ elif mode == "設定":
     st.number_input("目標体重（kg）", min_value=40.0, max_value=100.0, step=0.1, format="%.1f", key="common_target_weight")
     st.number_input("スタート時の体脂肪率（%）", min_value=15.0, max_value=60.0, step=0.1, format="%.1f", key="common_body_fat")
     st.number_input("目標体脂肪率（%）", min_value=10.0, max_value=50.0, step=0.1, format="%.1f", key="common_target_body_fat")
+
+    st.radio(
+        "食事スタイル",
+        ["和食中心", "バランス", "おしゃれカフェ風"],
+        horizontal=True,
+        key="meal_style"
+    )
+
+    st.radio(
+        "調理レベル",
+        ["超かんたん", "普通", "しっかり"],
+        horizontal=True,
+        key="ease_level"
+    )
+
+    st.radio(
+        "主食の好み",
+        ["ごはん派", "パン派", "どちらも"],
+        horizontal=True,
+        key="staple_preference"
+    )
 
     col1, col2 = st.columns(2)
 
