@@ -42,10 +42,10 @@ def ensure_headers():
     plans_ws = sh.worksheet("TodayPlans")
 
     settings_header = [
-        "user_id", "age", "height_cm", "start_weight",
-        "target_weight", "start_body_fat", "target_body_fat",
-        "meal_style", "ease_level", "staple_preference"
-    ]
+    "user_id", "age", "height_cm", "start_weight",
+    "target_weight", "start_body_fat", "target_body_fat",
+    "meal_style", "ease_level", "staple_preference", "fridge_items"
+]
     diet_header = [
         "user_id", "date", "age", "height_cm", "weight",
         "target_weight", "body_fat", "target_body_fat",
