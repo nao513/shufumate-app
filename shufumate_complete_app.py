@@ -594,6 +594,29 @@ elif mode == "献立・運動プラン":
     gender = st.radio("性別", ["女性", "男性"], horizontal=True)
     age, height_cm, weight, target_weight, body_fat, target_body_fat = render_common_body_inputs()
 
+    meal_style = st.radio(
+        "食事スタイル",
+        ["和食中心", "バランス", "おしゃれカフェ風"],
+        horizontal=True
+    )
+
+    ease_level = st.radio(
+        "調理レベル",
+        ["超かんたん", "普通", "しっかり"],
+        horizontal=True
+    )
+
+    staple_preference = st.radio(
+        "主食の好み",
+        ["ごはん派", "パン派", "どちらも"],
+        horizontal=True
+    )
+
+    fridge_items = st.text_area(
+        "冷蔵庫の食材（あるものを入力）",
+        placeholder="例：卵、豆腐、納豆、鶏むね肉、にんじん、玉ねぎ、キャベツ"
+    )
+
     if st.session_state["dosha_type"]:
         st.info(f"🌿 現在の体質設定：{st.session_state['dosha_type']}")
 
@@ -601,6 +624,84 @@ elif mode == "献立・運動プラン":
     client = get_openai_client()
     today_str = datetime.today().strftime("%Y-%m-%d")
 
+    if st.button("📅 今日のプランを表示"):
+        with st.spinner("生成中..."):
+            plan = create_plan_for_date(
+                client,
+                today_str,
+                gender,
+                age,
+                height_cm,
+                weight,
+                body_fat,
+                target_weight,
+                target_body_fat,
+                st.session_state["dosha_type"],
+                meal_style,
+                ease_level,
+                staple_preference,
+                fridge_items
+            )
+
+        st.session_state["today_plan_text"] = plan
+        st.session_state["today_plan_date"] = today_str
+        upsert_today_plan(today_str, plan)
+
+        st.subheader(f"今日のプラン（{today_str}）")
+        st.markdown(plan)
+
+    st.divider()
+
+    if st.button("複数日プラン作成"):
+        results = []
+
+        with st.spinner("AIが複数日プランを作成中..."):
+            for i in range(days):
+                date = (datetime.today() + timedelta(days=i)).strftime("%Y-%m-%d")
+                plan_text = create_plan_for_date(
+                    client,
+                    date,
+                    gender,
+                    age,
+                    height_cm,
+                    weight,
+                    body_fat,
+                    target_weight,
+                    target_body_fat,
+                    st.session_state["dosha_type"],
+                    meal_style,
+                    ease_level,
+                    staple_preference,
+                    fridge_items
+                )
+                results.append({"日付": date, "プラン": plan_text})
+
+        df = pd.DataFrame(results)
+        st.success("プラン完成✨")
+        st.dataframe(df, use_container_width=True)
+
+        csv = df.to_csv(index=False).encode("utf-8-sig")
+        st.download_button(
+            "📥 献立・運動プランCSVダウンロード",
+            data=csv,
+            file_name="plan.csv",
+            mime="text/csv"
+        )
+
+        st.subheader("🛒 買い物リストまとめ")
+        shopping_df = extract_shopping_items(df["プラン"].tolist())
+
+        if not shopping_df.empty:
+            st.dataframe(shopping_df, use_container_width=True)
+            shopping_csv = shopping_df.to_csv(index=False).encode("utf-8-sig")
+            st.download_button(
+                "📥 買い物リストCSVダウンロード",
+                data=shopping_csv,
+                file_name="shopping_list.csv",
+                mime="text/csv"
+            )
+        else:
+            st.info("買い物リストを抽出できませんでした。")
     if st.button("📅 今日のプランを表示"):
         with st.spinner("生成中..."):
             plan = create_plan_for_date(
