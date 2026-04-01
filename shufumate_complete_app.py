@@ -7,9 +7,6 @@ from google.oauth2.service_account import Credentials
 
 st.set_page_config(page_title="ShufuMate｜主婦の味方アプリ", layout="wide")
 
-# -----------------------------
-# 基本設定
-# -----------------------------
 USER_ID = "nao513"
 
 # -----------------------------
@@ -42,10 +39,11 @@ def ensure_headers():
     plans_ws = sh.worksheet("TodayPlans")
 
     settings_header = [
-    "user_id", "age", "height_cm", "start_weight",
-    "target_weight", "start_body_fat", "target_body_fat",
-    "meal_style", "ease_level", "staple_preference", "fridge_items"
-]
+        "user_id", "age", "height_cm", "start_weight",
+        "target_weight", "start_body_fat", "target_body_fat",
+        "meal_style", "ease_level", "staple_preference",
+        "fridge_items", "plan_type"
+    ]
     diet_header = [
         "user_id", "date", "age", "height_cm", "weight",
         "target_weight", "body_fat", "target_body_fat",
@@ -80,10 +78,12 @@ def load_user_settings():
     data_rows = values[1:]
 
     for row in data_rows:
-        if not row or len(row) < len(header):
+        if not row:
             continue
 
+        row = row + [""] * (len(header) - len(row))
         row_dict = dict(zip(header, row))
+
         if row_dict.get("user_id") == USER_ID:
             return {
                 "common_age": int(float(row_dict["age"])),
@@ -92,9 +92,11 @@ def load_user_settings():
                 "common_target_weight": float(row_dict["target_weight"]),
                 "common_body_fat": float(row_dict["start_body_fat"]),
                 "common_target_body_fat": float(row_dict["target_body_fat"]),
-                "meal_style": row_dict.get("meal_style", "和食中心"),
-                "ease_level": row_dict.get("ease_level", "超かんたん"),
-                "staple_preference": row_dict.get("staple_preference", "ごはん派"),
+                "meal_style": row_dict.get("meal_style", "和食中心") or "和食中心",
+                "ease_level": row_dict.get("ease_level", "超かんたん") or "超かんたん",
+                "staple_preference": row_dict.get("staple_preference", "ごはん派") or "ごはん派",
+                "fridge_items": row_dict.get("fridge_items", "") or "",
+                "plan_type": row_dict.get("plan_type", "通常") or "通常",
             }
     return None
 
@@ -113,6 +115,8 @@ def save_user_settings():
         st.session_state["meal_style"],
         st.session_state["ease_level"],
         st.session_state["staple_preference"],
+        st.session_state["fridge_items"],
+        st.session_state["plan_type"],
     ]
 
     row_index = None
@@ -122,7 +126,7 @@ def save_user_settings():
             break
 
     if row_index:
-        ws.update(f"A{row_index}:J{row_index}", [row_values])
+        ws.update(f"A{row_index}:L{row_index}", [row_values])
     else:
         ws.append_row(row_values)
 
@@ -136,6 +140,8 @@ def reset_user_settings():
     st.session_state["meal_style"] = "和食中心"
     st.session_state["ease_level"] = "超かんたん"
     st.session_state["staple_preference"] = "ごはん派"
+    st.session_state["fridge_items"] = ""
+    st.session_state["plan_type"] = "通常"
 
 def load_settings_into_session():
     saved = load_user_settings()
@@ -149,6 +155,8 @@ def load_settings_into_session():
         st.session_state["meal_style"] = saved["meal_style"]
         st.session_state["ease_level"] = saved["ease_level"]
         st.session_state["staple_preference"] = saved["staple_preference"]
+        st.session_state["fridge_items"] = saved["fridge_items"]
+        st.session_state["plan_type"] = saved["plan_type"]
 
 def load_diet_logs():
     ws = get_sheet("DietLogs")
@@ -276,7 +284,8 @@ def create_plan_for_date(
     meal_style="和食中心",
     ease_level="超かんたん",
     staple_preference="ごはん派",
-    fridge_items=""
+    fridge_items="",
+    plan_type="通常"
 ):
     dosha_rule = ""
     if dosha_type == "ヴァータ":
@@ -289,6 +298,22 @@ def create_plan_for_date(
     fridge_rule = ""
     if fridge_items.strip():
         fridge_rule = f"冷蔵庫にある食材をできるだけ優先して使ってください: {fridge_items}"
+
+    plan_type_rule = ""
+    if plan_type == "外食":
+        plan_type_rule = """
+外食を前提にしてください。
+・定食屋、和食屋、カフェなど現実的なお店を想定
+・ダイエット向きのメニュー選びを提案
+・揚げ物を避ける、タンパク質多めなど具体的に
+"""
+    elif plan_type == "コンビニ":
+        plan_type_rule = """
+コンビニ食（セブン・ファミマ・ローソン）で完結する内容にしてください。
+・サラダチキン、おにぎり、ゆで卵、味噌汁、豆腐バー、サラダなど
+・組み合わせで提案
+・リアルに買いやすい内容にしてください
+"""
 
     prompt = f"""
 あなたは優秀な管理栄養士・時短料理アドバイザー・主婦向け献立アドバイザーです。
@@ -305,6 +330,7 @@ def create_plan_for_date(
 - 食事スタイル: {meal_style}
 - 調理レベル: {ease_level}
 - 主食の好み: {staple_preference}
+- プランタイプ: {plan_type}
 
 【重要ルール】
 - 日本の一般家庭で作りやすいメニューにしてください
@@ -317,6 +343,7 @@ def create_plan_for_date(
 - おにぎり、味噌汁、納豆、豆腐、卵、鶏むね肉、鮭、さば等も積極的に使ってよいです
 - {dosha_rule}
 - {fridge_rule}
+- {plan_type_rule}
 
 【食事スタイルのルール】
 - 和食中心: 味噌汁、おにぎり、焼き魚、納豆、卵、豆腐、煮物などを優先
@@ -477,6 +504,10 @@ if "ease_level" not in st.session_state:
     st.session_state["ease_level"] = "超かんたん"
 if "staple_preference" not in st.session_state:
     st.session_state["staple_preference"] = "ごはん派"
+if "fridge_items" not in st.session_state:
+    st.session_state["fridge_items"] = ""
+if "plan_type" not in st.session_state:
+    st.session_state["plan_type"] = "通常"
 if "diet_logs" not in st.session_state:
     st.session_state["diet_logs"] = []
 if "today_plan_text" not in st.session_state:
@@ -676,9 +707,17 @@ elif mode == "献立・運動プラン":
         key="staple_preference"
     )
 
-    fridge_items = st.text_area(
+    st.text_area(
         "冷蔵庫の食材（あるものを入力）",
-        placeholder="例：卵、豆腐、納豆、鶏むね肉、にんじん、玉ねぎ、キャベツ"
+        placeholder="例：卵、豆腐、納豆、鶏むね肉、にんじん、玉ねぎ、キャベツ",
+        key="fridge_items"
+    )
+
+    st.radio(
+        "プランタイプ",
+        ["通常", "外食", "コンビニ"],
+        horizontal=True,
+        key="plan_type"
     )
 
     if st.session_state["dosha_type"]:
@@ -704,7 +743,8 @@ elif mode == "献立・運動プラン":
                 st.session_state["meal_style"],
                 st.session_state["ease_level"],
                 st.session_state["staple_preference"],
-                fridge_items
+                st.session_state["fridge_items"],
+                st.session_state["plan_type"]
             )
 
         st.session_state["today_plan_text"] = plan
@@ -736,7 +776,8 @@ elif mode == "献立・運動プラン":
                     st.session_state["meal_style"],
                     st.session_state["ease_level"],
                     st.session_state["staple_preference"],
-                    fridge_items
+                    st.session_state["fridge_items"],
+                    st.session_state["plan_type"]
                 )
                 results.append({"日付": date, "プラン": plan_text})
 
@@ -960,6 +1001,19 @@ elif mode == "設定":
         ["ごはん派", "パン派", "どちらも"],
         horizontal=True,
         key="staple_preference"
+    )
+
+    st.text_area(
+        "よくある冷蔵庫の食材",
+        placeholder="例：卵、豆腐、納豆、鶏むね肉、にんじん、玉ねぎ、キャベツ",
+        key="fridge_items"
+    )
+
+    st.radio(
+        "プランタイプ初期値",
+        ["通常", "外食", "コンビニ"],
+        horizontal=True,
+        key="plan_type"
     )
 
     col1, col2 = st.columns(2)
