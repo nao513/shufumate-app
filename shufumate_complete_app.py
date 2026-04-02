@@ -533,6 +533,9 @@ defaults = {
     "dosha_type": "",
     "dosha_scores": {"ヴァータ": 0, "ピッタ": 0, "カパ": 0},
     "last_mode": "",
+    "photo_fridge_items": "",
+    "photo_scale_result": "",
+    "body_check_comment": "",
 }
 for k, v in defaults.items():
     if k not in st.session_state:
@@ -567,6 +570,8 @@ mode = st.sidebar.radio("機能を選んでください", [
     "ダイエット管理",
     "献立・運動プラン",
     "アーユルヴェーダ",
+    "写真で記録",
+    "体型チェック",
     "家計簿",
     "スケジュール",
     "教育費・人生設計",
@@ -619,6 +624,13 @@ if mode == "今日のおすすめ":
         st.write(f"運動：{advice['運動']}")
     else:
         st.info("まだアーユルヴェーダ体質チェックが未実施です。")
+
+    st.divider()
+    st.subheader("🧺 保存中の冷蔵庫食材")
+    if st.session_state["fridge_items"]:
+        st.write(st.session_state["fridge_items"])
+    else:
+        st.info("まだ冷蔵庫食材の登録がありません。")
 
 elif mode == "ダイエット管理":
     sync_settings_on_mode_enter(mode)
@@ -700,7 +712,6 @@ elif mode == "献立・運動プラン":
         key="fridge_items"
     )
     st.radio("プランタイプ", ["通常", "外食", "コンビニ"], horizontal=True, key="plan_type")
-
     st.checkbox("👩 主婦リアル提案モード", key="real_mode")
     st.selectbox("今日の食事バランス", ["普通", "朝しっかり・昼軽め", "食べすぎた", "あまり食べてない"], key="daily_flow")
     st.checkbox("🏃‍♀️ 今日運動あり（ジム・ヨガなど）", key="workout_today")
@@ -866,6 +877,85 @@ elif mode == "アーユルヴェーダ":
         st.session_state["dosha_scores"] = {"ヴァータ": 0, "ピッタ": 0, "カパ": 0}
         st.success("体質診断をリセットしました。")
 
+elif mode == "写真で記録":
+    st.header("📷 写真で記録")
+
+    tab1, tab2 = st.tabs(["冷蔵庫写真", "体重計写真"])
+
+    with tab1:
+        st.subheader("🥬 冷蔵庫写真から食材候補を管理")
+        fridge_photo = st.file_uploader(
+            "冷蔵庫写真をアップロード",
+            type=["jpg", "jpeg", "png"],
+            key="fridge_photo_upload"
+        )
+
+        if fridge_photo is not None:
+            st.image(fridge_photo, caption="アップロードした冷蔵庫写真", use_container_width=True)
+            st.info("まずは写真を見ながら、食材候補を手入力または修正して使う形にします。")
+
+        st.text_area(
+            "読み取った食材候補",
+            placeholder="例：卵、豆腐、納豆、キャベツ、えのき、しいたけ、鶏むね肉",
+            key="photo_fridge_items"
+        )
+
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("➡ 冷蔵庫食材に反映"):
+                st.session_state["fridge_items"] = st.session_state["photo_fridge_items"]
+                st.success("冷蔵庫の食材に反映しました。")
+
+        with col2:
+            if st.button("🧹 候補をクリア"):
+                st.session_state["photo_fridge_items"] = ""
+                st.rerun()
+
+    with tab2:
+        st.subheader("⚖ 体重計写真から記録候補を管理")
+        scale_photo = st.file_uploader(
+            "体重計の写真をアップロード",
+            type=["jpg", "jpeg", "png"],
+            key="scale_photo_upload"
+        )
+
+        if scale_photo is not None:
+            st.image(scale_photo, caption="アップロードした体重計写真", use_container_width=True)
+            st.info("まずは写真を見ながら、数値候補を入力して記録に使う形にします。")
+
+        st.text_area(
+            "読み取った数値候補メモ",
+            placeholder="例：体重 51.2、体脂肪率 25.6、骨格筋率 27.2",
+            key="photo_scale_result"
+        )
+
+        st.caption("ここにメモしておいて、ダイエット管理へ手入力すると記録がラクになります。")
+
+elif mode == "体型チェック":
+    st.header("🪞 体型チェック")
+
+    body_photo = st.file_uploader(
+        "全身写真をアップロード",
+        type=["jpg", "jpeg", "png"],
+        key="body_photo_upload"
+    )
+
+    if body_photo is not None:
+        st.image(body_photo, caption="アップロードした全身写真", use_container_width=True)
+        st.info("現段階では、写真を見ながら体型バランスや気づきをメモする土台として使います。")
+
+    st.text_area(
+        "体型バランスメモ",
+        placeholder="例：肩まわりがしっかり、下半身にボリューム、脚のむくみが気になる、背中をすっきりさせたい",
+        key="body_check_comment"
+    )
+
+    st.markdown("### 使い方の例")
+    st.write("・上半身と下半身のバランスを書く")
+    st.write("・気になる部位を書く")
+    st.write("・理想の自分像を書く")
+    st.write("・次に強化したい運動を書く")
+
 elif mode == "家計簿":
     st.header("💰 家計簿入力")
     with st.form("budget_form"):
@@ -969,6 +1059,10 @@ elif mode == "設定":
     st.selectbox("食事の流れ初期値", ["普通", "朝しっかり・昼軽め", "食べすぎた", "あまり食べてない"], key="daily_flow")
     st.checkbox("運動あり初期値", key="workout_today")
     st.selectbox("目的初期値", ["バランス", "脚やせ", "脂肪燃焼", "むくみ改善"], key="body_goal")
+
+    st.divider()
+    st.subheader("📷 写真機能について")
+    st.caption("写真で記録メニューでは、冷蔵庫写真・体重計写真・全身写真を使った記録補助を行います。")
 
     col1, col2 = st.columns(2)
     with col1:
