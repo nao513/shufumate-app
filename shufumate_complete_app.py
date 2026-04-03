@@ -1,8 +1,13 @@
-import streamlit as st
-import pandas as pd
+import base64
+import io
+import re
 from datetime import datetime, timedelta
-from openai import OpenAI
+
 import gspread
+import pandas as pd
+import streamlit as st
+from openai import OpenAI
+from PIL import Image
 from google.oauth2.service_account import Credentials
 
 st.set_page_config(page_title="ShufuMate｜主婦の味方アプリ", layout="wide")
@@ -22,14 +27,17 @@ def get_gspread_client():
     creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
     return gspread.authorize(creds)
 
+
 @st.cache_resource
 def get_spreadsheet():
     gc = get_gspread_client()
     return gc.open_by_key(st.secrets["GOOGLE_SHEET_ID"])
 
+
 def get_sheet(tab_name: str):
     sh = get_spreadsheet()
     return sh.worksheet(tab_name)
+
 
 def ensure_headers():
     sh = get_spreadsheet()
@@ -68,6 +76,7 @@ def ensure_headers():
         plans_ws.clear()
         plans_ws.append_row(plan_header)
 
+
 def load_user_settings():
     ws = get_sheet("Settings")
     values = ws.get_all_values()
@@ -105,6 +114,7 @@ def load_user_settings():
             }
     return None
 
+
 def save_user_settings():
     ws = get_sheet("Settings")
     values = ws.get_all_values()
@@ -139,6 +149,7 @@ def save_user_settings():
     else:
         ws.append_row(row_values)
 
+
 def reset_user_settings():
     st.session_state["common_age"] = 40
     st.session_state["common_height"] = 160.0
@@ -156,11 +167,13 @@ def reset_user_settings():
     st.session_state["workout_today"] = False
     st.session_state["body_goal"] = "バランス"
 
+
 def load_settings_into_session():
     saved = load_user_settings()
     if saved:
         for k, v in saved.items():
             st.session_state[k] = v
+
 
 def load_diet_logs():
     ws = get_sheet("DietLogs")
@@ -193,6 +206,7 @@ def load_diet_logs():
 
     return logs
 
+
 def upsert_diet_log(log_dict):
     ws = get_sheet("DietLogs")
     values = ws.get_all_values()
@@ -221,6 +235,7 @@ def upsert_diet_log(log_dict):
     else:
         ws.append_row(row_values)
 
+
 def load_today_plan():
     ws = get_sheet("TodayPlans")
     values = ws.get_all_values()
@@ -247,6 +262,7 @@ def load_today_plan():
 
     return latest_date, latest_text
 
+
 def upsert_today_plan(date_str, plan_text):
     ws = get_sheet("TodayPlans")
     values = ws.get_all_values()
@@ -264,6 +280,7 @@ def upsert_today_plan(date_str, plan_text):
     else:
         ws.append_row(row_values)
 
+
 # -----------------------------
 # OpenAI
 # -----------------------------
@@ -274,6 +291,98 @@ def get_openai_client():
         st.error("Streamlit Secrets に OPENAI_API_KEY が設定されていません。")
         st.stop()
 
+
+# -----------------------------
+# Image helpers
+# -----------------------------
+def resize_image(file, max_size=768):
+    image = Image.open(file)
+    image = image.convert("RGB")
+
+    width, height = image.size
+    if max(width, height) > max_size:
+        ratio = max_size / max(width, height)
+        new_size = (int(width * ratio), int(height * ratio))
+        image = image.resize(new_size)
+
+    buffer = io.BytesIO()
+    image.save(buffer, format="JPEG", quality=85)
+    buffer.seek(0)
+    return buffer
+
+
+def image_file_to_data_url(file_like):
+    b64 = base64.b64encode(file_like.getvalue()).decode("utf-8")
+    return f"data:image/jpeg;base64,{b64}"
+
+
+def extract_foods_from_images(client, images):
+    content = [{
+        "type": "input_text",
+        "text": """
+この画像は冷蔵庫です。
+見える食材を日本語で列挙してください。
+
+ルール:
+- 一般的な食材名で出す
+- 重複はまとめる
+- 推測しすぎない
+- 最後に「食材候補:」のあとにカンマ区切りで一覧を出す
+"""
+    }]
+
+    for img in images:
+        content.append({
+            "type": "input_image",
+            "image_url": image_file_to_data_url(img)
+        })
+
+    response = client.responses.create(
+        model="gpt-4.1-mini",
+        input=[{"role": "user", "content": content}]
+    )
+    return response.output_text
+
+
+def extract_scale_values_from_image(client, resized_image):
+    response = client.responses.create(
+        model="gpt-4.1-mini",
+        input=[{
+            "role": "user",
+            "content": [
+                {
+                    "type": "input_text",
+                    "text": """
+この画像は体組成計または体重計の表示です。
+見えている数値を日本語で整理してください。
+
+ルール:
+- 読み取れたものだけ書く
+- 推測しすぎない
+- 次の形式にできるだけ合わせる
+体重: xx.x
+体脂肪率: xx.x
+骨格筋率: xx.x
+内臓脂肪: xx.x
+皮下脂肪: xx.x
+基礎代謝: xxxx
+BMI: xx.x
+メモ: 読み取りにくい項目があれば書く
+"""
+                },
+                {
+                    "type": "input_image",
+                    "image_url": image_file_to_data_url(resized_image)
+                }
+            ]
+        }]
+    )
+    return response.output_text
+
+
+# -----------------------------
+# Plan generation
+# -----------------------------
 def create_plan_for_date(
     client,
     date_str,
@@ -400,19 +509,21 @@ def create_plan_for_date(
 
 {date_str}の1日の健康的なダイエットプランを作ってください。
 """
-    res = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[{"role": "user", "content": prompt}],
+    res = client.responses.create(
+        model="gpt-5.4",
+        input=prompt
     )
-    return res.choices[0].message.content
+    return res.output_text
+
 
 # -----------------------------
-# アーユルヴェーダ
+# Ayurveda
 # -----------------------------
 def diagnose_dosha(vata_score, pitta_score, kapha_score):
     scores = {"ヴァータ": vata_score, "ピッタ": pitta_score, "カパ": kapha_score}
     main_dosha = max(scores, key=scores.get)
     return main_dosha, scores
+
 
 def get_ayurveda_advice(dosha):
     advice_map = {
@@ -437,8 +548,9 @@ def get_ayurveda_advice(dosha):
     }
     return advice_map.get(dosha, {})
 
+
 # -----------------------------
-# 補助関数
+# Helpers
 # -----------------------------
 def render_common_body_inputs():
     age = st.number_input("年齢", min_value=20, max_value=100, step=1, key="common_age")
@@ -448,6 +560,7 @@ def render_common_body_inputs():
     body_fat = st.number_input("体脂肪率（%）", min_value=15.0, max_value=60.0, step=0.1, format="%.1f", key="common_body_fat")
     target_body_fat = st.number_input("目標体脂肪率（%）", min_value=15.0, max_value=60.0, step=0.1, format="%.1f", key="common_target_body_fat")
     return age, height_cm, weight, target_weight, body_fat, target_body_fat
+
 
 def extract_shopping_items(plan_texts):
     def categorize_item(item: str) -> str:
@@ -500,14 +613,16 @@ def extract_shopping_items(plan_texts):
         return pd.DataFrame(categorized_rows).sort_values(["カテゴリ", "食材"])
     return pd.DataFrame(columns=["カテゴリ", "食材"])
 
+
 def sync_settings_on_mode_enter(current_mode: str):
     if st.session_state.get("last_mode") != current_mode:
         if current_mode in ["ダイエット管理", "献立・運動プラン", "設定"]:
             load_settings_into_session()
         st.session_state["last_mode"] = current_mode
 
+
 # -----------------------------
-# 共通データ初期値
+# Session defaults
 # -----------------------------
 defaults = {
     "common_age": 40,
@@ -541,8 +656,9 @@ for k, v in defaults.items():
     if k not in st.session_state:
         st.session_state[k] = v
 
+
 # -----------------------------
-# 初回ロード
+# Initial load
 # -----------------------------
 if "settings_loaded" not in st.session_state:
     ensure_headers()
@@ -558,6 +674,7 @@ if "settings_loaded" not in st.session_state:
         st.session_state["today_plan_text"] = saved_plan_text
 
     st.session_state["settings_loaded"] = True
+
 
 # -----------------------------
 # UI
@@ -884,26 +1001,51 @@ elif mode == "写真で記録":
 
     with tab1:
         st.subheader("🥬 冷蔵庫写真から食材候補を管理")
-        fridge_photo = st.file_uploader(
-            "冷蔵庫写真をアップロード",
+
+        fridge_photos = st.file_uploader(
+            "冷蔵庫写真をアップロード（複数OK）",
             type=["jpg", "jpeg", "png"],
+            accept_multiple_files=True,
             key="fridge_photo_upload"
         )
 
-        if fridge_photo is not None:
-            st.image(fridge_photo, caption="アップロードした冷蔵庫写真", use_container_width=True)
-            st.info("まずは写真を見ながら、食材候補を手入力または修正して使う形にします。")
+        resized_images = []
+
+        if fridge_photos:
+            st.write(f"📸 {len(fridge_photos)}枚アップロードされています")
+
+            for i, photo in enumerate(fridge_photos):
+                resized = resize_image(photo, max_size=768)
+                resized_images.append(resized)
+                st.image(resized, caption=f"画像 {i+1}", use_container_width=True)
+
+            st.caption("冷蔵庫全体・野菜室・ドアポケットなど、3〜5枚あると読み取りやすいです。")
+
+            if st.button("🥬 食材を自動抽出"):
+                client = get_openai_client()
+                with st.spinner("AIが食材を読み取り中..."):
+                    result = extract_foods_from_images(client, resized_images)
+
+                st.session_state["photo_fridge_items"] = result
+                st.success("食材候補を抽出しました✨")
+                st.rerun()
 
         st.text_area(
             "読み取った食材候補",
             placeholder="例：卵、豆腐、納豆、キャベツ、えのき、しいたけ、鶏むね肉",
-            key="photo_fridge_items"
+            key="photo_fridge_items",
+            height=180
         )
 
         col1, col2 = st.columns(2)
+
         with col1:
             if st.button("➡ 冷蔵庫食材に反映"):
-                st.session_state["fridge_items"] = st.session_state["photo_fridge_items"]
+                text = st.session_state["photo_fridge_items"]
+                if "食材候補:" in text:
+                    text = text.split("食材候補:")[-1].strip()
+
+                st.session_state["fridge_items"] = text
                 st.success("冷蔵庫の食材に反映しました。")
 
         with col2:
@@ -913,23 +1055,78 @@ elif mode == "写真で記録":
 
     with tab2:
         st.subheader("⚖ 体重計写真から記録候補を管理")
+
         scale_photo = st.file_uploader(
             "体重計の写真をアップロード",
             type=["jpg", "jpeg", "png"],
             key="scale_photo_upload"
         )
 
+        resized_scale = None
+
         if scale_photo is not None:
-            st.image(scale_photo, caption="アップロードした体重計写真", use_container_width=True)
-            st.info("まずは写真を見ながら、数値候補を入力して記録に使う形にします。")
+            resized_scale = resize_image(scale_photo, max_size=768)
+            st.image(resized_scale, caption="アップロードした体重計写真", use_container_width=True)
+
+            if st.button("⚖ 数値を自動抽出"):
+                client = get_openai_client()
+                with st.spinner("AIが数値を読み取り中..."):
+                    result = extract_scale_values_from_image(client, resized_scale)
+
+                st.session_state["photo_scale_result"] = result
+                st.success("数値候補を抽出しました✨")
+                st.rerun()
 
         st.text_area(
             "読み取った数値候補メモ",
-            placeholder="例：体重 51.2、体脂肪率 25.6、骨格筋率 27.2",
-            key="photo_scale_result"
+            placeholder="例：体重: 51.2\n体脂肪率: 25.6\n骨格筋率: 27.2",
+            key="photo_scale_result",
+            height=220
         )
 
-        st.caption("ここにメモしておいて、ダイエット管理へ手入力すると記録がラクになります。")
+        st.caption("内容を見ながら、ダイエット管理へ反映できます。")
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            if st.button("➡ 体重だけ反映"):
+                text = st.session_state["photo_scale_result"]
+                m = re.search(r"体重[:：]\s*([0-9]+(?:\.[0-9]+)?)", text)
+                if m:
+                    st.session_state["common_weight"] = float(m.group(1))
+                    st.success("体重を反映しました。")
+                else:
+                    st.warning("体重が見つかりませんでした。")
+
+        with col2:
+            if st.button("➡ 体脂肪率だけ反映"):
+                text = st.session_state["photo_scale_result"]
+                m = re.search(r"体脂肪率[:：]\s*([0-9]+(?:\.[0-9]+)?)", text)
+                if m:
+                    st.session_state["common_body_fat"] = float(m.group(1))
+                    st.success("体脂肪率を反映しました。")
+                else:
+                    st.warning("体脂肪率が見つかりませんでした。")
+
+        if st.button("📌 体重・体脂肪率をまとめて反映"):
+            text = st.session_state["photo_scale_result"]
+            weight_match = re.search(r"体重[:：]\s*([0-9]+(?:\.[0-9]+)?)", text)
+            fat_match = re.search(r"体脂肪率[:：]\s*([0-9]+(?:\.[0-9]+)?)", text)
+
+            updated = False
+
+            if weight_match:
+                st.session_state["common_weight"] = float(weight_match.group(1))
+                updated = True
+
+            if fat_match:
+                st.session_state["common_body_fat"] = float(fat_match.group(1))
+                updated = True
+
+            if updated:
+                st.success("体重・体脂肪率を反映しました。")
+            else:
+                st.warning("反映できる数値が見つかりませんでした。")
 
 elif mode == "体型チェック":
     st.header("🪞 体型チェック")
