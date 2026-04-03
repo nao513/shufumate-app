@@ -107,7 +107,7 @@ def load_user_settings():
                 "staple_preference": row_dict.get("staple_preference", "ごはん派") or "ごはん派",
                 "fridge_items": row_dict.get("fridge_items", "") or "",
                 "plan_type": row_dict.get("plan_type", "通常") or "通常",
-                "real_mode": str(row_dict.get("real_mode", "False")).lower() == "true",
+                "real_mode": str(row_dict.get("real_mode", "True")).lower() == "true",
                 "daily_flow": row_dict.get("daily_flow", "普通") or "普通",
                 "workout_today": str(row_dict.get("workout_today", "False")).lower() == "true",
                 "body_goal": row_dict.get("body_goal", "バランス") or "バランス",
@@ -299,11 +299,10 @@ def resize_image(file, max_size=768):
     image = Image.open(file)
     image = image.convert("RGB")
 
-    width, height = image.size
-    if max(width, height) > max_size:
-        ratio = max_size / max(width, height)
-        new_size = (int(width * ratio), int(height * ratio))
-        image = image.resize(new_size)
+    w, h = image.size
+    if max(w, h) > max_size:
+        ratio = max_size / max(w, h)
+        image = image.resize((int(w * ratio), int(h * ratio)))
 
     buffer = io.BytesIO()
     image.save(buffer, format="JPEG", quality=85)
@@ -320,8 +319,8 @@ def extract_foods_from_images(client, images):
     content = [{
         "type": "input_text",
         "text": """
-この画像は冷蔵庫です。
-見える食材を日本語で列挙してください。
+この画像は冷蔵庫の中です。
+見える食材を日本語でできるだけ具体的に列挙してください。
 
 ルール:
 - 一般的な食材名で出す
@@ -368,6 +367,44 @@ def extract_scale_values_from_image(client, resized_image):
 基礎代謝: xxxx
 BMI: xx.x
 メモ: 読み取りにくい項目があれば書く
+"""
+                },
+                {
+                    "type": "input_image",
+                    "image_url": image_file_to_data_url(resized_image)
+                }
+            ]
+        }]
+    )
+    return response.output_text
+
+
+def generate_body_balance_comment(client, resized_image, body_goal="バランス"):
+    response = client.responses.create(
+        model="gpt-4.1-mini",
+        input=[{
+            "role": "user",
+            "content": [
+                {
+                    "type": "input_text",
+                    "text": f"""
+この画像は全身写真です。
+人物の体型やバランスについて、日本語でやさしくコメントしてください。
+
+ルール:
+- 顔の識別や人物特定はしない
+- 骨格診断を断定しない
+- 「見え方の傾向」として説明する
+- 厳しい言い方をしない
+- ダイエットや運動のモチベーションが上がる表現にする
+- 目的は「{body_goal}」
+
+出力形式:
+■全体バランス:
+■見え方の特徴:
+■今がんばると変化しやすいポイント:
+■おすすめ運動:
+■ひとこと:
 """
                 },
                 {
@@ -651,6 +688,9 @@ defaults = {
     "photo_fridge_items": "",
     "photo_scale_result": "",
     "body_check_comment": "",
+    "body_scan_comment": "",
+    "body_goal_scan": "バランス",
+    "fridge_scan_images": [],
 }
 for k, v in defaults.items():
     if k not in st.session_state:
@@ -1000,58 +1040,65 @@ elif mode == "写真で記録":
     tab1, tab2 = st.tabs(["冷蔵庫写真", "体重計写真"])
 
     with tab1:
-        st.subheader("🥬 冷蔵庫写真から食材候補を管理")
+        st.subheader("🥬 冷蔵庫スキャン")
+        st.caption("スマホでは1枚ずつ撮って追加していく使い方がおすすめです。")
+
+        fridge_camera = st.camera_input("冷蔵庫を撮る", key="fridge_camera_scan")
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            if fridge_camera is not None and st.button("➕ この写真を追加"):
+                resized = resize_image(fridge_camera, max_size=768)
+                st.session_state["fridge_scan_images"].append(resized)
+                st.success("冷蔵庫写真を追加しました。")
+                st.rerun()
+
+        with col2:
+            if st.button("🧹 スキャン画像を全部クリア"):
+                st.session_state["fridge_scan_images"] = []
+                st.rerun()
 
         fridge_photos = st.file_uploader(
-            "冷蔵庫写真をアップロード（複数OK）",
+            "または冷蔵庫写真をアップロード（複数OK）",
             type=["jpg", "jpeg", "png"],
             accept_multiple_files=True,
             key="fridge_photo_upload"
         )
 
-        resized_images = []
-
         if fridge_photos:
-            st.write(f"📸 {len(fridge_photos)}枚アップロードされています")
-
-            for i, photo in enumerate(fridge_photos):
+            for photo in fridge_photos:
                 resized = resize_image(photo, max_size=768)
-                resized_images.append(resized)
-                st.image(resized, caption=f"画像 {i+1}", use_container_width=True)
+                st.session_state["fridge_scan_images"].append(resized)
+            st.success("アップロード画像を追加しました。")
+            st.rerun()
 
-            st.caption("冷蔵庫全体・野菜室・ドアポケットなど、3〜5枚あると読み取りやすいです。")
+        if st.session_state["fridge_scan_images"]:
+            st.write(f"保存中の画像: {len(st.session_state['fridge_scan_images'])}枚")
+            for i, img in enumerate(st.session_state["fridge_scan_images"]):
+                st.image(img, caption=f"冷蔵庫画像 {i+1}", use_container_width=True)
 
-            if st.button("🥬 食材を自動抽出"):
+            if st.button("🥬 スキャン画像から食材抽出"):
                 client = get_openai_client()
                 with st.spinner("AIが食材を読み取り中..."):
-                    result = extract_foods_from_images(client, resized_images)
+                    result = extract_foods_from_images(client, st.session_state["fridge_scan_images"])
 
                 st.session_state["photo_fridge_items"] = result
-                st.success("食材候補を抽出しました✨")
+                st.success("食材候補を抽出しました。")
                 st.rerun()
 
         st.text_area(
             "読み取った食材候補",
-            placeholder="例：卵、豆腐、納豆、キャベツ、えのき、しいたけ、鶏むね肉",
             key="photo_fridge_items",
             height=180
         )
 
-        col1, col2 = st.columns(2)
-
-        with col1:
-            if st.button("➡ 冷蔵庫食材に反映"):
-                text = st.session_state["photo_fridge_items"]
-                if "食材候補:" in text:
-                    text = text.split("食材候補:")[-1].strip()
-
-                st.session_state["fridge_items"] = text
-                st.success("冷蔵庫の食材に反映しました。")
-
-        with col2:
-            if st.button("🧹 候補をクリア"):
-                st.session_state["photo_fridge_items"] = ""
-                st.rerun()
+        if st.button("➡ 冷蔵庫食材に反映"):
+            text = st.session_state["photo_fridge_items"]
+            if "食材候補:" in text:
+                text = text.split("食材候補:")[-1].strip()
+            st.session_state["fridge_items"] = text
+            st.success("冷蔵庫の食材に反映しました。")
 
     with tab2:
         st.subheader("⚖ 体重計写真から記録候補を管理")
@@ -1130,28 +1177,56 @@ elif mode == "写真で記録":
 
 elif mode == "体型チェック":
     st.header("🪞 体型チェック")
+    st.caption("顔がはっきり写らない距離・角度での撮影がおすすめです。")
 
-    body_photo = st.file_uploader(
-        "全身写真をアップロード",
+    st.selectbox(
+        "今回の目的",
+        ["バランス", "脚やせ", "脂肪燃焼", "むくみ改善"],
+        key="body_goal_scan"
+    )
+
+    body_camera = st.camera_input("全身を撮る", key="body_camera_scan")
+
+    uploaded_body = st.file_uploader(
+        "または全身写真をアップロード",
         type=["jpg", "jpeg", "png"],
         key="body_photo_upload"
     )
 
-    if body_photo is not None:
-        st.image(body_photo, caption="アップロードした全身写真", use_container_width=True)
-        st.info("現段階では、写真を見ながら体型バランスや気づきをメモする土台として使います。")
+    source_body = body_camera if body_camera is not None else uploaded_body
+    resized_body = None
+
+    if source_body is not None:
+        resized_body = resize_image(source_body, max_size=768)
+        st.image(resized_body, caption="全身スキャン画像", use_container_width=True)
+
+        if st.button("🪄 体型コメントを自動生成"):
+            client = get_openai_client()
+            with st.spinner("体型バランスを分析中..."):
+                result = generate_body_balance_comment(
+                    client,
+                    resized_body,
+                    st.session_state["body_goal_scan"]
+                )
+
+            st.session_state["body_scan_comment"] = result
+            st.success("体型コメントを生成しました。")
+            st.rerun()
+
+    st.text_area(
+        "体型バランスコメント",
+        key="body_scan_comment",
+        height=260
+    )
 
     st.text_area(
         "体型バランスメモ",
         placeholder="例：肩まわりがしっかり、下半身にボリューム、脚のむくみが気になる、背中をすっきりさせたい",
-        key="body_check_comment"
+        key="body_check_comment",
+        height=160
     )
 
-    st.markdown("### 使い方の例")
-    st.write("・上半身と下半身のバランスを書く")
-    st.write("・気になる部位を書く")
-    st.write("・理想の自分像を書く")
-    st.write("・次に強化したい運動を書く")
+    st.caption("骨格を断定するのではなく、見え方やバランス傾向として使うのがおすすめです。")
 
 elif mode == "家計簿":
     st.header("💰 家計簿入力")
@@ -1260,6 +1335,7 @@ elif mode == "設定":
     st.divider()
     st.subheader("📷 写真機能について")
     st.caption("写真で記録メニューでは、冷蔵庫写真・体重計写真・全身写真を使った記録補助を行います。")
+    st.caption("スマホではスキャン、PCではアップロードの使い方がおすすめです。")
 
     col1, col2 = st.columns(2)
     with col1:
