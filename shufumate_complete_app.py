@@ -417,6 +417,35 @@ def generate_body_balance_comment(client, resized_image, body_goal="バランス
     return response.output_text
 
 
+def generate_ideal_body_prompt(client, body_comment, body_goal="バランス"):
+    prompt = f"""
+以下の体型コメントをもとに、
+「理想の自分イメージ」を画像生成AIに渡しやすい日本語プロンプトへ整えてください。
+
+ルール:
+- 顔ははっきり作らない
+- 同一人物らしさは残すが、個人特定できる表現は避ける
+- 健康的で現実的な変化にする
+- 過度に細すぎる表現は禁止
+- モチベーションが上がる、やさしい表現
+- アラフィフ女性向け
+- 目的は「{body_goal}」
+
+出力形式:
+■理想イメージ説明:
+■画像生成用プロンプト:
+■意識したい変化ポイント:
+
+体型コメント:
+{body_comment}
+"""
+    response = client.responses.create(
+        model="gpt-4.1-mini",
+        input=prompt
+    )
+    return response.output_text
+
+
 # -----------------------------
 # Plan generation
 # -----------------------------
@@ -547,7 +576,7 @@ def create_plan_for_date(
 {date_str}の1日の健康的なダイエットプランを作ってください。
 """
     res = client.responses.create(
-        model="gpt-5.4",
+        model="gpt-4.1-mini",
         input=prompt
     )
     return res.output_text
@@ -690,6 +719,7 @@ defaults = {
     "body_check_comment": "",
     "body_scan_comment": "",
     "body_goal_scan": "バランス",
+    "ideal_body_prompt_result": "",
     "fridge_scan_images": [],
 }
 for k, v in defaults.items():
@@ -1200,22 +1230,46 @@ elif mode == "体型チェック":
         resized_body = resize_image(source_body, max_size=768)
         st.image(resized_body, caption="全身スキャン画像", use_container_width=True)
 
-        if st.button("🪄 体型コメントを自動生成"):
-            client = get_openai_client()
-            with st.spinner("体型バランスを分析中..."):
-                result = generate_body_balance_comment(
-                    client,
-                    resized_body,
-                    st.session_state["body_goal_scan"]
-                )
+        col1, col2 = st.columns(2)
 
-            st.session_state["body_scan_comment"] = result
-            st.success("体型コメントを生成しました。")
-            st.rerun()
+        with col1:
+            if st.button("🪄 体型コメントを自動生成"):
+                client = get_openai_client()
+                with st.spinner("体型バランスを分析中..."):
+                    result = generate_body_balance_comment(
+                        client,
+                        resized_body,
+                        st.session_state["body_goal_scan"]
+                    )
+
+                st.session_state["body_scan_comment"] = result
+                st.success("体型コメントを生成しました。")
+                st.rerun()
+
+        with col2:
+            if st.button("✨ 理想イメージ用プロンプトを作成"):
+                client = get_openai_client()
+                source_comment = st.session_state["body_scan_comment"] or "まだ体型コメントなし"
+                with st.spinner("理想イメージを整理中..."):
+                    result = generate_ideal_body_prompt(
+                        client,
+                        source_comment,
+                        st.session_state["body_goal_scan"]
+                    )
+
+                st.session_state["ideal_body_prompt_result"] = result
+                st.success("理想イメージ用プロンプトを作成しました。")
+                st.rerun()
 
     st.text_area(
         "体型バランスコメント",
         key="body_scan_comment",
+        height=260
+    )
+
+    st.text_area(
+        "理想イメージ用プロンプト",
+        key="ideal_body_prompt_result",
         height=260
     )
 
@@ -1227,6 +1281,7 @@ elif mode == "体型チェック":
     )
 
     st.caption("骨格を断定するのではなく、見え方やバランス傾向として使うのがおすすめです。")
+    st.caption("理想イメージ用プロンプトは、今後画像生成につなげるための土台として使えます。")
 
 elif mode == "家計簿":
     st.header("💰 家計簿入力")
