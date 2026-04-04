@@ -1628,3 +1628,75 @@ elif mode == "スケジュール":
         df_sched = pd.DataFrame(st.session_state["schedules"])
         st.subheader("📅 予定一覧")
         st.dataframe(df_sched, use_container_width=True)
+
+elif mode == "教育費・人生設計":
+    st.header("📘 教育費・人生設計")
+
+    num_children = st.number_input("子どもの人数", min_value=0, max_value=5, value=1)
+    edu_type = st.selectbox("教育方針", ["すべて公立", "中学から私立", "高校から私立", "大学から私立", "すべて私立"])
+
+    edu_costs = {
+        "公立": {"小学校": 50, "中学校": 70, "高校": 100, "大学": 300},
+        "私立": {"小学校": 150, "中学校": 200, "高校": 300, "大学": 600}
+    }
+
+    current_year = datetime.now().year
+    total_cost = 0
+
+    for i in range(num_children):
+        child_age = st.slider(f"子ども{i+1}の現在の年齢", 0, 18, 6, key=f"child_age_{i}")
+        plan = {
+            "すべて公立": ["公立"] * 4,
+            "中学から私立": ["公立", "私立", "私立", "私立"],
+            "高校から私立": ["公立", "公立", "私立", "私立"],
+            "大学から私立": ["公立"] * 3 + ["私立"],
+            "すべて私立": ["私立"] * 4
+        }[edu_type]
+
+        levels = ["小学校", "中学校", "高校", "大学"]
+        offsets = [0, 6, 9, 12]
+
+        for j, level in enumerate(levels):
+            y = current_year + (6 - child_age) + offsets[j]
+            cost = edu_costs[plan[j]][level]
+            st.write(f"{y}年 - {level}（{plan[j]}）: {cost}万円")
+            total_cost += cost
+
+    st.metric("想定教育費合計", f"{total_cost} 万円")
+
+
+elif mode == "お得情報":
+    st.header("📢 お得情報")
+    st.info("ここは今後拡張できます。")
+
+
+elif mode == "設定":
+    st.header("⚙️ 設定")
+
+    st.subheader("📌 初期設定")
+    st.number_input("年齢", min_value=20, max_value=100, step=1, key="common_age")
+    st.number_input("身長（cm）", min_value=145.0, max_value=200.0, step=0.5, format="%.1f", key="common_height")
+    st.number_input("スタート時の体重（kg）", min_value=30.0, max_value=200.0, step=0.1, format="%.1f", key="common_weight")
+    st.number_input("目標体重（kg）", min_value=30.0, max_value=150.0, step=0.1, format="%.1f", key="common_target_weight")
+    st.number_input("スタート時の体脂肪率（%）", min_value=5.0, max_value=60.0, step=0.1, format="%.1f", key="common_body_fat")
+    st.number_input("目標体脂肪率（%）", min_value=5.0, max_value=60.0, step=0.1, format="%.1f", key="common_target_body_fat")
+
+    st.subheader("🍽 献立の初期値")
+    st.radio("食事スタイル", ["和食中心", "バランス", "おしゃれカフェ風"], horizontal=True, key="meal_style")
+    st.radio("調理レベル", ["超かんたん", "普通", "しっかり"], horizontal=True, key="ease_level")
+    st.radio("主食の好み", ["ごはん派", "パン派", "どちらも"], horizontal=True, key="staple_preference")
+    st.text_area("よくある冷蔵庫の食材", key="fridge_items")
+    st.radio("プランタイプ初期値", ["通常", "外食", "コンビニ"], horizontal=True, key="plan_type")
+    st.checkbox("主婦リアル提案モード初期値", key="real_mode")
+    st.selectbox("食事の流れ初期値", ["普通", "朝しっかり・昼軽め", "食べすぎた", "あまり食べてない"], key="daily_flow")
+    st.checkbox("運動あり初期値", key="workout_today")
+    st.selectbox("目的初期値", ["バランス", "脚やせ", "脂肪燃焼", "むくみ改善"], key="body_goal")
+
+    if st.button("💾 初期設定を保存"):
+        save_user_settings()
+        st.success("初期設定を保存しました。")
+
+    if st.button("↺ 初期設定をリセット"):
+        reset_user_settings()
+        save_user_settings()
+        st.success("初期設定をリセットしました。")
