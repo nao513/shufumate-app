@@ -577,21 +577,50 @@ def diagnose_dosha_advanced(answers: dict):
             "体が熱い": "ピッタ",
             "全体が冷たい": "カパ",
         },
+      def diagnose_dosha_advanced(answers: dict):
+    scores = {"ヴァータ": 0, "ピッタ": 0, "カパ": 0}
+
+    score_map = {
+        "体型": {
+            "痩せ型で食べても太らない": "ヴァータ",
+            "中肉中背で平均的": "ピッタ",
+            "子供の頃から太りやすい": "カパ",
+        },
+        "肌": {
+            "乾燥している": "ヴァータ",
+            "オイリーでシミやニキビができやすい": "ピッタ",
+            "色白でもっちりしてる": "カパ",
+        },
+        "髪": {
+            "硬く乾燥している": "ヴァータ",
+            "柔らかくて細い": "ピッタ",
+            "黒くて多い": "カパ",
+        },
+        "発汗": {
+            "あまりかかない": "ヴァータ",
+            "汗っかき": "ピッタ",
+            "普通": "カパ",
+        },
+        "体温": {
+            "手足が冷たい": "ヴァータ",
+            "体が熱い": "ピッタ",
+            "全体が冷たい": "カパ",
+        },
         "食欲": {
- 　　 　　  "ムラがある・不規則": "ヴァータ",
-  　　　　  "食欲旺盛・食事を抜くとイライラする": "ピッタ",
- 　　  　　 "安定していて食べるのが好き": "カパ",
-　　　　　},
+            "ムラがある・不規則": "ヴァータ",
+            "食欲旺盛・食事を抜くとイライラする": "ピッタ",
+            "安定していて食べるのが好き": "カパ",
+        },
         "排便": {
             "便秘気味・硬便": "ヴァータ",
             "下痢気味・軟便": "ピッタ",
             "中程度の硬さ・時間を要する": "カパ",
         },
-   　　　"睡眠": {
-  　　　　　  "眠りが浅い・途中で起きやすい": "ヴァータ",
- 　　　　　   "普通": "ピッタ",
- 　　　　　   "よく眠る・居眠りが多い": "カパ",
-　　　　　},
+        "睡眠": {
+            "眠りが浅い・途中で起きやすい": "ヴァータ",
+            "普通": "ピッタ",
+            "よく眠る・居眠りが多い": "カパ",
+        },
     }
 
     for category, answer in answers.items():
@@ -599,6 +628,16 @@ def diagnose_dosha_advanced(answers: dict):
         if dosha:
             scores[dosha] += 1
 
+    sorted_scores = sorted(scores.items(), key=lambda x: x[1], reverse=True)
+    main_dosha = sorted_scores[0][0]
+    second_dosha = sorted_scores[1][0]
+
+    if sorted_scores[0][1] - sorted_scores[1][1] <= 1:
+        result_type = f"{main_dosha}・{second_dosha}混合"
+    else:
+        result_type = main_dosha
+
+    return result_type, scores
     sorted_scores = sorted(scores.items(), key=lambda x: x[1], reverse=True)
     main_dosha = sorted_scores[0][0]
     second_dosha = sorted_scores[1][0]
