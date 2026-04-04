@@ -545,10 +545,118 @@ def generate_ideal_body_image(client, ideal_prompt_text: str, size: str = "1024x
 
     return b64_to_bytes(image_b64)
 
-
 # -----------------------------
 # Plan generation
 # -----------------------------
+
+def diagnose_dosha_advanced(answers: dict):
+    scores = {"ヴァータ": 0, "ピッタ": 0, "カパ": 0}
+
+    score_map = {
+        "体型": {
+            "痩せ型で食べても太らない": "ヴァータ",
+            "中肉中背で平均的": "ピッタ",
+            "子供の頃から太りやすい": "カパ",
+        },
+        "肌": {
+            "乾燥している": "ヴァータ",
+            "オイリーでシミやニキビができやすい": "ピッタ",
+            "色白でもっちりしてる": "カパ",
+        },
+        "髪": {
+            "硬く乾燥している": "ヴァータ",
+            "柔らかくて細い": "ピッタ",
+            "黒くて多い": "カパ",
+        },
+        "発汗": {
+            "あまりかかない": "ヴァータ",
+            "汗っかき": "ピッタ",
+            "普通": "カパ",
+        },
+        "体温": {
+            "手足が冷たい": "ヴァータ",
+            "体が熱い": "ピッタ",
+            "全体が冷たい": "カパ",
+        },
+        "食欲": {
+            "ムラがある・不規則": "ヴァータ",
+            "食欲旺盛・食事を抜くとイライラする": "ピッタ",
+            "よく眠る・居眠りが多い": "カパ",
+        },
+        "排便": {
+            "便秘気味・硬便": "ヴァータ",
+            "下痢気味・軟便": "ピッタ",
+            "中程度の硬さ・時間を要する": "カパ",
+        },
+    }
+
+    for category, answer in answers.items():
+        dosha = score_map.get(category, {}).get(answer)
+        if dosha:
+            scores[dosha] += 1
+
+    sorted_scores = sorted(scores.items(), key=lambda x: x[1], reverse=True)
+    main_dosha = sorted_scores[0][0]
+    second_dosha = sorted_scores[1][0]
+
+    if sorted_scores[0][1] - sorted_scores[1][1] <= 1:
+        result_type = f"{main_dosha}・{second_dosha}混合"
+    else:
+        result_type = main_dosha
+
+    return result_type, scores
+
+
+def get_ayurveda_foods(dosha_type):
+    foods_map = {
+        "ヴァータ": ["乳製品", "牛乳", "肉", "魚", "さつまいも", "オレンジ"],
+        "ピッタ": ["キャベツ", "じゃがいも", "ブロッコリー", "そば", "乳製品"],
+        "カパ": ["生のたまねぎ", "ニンニク", "カリフラワー", "ブロッコリー", "キャベツ", "ごぼう"],
+    }
+
+    if "・" in dosha_type:
+        types = dosha_type.split("・")
+        merged = []
+        for t in types:
+            base_t = t.replace("混合", "")
+            if base_t in foods_map:
+                merged.extend(foods_map[base_t])
+        return sorted(set(merged))
+
+    return foods_map.get(dosha_type, [])
+
+
+def get_ayurveda_advice_advanced(dosha_type):
+    base = {
+        "ヴァータ": {
+            "特徴": "乾燥しやすい、冷えやすい、食欲や体調にムラが出やすいタイプ",
+            "食事": "温かいもの、やわらかいもの、汁物、根菜、たんぱく質を意識すると整いやすいです。",
+            "生活": "冷え対策、睡眠確保、予定を詰め込みすぎないことが大切です。",
+            "運動": "やさしいヨガ、ストレッチ、ゆったり散歩がおすすめです。",
+            "ダイエット": "食事を抜かず、冷たいものを控えながら整えるのが向いています。"
+        },
+        "ピッタ": {
+            "特徴": "熱がこもりやすい、食欲旺盛、がんばりすぎやすいタイプ",
+            "食事": "刺激物や辛いものを控え、野菜、やさしい味付け、少しクールダウンできる食事がおすすめです。",
+            "生活": "頑張りすぎを避けて、イライラをためないことがポイントです。",
+            "運動": "中程度の運動、ウォーキング、ゆったりしたピラティスがおすすめです。",
+            "ダイエット": "食べすぎ防止と熱をためない食べ方が向いています。"
+        },
+        "カパ": {
+            "特徴": "ため込みやすい、むくみやすい、眠気や重だるさが出やすいタイプ",
+            "食事": "重たい食事や甘いものを控え、野菜、香味野菜、軽めのたんぱく質を意識するとよいです。",
+            "生活": "朝は早めに動き出し、こまめに体を動かすと整いやすいです。",
+            "運動": "汗ばむ運動、ウォーキング、有酸素運動がおすすめです。",
+            "ダイエット": "ため込みを減らす食事と、少ししっかり動く習慣が向いています。"
+        },
+    }
+
+    if "・" in dosha_type:
+        first = dosha_type.split("・")[0]
+        return base.get(first, {})
+    return base.get(dosha_type, {})
+
+
 def create_plan_for_date(
     client,
     date_str,
@@ -1132,76 +1240,105 @@ elif mode == "食事写真評価":
             file_name="meal_day_evaluation.txt",
             mime="text/plain"
         )
+
 elif mode == "アーユルヴェーダ":
     st.header("🌿 アーユルヴェーダ体質チェック")
-    st.write("質問に答えると、今の自分に近い体質傾向が分かります。")
+    st.write("7項目から体質傾向をチェックします。チェックが多い体質が今の自分に近い目です。")
 
-    q1 = st.radio("体型", ["細め・変化しやすい", "中くらい・筋肉質", "しっかり・丸みがある"], key="ay_q1")
-    q2 = st.radio("体の傾向", ["乾燥しやすい・冷えやすい", "熱がこもりやすい・汗をかきやすい", "しっとり・むくみやすい"], key="ay_q2")
-    q3 = st.radio("食欲", ["ムラがある", "強い・食べないとイライラする", "安定していて食べるのが好き"], key="ay_q3")
-    q4 = st.radio("性格", ["心配しやすい・気分が変わりやすい", "はっきりしている・せっかち", "穏やか・のんびり"], key="ay_q4")
-    q5 = st.radio("疲れたとき", ["不安っぽくなる・眠りが浅い", "イライラする・怒りっぽい", "だるい・やる気が出にくい"], key="ay_q5")
+    q1 = st.radio("体型", [
+        "痩せ型で食べても太らない",
+        "中肉中背で平均的",
+        "子供の頃から太りやすい"
+    ], key="ay_q1")
+
+    q2 = st.radio("肌", [
+        "乾燥している",
+        "オイリーでシミやニキビができやすい",
+        "色白でもっちりしてる"
+    ], key="ay_q2")
+
+    q3 = st.radio("髪", [
+        "硬く乾燥している",
+        "柔らかくて細い",
+        "黒くて多い"
+    ], key="ay_q3")
+
+    q4 = st.radio("発汗", [
+        "あまりかかない",
+        "汗っかき",
+        "普通"
+    ], key="ay_q4")
+
+    q5 = st.radio("体温", [
+        "手足が冷たい",
+        "体が熱い",
+        "全体が冷たい"
+    ], key="ay_q5")
+
+    q6 = st.radio("食欲", [
+        "ムラがある・不規則",
+        "食欲旺盛・食事を抜くとイライラする",
+        "よく眠る・居眠りが多い"
+    ], key="ay_q6")
+
+    q7 = st.radio("排便", [
+        "便秘気味・硬便",
+        "下痢気味・軟便",
+        "中程度の硬さ・時間を要する"
+    ], key="ay_q7")
 
     if st.button("🌿 体質をチェック"):
-        vata_score = 0
-        pitta_score = 0
-        kapha_score = 0
+        answers = {
+            "体型": q1,
+            "肌": q2,
+            "髪": q3,
+            "発汗": q4,
+            "体温": q5,
+            "食欲": q6,
+            "排便": q7,
+        }
 
-        if q1 == "細め・変化しやすい":
-            vata_score += 2
-        elif q1 == "中くらい・筋肉質":
-            pitta_score += 2
-        else:
-            kapha_score += 2
+        result_type, scores = diagnose_dosha_advanced(answers)
+        advice = get_ayurveda_advice_advanced(result_type)
+        foods = get_ayurveda_foods(result_type)
 
-        if q2 == "乾燥しやすい・冷えやすい":
-            vata_score += 2
-        elif q2 == "熱がこもりやすい・汗をかきやすい":
-            pitta_score += 2
-        else:
-            kapha_score += 2
-
-        if q3 == "ムラがある":
-            vata_score += 2
-        elif q3 == "強い・食べないとイライラする":
-            pitta_score += 2
-        else:
-            kapha_score += 2
-
-        if q4 == "心配しやすい・気分が変わりやすい":
-            vata_score += 2
-        elif q4 == "はっきりしている・せっかち":
-            pitta_score += 2
-        else:
-            kapha_score += 2
-
-        if q5 == "不安っぽくなる・眠りが浅い":
-            vata_score += 2
-        elif q5 == "イライラする・怒りっぽい":
-            pitta_score += 2
-        else:
-            kapha_score += 2
-
-        main_dosha, scores = diagnose_dosha(vata_score, pitta_score, kapha_score)
-        advice = get_ayurveda_advice(main_dosha)
-
-        st.session_state["dosha_type"] = main_dosha
+        st.session_state["dosha_type"] = result_type
         st.session_state["dosha_scores"] = scores
 
-        st.success(f"あなたの体質傾向は **{main_dosha}** タイプです。")
+        st.success(f"あなたの体質傾向は **{result_type}** です。")
+
         c1, c2, c3 = st.columns(3)
         c1.metric("ヴァータ", scores["ヴァータ"])
         c2.metric("ピッタ", scores["ピッタ"])
         c3.metric("カパ", scores["カパ"])
 
         st.subheader("🌿 体質の特徴")
-        st.write(advice["特徴"])
-        st.subheader("🍽 今日の食事アドバイス")
-        st.write(advice["食事"])
-        st.subheader("🛀 今日の過ごし方")
-        st.write(advice["生活"])
-        st.subheader("🏃 おすすめの運動")
-        st.write(advice["運動"])
+        st.write(advice.get("特徴", ""))
+
+        st.subheader("🍽 食事アドバイス")
+        st.write(advice.get("食事", ""))
+
+        st.subheader("🛀 過ごし方")
+        st.write(advice.get("生活", ""))
+
+        st.subheader("🏃 おすすめ運動")
+        st.write(advice.get("運動", ""))
+
+        st.subheader("⚖ ダイエットのコツ")
+        st.write(advice.get("ダイエット", ""))
+
+        st.subheader("🥕 おすすめ食材")
+        st.write("・" + "\n・".join(foods) if foods else "おすすめ食材は未設定です")
+
+        if st.session_state["fridge_items"]:
+            fridge_text = st.session_state["fridge_items"]
+            match_foods = [f for f in foods if f in fridge_text]
+            if match_foods:
+                st.subheader("🧺 冷蔵庫にある相性食材")
+                st.write("・" + "\n・".join(match_foods))
+            else:
+                st.subheader("🧺 冷蔵庫との相性")
+                st.write("今の冷蔵庫食材との一致は少なめです。買い足し候補としておすすめ食材を活用できます。")
 
     if st.button("↺ 体質診断をリセット"):
         st.session_state["dosha_type"] = ""
