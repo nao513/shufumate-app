@@ -49,9 +49,9 @@ def get_or_create_worksheet(sh, title, rows=1000, cols=30):
 def ensure_headers():
     sh = get_spreadsheet()
 
-    settings_ws = sh.worksheet("Settings")
-    diet_ws = sh.worksheet("DietLogs")
-    plans_ws = sh.worksheet("TodayPlans")
+    settings_ws = get_or_create_worksheet(sh, "Settings")
+    diet_ws = get_or_create_worksheet(sh, "DietLogs")
+    plans_ws = get_or_create_worksheet(sh, "TodayPlans")
 
     settings_header = [
         "user_id", "age", "height_cm", "start_weight",
@@ -82,7 +82,7 @@ def ensure_headers():
     if not plan_values or plan_values[0] != plan_header:
         plans_ws.clear()
         plans_ws.append_row(plan_header)
-
+        
 
 def load_user_settings():
     ws = get_sheet("Settings")
