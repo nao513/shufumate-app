@@ -549,6 +549,7 @@ def generate_ideal_body_image(client, ideal_prompt_text: str, size: str = "1024x
 # Plan generation
 # -----------------------------
       def diagnose_dosha_advanced(answers: dict):
+    def diagnose_dosha_advanced(answers: dict):
     scores = {"ヴァータ": 0, "ピッタ": 0, "カパ": 0}
 
     score_map = {
@@ -609,17 +610,6 @@ def generate_ideal_body_image(client, ideal_prompt_text: str, size: str = "1024x
         result_type = main_dosha
 
     return result_type, scores
-    sorted_scores = sorted(scores.items(), key=lambda x: x[1], reverse=True)
-    main_dosha = sorted_scores[0][0]
-    second_dosha = sorted_scores[1][0]
-
-    if sorted_scores[0][1] - sorted_scores[1][1] <= 1:
-        result_type = f"{main_dosha}・{second_dosha}混合"
-    else:
-        result_type = main_dosha
-
-    return result_type, scores
-
 
 def get_ayurveda_foods(dosha_type):
     foods_map = {
