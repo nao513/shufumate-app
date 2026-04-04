@@ -10,127 +10,9 @@ from openai import OpenAI
 from PIL import Image
 from google.oauth2.service_account import Credentials
 
-st.set_page_config(
-    page_title="ShufuMate｜主婦の味方アプリ",
-    layout="centered",
-    initial_sidebar_state="collapsed"
-)
+st.set_page_config(page_title="ShufuMate｜主婦の味方アプリ", layout="wide")
 
 USER_ID = "nao513"
-
-# -----------------------------
-# UI helpers
-# -----------------------------
-def inject_custom_css():
-    st.markdown("""
-    <style>
-    .block-container {
-        padding-top: 1rem;
-        padding-bottom: 4rem;
-        max-width: 820px;
-    }
-
-    h1, h2, h3 {
-        line-height: 1.35;
-    }
-
-    .main-title {
-        font-size: 1.8rem;
-        font-weight: 700;
-        margin-bottom: 0.2rem;
-    }
-
-    .sub-text {
-        color: #666;
-        font-size: 0.95rem;
-        margin-bottom: 1rem;
-    }
-
-    .card {
-        background: #ffffff;
-        border: 1px solid #eeeeee;
-        border-radius: 16px;
-        padding: 16px 16px 12px 16px;
-        margin-bottom: 14px;
-        box-shadow: 0 1px 6px rgba(0,0,0,0.03);
-    }
-
-    .small-label {
-        font-size: 0.85rem;
-        color: #777;
-        margin-bottom: 0.2rem;
-    }
-
-    .metric-value {
-        font-size: 1.35rem;
-        font-weight: 700;
-        margin-bottom: 0.2rem;
-    }
-
-    div[data-testid="stButton"] > button {
-        width: 100%;
-        border-radius: 12px;
-        min-height: 2.9rem;
-        font-weight: 600;
-    }
-
-    div[data-testid="stDownloadButton"] > button {
-        width: 100%;
-        border-radius: 12px;
-        min-height: 2.9rem;
-        font-weight: 600;
-    }
-
-    div[data-testid="stTextInput"] input,
-    div[data-testid="stTextArea"] textarea,
-    div[data-testid="stNumberInput"] input,
-    div[data-testid="stSelectbox"] div[data-baseweb="select"] > div,
-    div[data-testid="stDateInput"] input {
-        border-radius: 12px !important;
-    }
-
-    div[data-testid="stRadio"] label {
-        margin-right: 0.5rem;
-    }
-
-    .section-space {
-        margin-top: 0.4rem;
-        margin-bottom: 0.8rem;
-    }
-
-    @media (max-width: 768px) {
-        .block-container {
-            padding-top: 0.8rem;
-            padding-left: 0.9rem;
-            padding-right: 0.9rem;
-        }
-        .main-title {
-            font-size: 1.5rem;
-        }
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-
-def card_open():
-    st.markdown('<div class="card">', unsafe_allow_html=True)
-
-
-def card_close():
-    st.markdown('</div>', unsafe_allow_html=True)
-
-
-def show_metric_card(label, value):
-    st.markdown(
-        f"""
-        <div class="card">
-            <div class="small-label">{label}</div>
-            <div class="metric-value">{value}</div>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-
 
 # -----------------------------
 # Google Sheets
@@ -734,51 +616,8 @@ def create_plan_for_date(
 
 
 # -----------------------------
-# Ayurveda
-# -----------------------------
-def diagnose_dosha(vata_score, pitta_score, kapha_score):
-    scores = {"ヴァータ": vata_score, "ピッタ": pitta_score, "カパ": kapha_score}
-    main_dosha = max(scores, key=scores.get)
-    return main_dosha, scores
-
-
-def get_ayurveda_advice(dosha):
-    advice_map = {
-        "ヴァータ": {
-            "特徴": "冷えやすい・乾燥しやすい・疲れやすい傾向",
-            "食事": "温かい汁物、やわらかいごはん、根菜、スープ系がおすすめです。",
-            "生活": "冷え対策をして、睡眠をしっかり取り、予定を詰め込みすぎないことが大切です。",
-            "運動": "やさしいヨガ、ストレッチ、ゆったり散歩が向いています。"
-        },
-        "ピッタ": {
-            "特徴": "暑がり・イライラしやすい・食欲が強い傾向",
-            "食事": "辛すぎるものや油っこいものを控え、野菜、豆類、やさしい味付けがおすすめです。",
-            "生活": "頑張りすぎを避けて、クールダウンする時間を意識すると整いやすいです。",
-            "運動": "中程度の運動、ウォーキング、ゆったりしたピラティスが向いています。"
-        },
-        "カパ": {
-            "特徴": "むくみやすい・重だるい・溜め込みやすい傾向",
-            "食事": "甘いものや重い食事を控えめにして、温野菜、スパイス、たんぱく質を意識するとよいです。",
-            "生活": "朝は早めに動き出し、ため込まず、こまめに体を動かすと整いやすいです。",
-            "運動": "しっかり歩く、有酸素運動、少し汗ばむ運動が向いています。"
-        }
-    }
-    return advice_map.get(dosha, {})
-
-
-# -----------------------------
 # Helpers
 # -----------------------------
-def render_common_body_inputs():
-    age = st.number_input("年齢", min_value=20, max_value=100, step=1, key="common_age")
-    height_cm = st.number_input("身長（cm）", min_value=145.0, max_value=200.0, step=0.5, format="%.1f", key="common_height")
-    weight = st.number_input("現在の体重（kg）", min_value=40.0, max_value=200.0, step=0.1, format="%.1f", key="common_weight")
-    target_weight = st.number_input("目標体重（kg）", min_value=40.0, max_value=100.0, step=0.1, format="%.1f", key="common_target_weight")
-    body_fat = st.number_input("体脂肪率（%）", min_value=15.0, max_value=60.0, step=0.1, format="%.1f", key="common_body_fat")
-    target_body_fat = st.number_input("目標体脂肪率（%）", min_value=15.0, max_value=60.0, step=0.1, format="%.1f", key="common_target_body_fat")
-    return age, height_cm, weight, target_weight, body_fat, target_body_fat
-
-
 def extract_shopping_items(plan_texts):
     def categorize_item(item: str) -> str:
         meat_egg = ["鶏", "豚", "牛", "ひき肉", "ささみ", "むね肉", "もも肉", "ベーコン", "ハム", "卵"]
@@ -901,63 +740,59 @@ if "settings_loaded" not in st.session_state:
 # -----------------------------
 # UI
 # -----------------------------
-inject_custom_css()
+st.title("🍀 ShufuMate｜主婦の味方アプリ")
+st.caption("ダイエット・家計・予定・教育・人生設計・お得情報を総合管理")
 
-st.markdown('<div class="main-title">🍀 ShufuMate｜主婦の味方アプリ</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-text">ダイエット・献立・写真記録・体型チェックをスマホでも使いやすく管理</div>', unsafe_allow_html=True)
-
-with st.sidebar:
-    st.markdown("### メニュー")
-    mode = st.selectbox("機能を選んでください", [
-        "今日のおすすめ",
-        "ダイエット管理",
-        "献立・運動プラン",
-        "アーユルヴェーダ",
-        "写真で記録",
-        "体型チェック",
-        "家計簿",
-        "スケジュール",
-        "教育費・人生設計",
-        "お得情報",
-        "設定"
-    ])
+mode = st.sidebar.radio("機能を選んでください", [
+    "今日のおすすめ",
+    "ダイエット管理",
+    "献立・運動プラン",
+    "アーユルヴェーダ",
+    "写真で記録",
+    "体型チェック",
+    "家計簿",
+    "スケジュール",
+    "教育費・人生設計",
+    "お得情報",
+    "設定"
+])
 
 if mode == "今日のおすすめ":
-    st.subheader("👉 今日のおすすめ")
+    st.header("👉 今日のおすすめ")
+
     today_str = datetime.today().strftime("%Y-%m-%d")
+    col1, col2 = st.columns(2)
 
-    card_open()
-    st.markdown("#### 📊 今日のダイエット状況")
-    st.session_state["diet_logs"] = load_diet_logs()
+    with col1:
+        st.subheader("📊 今日のダイエット状況")
+        st.session_state["diet_logs"] = load_diet_logs()
 
-    if st.session_state["diet_logs"]:
-        latest = st.session_state["diet_logs"][-1]
-        show_metric_card("体重", f"{latest['体重(kg)']} kg")
-        show_metric_card("体脂肪率", f"{latest['体脂肪率(%)']} %")
-        show_metric_card("目標体重", f"{latest['目標体重(kg)']} kg")
-        show_metric_card("目標体脂肪率", f"{latest['目標体脂肪率(%)']} %")
-        show_metric_card("BMI", f"{latest['BMI']}")
-        show_metric_card("摂取目標", f"{latest['目標摂取カロリー']} kcal")
-    else:
-        st.info("まだ記録がありません")
-    card_close()
+        if st.session_state["diet_logs"]:
+            latest = st.session_state["diet_logs"][-1]
+            st.write(f"体重：{latest['体重(kg)']} kg")
+            st.write(f"体脂肪率：{latest['体脂肪率(%)']} %")
+            st.write(f"目標体重：{latest['目標体重(kg)']} kg")
+            st.write(f"目標体脂肪率：{latest['目標体脂肪率(%)']} %")
+            st.write(f"BMI：{latest['BMI']}")
+            st.write(f"摂取目標：{latest['目標摂取カロリー']} kcal")
+        else:
+            st.info("まだ記録がありません")
 
-    card_open()
-    st.markdown("#### 🥗 今日の献立＆運動")
-    saved_plan_date, saved_plan_text = load_today_plan()
-    if saved_plan_date and saved_plan_text:
-        st.session_state["today_plan_date"] = saved_plan_date
-        st.session_state["today_plan_text"] = saved_plan_text
+    with col2:
+        st.subheader("🥗 今日の献立＆運動")
+        saved_plan_date, saved_plan_text = load_today_plan()
+        if saved_plan_date and saved_plan_text:
+            st.session_state["today_plan_date"] = saved_plan_date
+            st.session_state["today_plan_text"] = saved_plan_text
 
-    if st.session_state["today_plan_text"] and st.session_state["today_plan_date"] == today_str:
-        st.markdown(st.session_state["today_plan_text"])
-    else:
-        st.info("まだプランがありません")
-        st.caption("『献立・運動プラン』で作成してください")
-    card_close()
+        if st.session_state["today_plan_text"] and st.session_state["today_plan_date"] == today_str:
+            st.markdown(st.session_state["today_plan_text"])
+        else:
+            st.info("まだプランがありません")
+            st.caption("👉『献立・運動プラン』で作成してください")
 
-    card_open()
-    st.markdown("#### 🌿 今日の体質アドバイス")
+    st.divider()
+    st.subheader("🌿 今日の体質アドバイス")
     if st.session_state["dosha_type"]:
         advice = get_ayurveda_advice(st.session_state["dosha_type"])
         st.write(f"体質タイプ：**{st.session_state['dosha_type']}**")
@@ -967,33 +802,31 @@ if mode == "今日のおすすめ":
         st.write(f"運動：{advice['運動']}")
     else:
         st.info("まだアーユルヴェーダ体質チェックが未実施です。")
-    card_close()
 
-    card_open()
-    st.markdown("#### 🧺 保存中の冷蔵庫食材")
+    st.divider()
+    st.subheader("🧺 保存中の冷蔵庫食材")
     if st.session_state["fridge_items"]:
         st.write(st.session_state["fridge_items"])
     else:
         st.info("まだ冷蔵庫食材の登録がありません。")
-    card_close()
 
 elif mode == "ダイエット管理":
     sync_settings_on_mode_enter(mode)
     st.session_state["diet_logs"] = load_diet_logs()
-    st.subheader("📝 ダイエット管理")
+    st.header("📝 ダイエット管理")
 
-    with st.expander("基本情報を入力", expanded=True):
-        age, height_cm, weight, target_weight, body_fat, target_body_fat = render_common_body_inputs()
-        weeks = st.slider("目標達成までの期間（週）", 1, 52, 4)
+    age, height_cm, weight, target_weight, body_fat, target_body_fat = render_common_body_inputs()
+    weeks = st.slider("目標達成までの期間（週）", 1, 52, 4)
 
     bmi = weight / ((height_cm / 100) ** 2)
     bmr = weight * 22 * 1.5
     cal_deficit = ((weight - target_weight) * 7200) / (weeks * 7)
     goal_calories = bmr - cal_deficit
 
-    show_metric_card("BMI", f"{bmi:.1f}")
-    show_metric_card("基礎代謝", f"{bmr:.0f} kcal")
-    show_metric_card("目標摂取カロリー", f"{goal_calories:.0f} kcal/日")
+    c1, c2, c3 = st.columns(3)
+    c1.metric("BMI", f"{bmi:.1f}")
+    c2.metric("基礎代謝", f"{bmr:.0f} kcal")
+    c3.metric("目標摂取カロリー", f"{goal_calories:.0f} kcal/日")
 
     st.caption(f"現在体脂肪率: {body_fat:.1f}% / 目標体脂肪率: {target_body_fat:.1f}%")
 
@@ -1026,53 +859,48 @@ elif mode == "ダイエット管理":
         st.rerun()
 
     if st.session_state["diet_logs"]:
-        st.markdown("#### 📘 ダイエット履歴")
+        st.subheader("📘 ダイエット履歴")
         df = pd.DataFrame(st.session_state["diet_logs"])
-        st.dataframe(df, use_container_width=True, hide_index=True)
+        st.dataframe(df, use_container_width=True)
 
         df["日付"] = pd.to_datetime(df["日付"])
         df = df.sort_values("日付")
-
-        st.markdown("#### 📈 体重推移")
-        st.line_chart(df.set_index("日付")["体重(kg)"])
-
-        st.markdown("#### 📉 体脂肪率推移")
-        st.line_chart(df.set_index("日付")["体脂肪率(%)"])
+        col1, col2 = st.columns(2)
+        with col1:
+            st.write("📈 体重推移")
+            st.line_chart(df.set_index("日付")["体重(kg)"])
+        with col2:
+            st.write("📉 体脂肪率推移")
+            st.line_chart(df.set_index("日付")["体脂肪率(%)"])
 
 elif mode == "献立・運動プラン":
     sync_settings_on_mode_enter(mode)
     st.session_state["diet_logs"] = load_diet_logs()
-    st.subheader("🥗 献立＆🏃運動プラン")
+    st.header("🥗献立＆🏃運動プラン")
 
-    client = get_openai_client()
-    today_str = datetime.today().strftime("%Y-%m-%d")
+    gender = st.radio("性別", ["女性", "男性"], horizontal=True)
+    age, height_cm, weight, target_weight, body_fat, target_body_fat = render_common_body_inputs()
 
-    with st.expander("基本設定", expanded=True):
-        gender = st.radio("性別", ["女性", "男性"], horizontal=True)
-        age, height_cm, weight, target_weight, body_fat, target_body_fat = render_common_body_inputs()
+    st.radio("食事スタイル", ["和食中心", "バランス", "おしゃれカフェ風"], horizontal=True, key="meal_style")
+    st.radio("調理レベル", ["超かんたん", "普通", "しっかり"], horizontal=True, key="ease_level")
+    st.radio("主食の好み", ["ごはん派", "パン派", "どちらも"], horizontal=True, key="staple_preference")
+    st.text_area(
+        "冷蔵庫の食材（あるものを入力）",
+        placeholder="例：卵、豆腐、納豆、鶏むね肉、にんじん、玉ねぎ、キャベツ",
+        key="fridge_items"
+    )
+    st.radio("プランタイプ", ["通常", "外食", "コンビニ"], horizontal=True, key="plan_type")
+    st.checkbox("👩 主婦リアル提案モード", key="real_mode")
+    st.selectbox("今日の食事バランス", ["普通", "朝しっかり・昼軽め", "食べすぎた", "あまり食べてない"], key="daily_flow")
+    st.checkbox("🏃‍♀️ 今日運動あり（ジム・ヨガなど）", key="workout_today")
+    st.selectbox("目的", ["バランス", "脚やせ", "脂肪燃焼", "むくみ改善"], key="body_goal")
 
-    with st.expander("献立の条件", expanded=True):
-        st.radio("食事スタイル", ["和食中心", "バランス", "おしゃれカフェ風"], horizontal=True, key="meal_style")
-        st.radio("調理レベル", ["超かんたん", "普通", "しっかり"], horizontal=True, key="ease_level")
-        st.radio("主食の好み", ["ごはん派", "パン派", "どちらも"], horizontal=True, key="staple_preference")
-        st.text_area(
-            "冷蔵庫の食材",
-            placeholder="例：卵、豆腐、納豆、鶏むね肉、にんじん、玉ねぎ、キャベツ",
-            key="fridge_items",
-            height=120
-        )
-
-    with st.expander("詳細条件", expanded=False):
-        st.radio("プランタイプ", ["通常", "外食", "コンビニ"], horizontal=True, key="plan_type")
-        st.checkbox("👩 主婦リアル提案モード", key="real_mode")
-        st.selectbox("今日の食事バランス", ["普通", "朝しっかり・昼軽め", "食べすぎた", "あまり食べてない"], key="daily_flow")
-        st.checkbox("🏃‍♀️ 今日運動あり（ジム・ヨガなど）", key="workout_today")
-        st.selectbox("目的", ["バランス", "脚やせ", "脂肪燃焼", "むくみ改善"], key="body_goal")
-
-        if st.session_state["dosha_type"]:
-            st.info(f"🌿 現在の体質設定：{st.session_state['dosha_type']}")
+    if st.session_state["dosha_type"]:
+        st.info(f"🌿 現在の体質設定：{st.session_state['dosha_type']}")
 
     days = st.slider("まとめて何日分作りますか？", 1, 30, 7)
+    client = get_openai_client()
+    today_str = datetime.today().strftime("%Y-%m-%d")
 
     if st.button("📅 今日のプランを表示"):
         with st.spinner("生成中..."):
@@ -1102,13 +930,12 @@ elif mode == "献立・運動プラン":
         st.session_state["today_plan_date"] = today_str
         upsert_today_plan(today_str, plan)
 
-        st.success("今日のプランを作成しました。")
-        st.markdown(f"### 今日のプラン（{today_str}）")
+        st.subheader(f"今日のプラン（{today_str}）")
         st.markdown(plan)
 
-    st.markdown("---")
+    st.divider()
 
-    if st.button("📚 複数日プラン作成"):
+    if st.button("複数日プラン作成"):
         results = []
         with st.spinner("AIが複数日プランを作成中..."):
             for i in range(days):
@@ -1138,32 +965,22 @@ elif mode == "献立・運動プラン":
 
         df = pd.DataFrame(results)
         st.success("プラン完成✨")
-        st.dataframe(df, use_container_width=True, hide_index=True)
+        st.dataframe(df, use_container_width=True)
 
         csv = df.to_csv(index=False).encode("utf-8-sig")
-        st.download_button(
-            "📥 献立・運動プランCSVダウンロード",
-            data=csv,
-            file_name="plan.csv",
-            mime="text/csv"
-        )
+        st.download_button("📥 献立・運動プランCSVダウンロード", data=csv, file_name="plan.csv", mime="text/csv")
 
-        st.markdown("### 🛒 買い物リストまとめ")
+        st.subheader("🛒 買い物リストまとめ")
         shopping_df = extract_shopping_items(df["プラン"].tolist())
         if not shopping_df.empty:
-            st.dataframe(shopping_df, use_container_width=True, hide_index=True)
+            st.dataframe(shopping_df, use_container_width=True)
             shopping_csv = shopping_df.to_csv(index=False).encode("utf-8-sig")
-            st.download_button(
-                "📥 買い物リストCSVダウンロード",
-                data=shopping_csv,
-                file_name="shopping_list.csv",
-                mime="text/csv"
-            )
+            st.download_button("📥 買い物リストCSVダウンロード", data=shopping_csv, file_name="shopping_list.csv", mime="text/csv")
         else:
             st.info("買い物リストを抽出できませんでした。")
 
 elif mode == "アーユルヴェーダ":
-    st.subheader("🌿 アーユルヴェーダ体質チェック")
+    st.header("🌿 アーユルヴェーダ体質チェック")
     st.write("質問に答えると、今の自分に近い体質傾向が分かります。")
 
     q1 = st.radio("体型", ["細め・変化しやすい", "中くらい・筋肉質", "しっかり・丸みがある"], key="ay_q1")
@@ -1219,17 +1036,18 @@ elif mode == "アーユルヴェーダ":
         st.session_state["dosha_scores"] = scores
 
         st.success(f"あなたの体質傾向は **{main_dosha}** タイプです。")
-        show_metric_card("ヴァータ", scores["ヴァータ"])
-        show_metric_card("ピッタ", scores["ピッタ"])
-        show_metric_card("カパ", scores["カパ"])
+        c1, c2, c3 = st.columns(3)
+        c1.metric("ヴァータ", scores["ヴァータ"])
+        c2.metric("ピッタ", scores["ピッタ"])
+        c3.metric("カパ", scores["カパ"])
 
-        st.markdown("#### 🌿 体質の特徴")
+        st.subheader("🌿 体質の特徴")
         st.write(advice["特徴"])
-        st.markdown("#### 🍽 今日の食事アドバイス")
+        st.subheader("🍽 今日の食事アドバイス")
         st.write(advice["食事"])
-        st.markdown("#### 🛀 今日の過ごし方")
+        st.subheader("🛀 今日の過ごし方")
         st.write(advice["生活"])
-        st.markdown("#### 🏃 おすすめの運動")
+        st.subheader("🏃 おすすめの運動")
         st.write(advice["運動"])
 
     if st.button("↺ 体質診断をリセット"):
@@ -1238,24 +1056,29 @@ elif mode == "アーユルヴェーダ":
         st.success("体質診断をリセットしました。")
 
 elif mode == "写真で記録":
-    st.subheader("📷 写真で記録")
+    st.header("📷 写真で記録")
+
     tab1, tab2 = st.tabs(["冷蔵庫写真", "体重計写真"])
 
     with tab1:
-        st.markdown("#### 🥬 冷蔵庫スキャン")
+        st.subheader("🥬 冷蔵庫スキャン")
         st.caption("スマホでは1枚ずつ撮って追加していく使い方がおすすめです。")
 
         fridge_camera = st.camera_input("冷蔵庫を撮る", key="fridge_camera_scan")
 
-        if fridge_camera is not None and st.button("➕ この写真を追加"):
-            resized = resize_image(fridge_camera, max_size=768)
-            st.session_state["fridge_scan_images"].append(resized)
-            st.success("冷蔵庫写真を追加しました。")
-            st.rerun()
+        col1, col2 = st.columns(2)
 
-        if st.button("🧹 スキャン画像を全部クリア"):
-            st.session_state["fridge_scan_images"] = []
-            st.rerun()
+        with col1:
+            if fridge_camera is not None and st.button("➕ この写真を追加"):
+                resized = resize_image(fridge_camera, max_size=768)
+                st.session_state["fridge_scan_images"].append(resized)
+                st.success("冷蔵庫写真を追加しました。")
+                st.rerun()
+
+        with col2:
+            if st.button("🧹 スキャン画像を全部クリア"):
+                st.session_state["fridge_scan_images"] = []
+                st.rerun()
 
         fridge_photos = st.file_uploader(
             "または冷蔵庫写真をアップロード（複数OK）",
@@ -1285,7 +1108,11 @@ elif mode == "写真で記録":
                 st.success("食材候補を抽出しました。")
                 st.rerun()
 
-        st.text_area("読み取った食材候補", key="photo_fridge_items", height=180)
+        st.text_area(
+            "読み取った食材候補",
+            key="photo_fridge_items",
+            height=180
+        )
 
         if st.button("➡ 冷蔵庫食材に反映"):
             text = st.session_state["photo_fridge_items"]
@@ -1295,7 +1122,7 @@ elif mode == "写真で記録":
             st.success("冷蔵庫の食材に反映しました。")
 
     with tab2:
-        st.markdown("#### ⚖ 体重計写真から記録候補を管理")
+        st.subheader("⚖ 体重計写真から記録候補を管理")
 
         scale_photo = st.file_uploader(
             "体重計の写真をアップロード",
@@ -1325,23 +1152,29 @@ elif mode == "写真で記録":
             height=220
         )
 
-        if st.button("➡ 体重だけ反映"):
-            text = st.session_state["photo_scale_result"]
-            m = re.search(r"体重[:：]\s*([0-9]+(?:\.[0-9]+)?)", text)
-            if m:
-                st.session_state["common_weight"] = float(m.group(1))
-                st.success("体重を反映しました。")
-            else:
-                st.warning("体重が見つかりませんでした。")
+        st.caption("内容を見ながら、ダイエット管理へ反映できます。")
 
-        if st.button("➡ 体脂肪率だけ反映"):
-            text = st.session_state["photo_scale_result"]
-            m = re.search(r"体脂肪率[:：]\s*([0-9]+(?:\.[0-9]+)?)", text)
-            if m:
-                st.session_state["common_body_fat"] = float(m.group(1))
-                st.success("体脂肪率を反映しました。")
-            else:
-                st.warning("体脂肪率が見つかりませんでした。")
+        col1, col2 = st.columns(2)
+
+        with col1:
+            if st.button("➡ 体重だけ反映"):
+                text = st.session_state["photo_scale_result"]
+                m = re.search(r"体重[:：]\s*([0-9]+(?:\.[0-9]+)?)", text)
+                if m:
+                    st.session_state["common_weight"] = float(m.group(1))
+                    st.success("体重を反映しました。")
+                else:
+                    st.warning("体重が見つかりませんでした。")
+
+        with col2:
+            if st.button("➡ 体脂肪率だけ反映"):
+                text = st.session_state["photo_scale_result"]
+                m = re.search(r"体脂肪率[:：]\s*([0-9]+(?:\.[0-9]+)?)", text)
+                if m:
+                    st.session_state["common_body_fat"] = float(m.group(1))
+                    st.success("体脂肪率を反映しました。")
+                else:
+                    st.warning("体脂肪率が見つかりませんでした。")
 
         if st.button("📌 体重・体脂肪率をまとめて反映"):
             text = st.session_state["photo_scale_result"]
@@ -1364,7 +1197,7 @@ elif mode == "写真で記録":
                 st.warning("反映できる数値が見つかりませんでした。")
 
 elif mode == "体型チェック":
-    st.subheader("🪞 体型チェック")
+    st.header("🪞 体型チェック")
     st.caption("顔がはっきり写らない距離・角度での撮影がおすすめです。")
 
     st.selectbox(
@@ -1374,6 +1207,7 @@ elif mode == "体型チェック":
     )
 
     body_camera = st.camera_input("全身を撮る", key="body_camera_scan")
+
     uploaded_body = st.file_uploader(
         "または全身写真をアップロード",
         type=["jpg", "jpeg", "png"],
@@ -1387,63 +1221,69 @@ elif mode == "体型チェック":
         resized_body = resize_image(source_body, max_size=768)
         st.image(resized_body, caption="全身スキャン画像", use_container_width=True)
 
-        if st.button("🪄 体型コメントを自動生成"):
-            client = get_openai_client()
-            with st.spinner("体型バランスを分析中..."):
-                result = generate_body_balance_comment(
-                    client,
-                    resized_body,
-                    st.session_state["body_goal_scan"]
-                )
-            st.session_state["body_scan_comment"] = result
-            st.success("体型コメントを生成しました。")
-            st.rerun()
+        col1, col2, col3 = st.columns(3)
 
-        if st.button("✨ 理想イメージ用プロンプトを作成"):
-            client = get_openai_client()
-            source_comment = st.session_state["body_scan_comment"] or "まだ体型コメントなし"
-            with st.spinner("理想イメージを整理中..."):
-                result = generate_ideal_body_prompt(
-                    client,
-                    source_comment,
-                    st.session_state["body_goal_scan"]
-                )
-            st.session_state["ideal_body_prompt_result"] = result
-            st.success("理想イメージ用プロンプトを作成しました。")
-            st.rerun()
+        with col1:
+            if st.button("🪄 体型コメントを自動生成"):
+                client = get_openai_client()
+                with st.spinner("体型バランスを分析中..."):
+                    result = generate_body_balance_comment(
+                        client,
+                        resized_body,
+                        st.session_state["body_goal_scan"]
+                    )
 
-        if st.button("🖼 理想イメージを生成"):
-            client = get_openai_client()
-            prompt_text = st.session_state["ideal_body_prompt_result"]
-            if not prompt_text.strip():
-                st.warning("先に理想イメージ用プロンプトを作成してください。")
-            else:
-                with st.spinner("理想イメージを生成中..."):
-                    image_bytes = generate_ideal_body_image(client, prompt_text, size="1024x1024")
+                st.session_state["body_scan_comment"] = result
+                st.success("体型コメントを生成しました。")
+                st.rerun()
 
-                if image_bytes:
-                    st.session_state["ideal_body_image_bytes"] = image_bytes
-                    st.success("理想イメージを生成しました。")
-                    st.rerun()
+        with col2:
+            if st.button("✨ 理想イメージ用プロンプトを作成"):
+                client = get_openai_client()
+                source_comment = st.session_state["body_scan_comment"] or "まだ体型コメントなし"
+                with st.spinner("理想イメージを整理中..."):
+                    result = generate_ideal_body_prompt(
+                        client,
+                        source_comment,
+                        st.session_state["body_goal_scan"]
+                    )
+
+                st.session_state["ideal_body_prompt_result"] = result
+                st.success("理想イメージ用プロンプトを作成しました。")
+                st.rerun()
+
+        with col3:
+            if st.button("🖼 理想イメージを生成"):
+                client = get_openai_client()
+                prompt_text = st.session_state["ideal_body_prompt_result"]
+                if not prompt_text.strip():
+                    st.warning("先に理想イメージ用プロンプトを作成してください。")
                 else:
-                    st.error("画像生成に失敗しました。")
+                    with st.spinner("理想イメージを生成中..."):
+                        image_bytes = generate_ideal_body_image(client, prompt_text, size="1024x1024")
 
-        if st.button("🧹 理想イメージをクリア"):
-            st.session_state["ideal_body_image_bytes"] = None
-            st.rerun()
+                    if image_bytes:
+                        st.session_state["ideal_body_image_bytes"] = image_bytes
+                        st.success("理想イメージを生成しました。")
+                        st.rerun()
+                    else:
+                        st.error("画像生成に失敗しました。")
 
-    st.text_area("体型バランスコメント", key="body_scan_comment", height=240)
-    st.text_area("理想イメージ用プロンプト", key="ideal_body_prompt_result", height=240)
+    st.text_area(
+        "体型バランスコメント",
+        key="body_scan_comment",
+        height=240
+    )
+
+    st.text_area(
+        "理想イメージ用プロンプト",
+        key="ideal_body_prompt_result",
+        height=240
+    )
 
     if st.session_state["ideal_body_image_bytes"]:
-        st.markdown("#### 🖼 理想イメージ")
+        st.subheader("🖼 理想イメージ")
         st.image(st.session_state["ideal_body_image_bytes"], use_container_width=True)
-        st.download_button(
-            "📥 理想イメージをPNGで保存",
-            data=st.session_state["ideal_body_image_bytes"],
-            file_name="ideal_body_image.png",
-            mime="image/png"
-        )
 
     st.text_area(
         "体型バランスメモ",
@@ -1456,7 +1296,7 @@ elif mode == "体型チェック":
     st.caption("理想イメージはモチベーション用の参考として使う設計です。")
 
 elif mode == "家計簿":
-    st.subheader("💰 家計簿入力")
+    st.header("💰 家計簿入力")
     with st.form("budget_form"):
         date = st.date_input("日付", datetime.today())
         category = st.selectbox("カテゴリ", ["食費", "日用品", "教育費", "交際費", "医療費", "その他"])
@@ -1475,11 +1315,11 @@ elif mode == "家計簿":
 
     if st.session_state["expenses"]:
         df_exp = pd.DataFrame(st.session_state["expenses"])
-        st.markdown("#### 📊 記録一覧")
-        st.dataframe(df_exp, use_container_width=True, hide_index=True)
+        st.subheader("📊 記録一覧")
+        st.dataframe(df_exp, use_container_width=True)
 
 elif mode == "スケジュール":
-    st.subheader("🗓 スケジュール登録")
+    st.header("🗓 スケジュール登録")
     with st.form("schedule_form"):
         date = st.date_input("予定日", datetime.today())
         event_type = st.selectbox("種類", ["運動", "買い物", "献立準備", "学校", "通院", "その他"])
@@ -1496,11 +1336,11 @@ elif mode == "スケジュール":
 
     if st.session_state["schedules"]:
         df_sched = pd.DataFrame(st.session_state["schedules"])
-        st.markdown("#### 📅 予定一覧")
-        st.dataframe(df_sched, use_container_width=True, hide_index=True)
+        st.subheader("📅 予定一覧")
+        st.dataframe(df_sched, use_container_width=True)
 
 elif mode == "教育費・人生設計":
-    st.subheader("📘 教育費・人生プラン")
+    st.header("📘 教育費・人生プラン")
     num_children = st.number_input("子どもの人数", min_value=0, max_value=5, value=1)
     edu_type = st.selectbox("教育方針", ["すべて公立", "中学から私立", "高校から私立", "大学から私立", "すべて私立"])
 
@@ -1531,51 +1371,49 @@ elif mode == "教育費・人生設計":
             st.write(f"{y}年 - {level}（{plan[j]}）: {cost}万円")
             total_cost += cost
 
-    show_metric_card("想定教育費合計", f"{total_cost} 万円")
+    st.metric("想定教育費合計", f"{total_cost} 万円")
 
 elif mode == "お得情報":
-    st.subheader("📢 地域のお得情報")
+    st.header("📢 地域のお得情報")
     st.info("ここは今後拡張できます。")
 
 elif mode == "設定":
     sync_settings_on_mode_enter(mode)
-    st.subheader("⚙️ アプリ設定")
+    st.header("⚙️ アプリ設定")
+    st.subheader("📌 初期設定")
 
-    with st.expander("📌 初期設定", expanded=True):
-        st.number_input("年齢", min_value=20, max_value=100, step=1, key="common_age")
-        st.number_input("身長（cm）", min_value=145.0, max_value=200.0, step=0.5, format="%.1f", key="common_height")
-        st.number_input("スタート時の体重（kg）", min_value=40.0, max_value=200.0, step=0.1, format="%.1f", key="common_weight")
-        st.number_input("目標体重（kg）", min_value=40.0, max_value=100.0, step=0.1, format="%.1f", key="common_target_weight")
-        st.number_input("スタート時の体脂肪率（%）", min_value=15.0, max_value=60.0, step=0.1, format="%.1f", key="common_body_fat")
-        st.number_input("目標体脂肪率（%）", min_value=10.0, max_value=50.0, step=0.1, format="%.1f", key="common_target_body_fat")
+    st.number_input("年齢", min_value=20, max_value=100, step=1, key="common_age")
+    st.number_input("身長（cm）", min_value=145.0, max_value=200.0, step=0.5, format="%.1f", key="common_height")
+    st.number_input("スタート時の体重（kg）", min_value=40.0, max_value=200.0, step=0.1, format="%.1f", key="common_weight")
+    st.number_input("目標体重（kg）", min_value=40.0, max_value=100.0, step=0.1, format="%.1f", key="common_target_weight")
+    st.number_input("スタート時の体脂肪率（%）", min_value=15.0, max_value=60.0, step=0.1, format="%.1f", key="common_body_fat")
+    st.number_input("目標体脂肪率（%）", min_value=10.0, max_value=50.0, step=0.1, format="%.1f", key="common_target_body_fat")
 
-    with st.expander("🍽 献立の初期値", expanded=False):
-        st.radio("食事スタイル", ["和食中心", "バランス", "おしゃれカフェ風"], horizontal=True, key="meal_style")
-        st.radio("調理レベル", ["超かんたん", "普通", "しっかり"], horizontal=True, key="ease_level")
-        st.radio("主食の好み", ["ごはん派", "パン派", "どちらも"], horizontal=True, key="staple_preference")
-        st.text_area(
-            "よくある冷蔵庫の食材",
-            placeholder="例：卵、豆腐、納豆、鶏むね肉、にんじん、玉ねぎ、キャベツ",
-            key="fridge_items",
-            height=120
-        )
-        st.radio("プランタイプ初期値", ["通常", "外食", "コンビニ"], horizontal=True, key="plan_type")
-        st.checkbox("主婦リアル提案モード初期値", key="real_mode")
-        st.selectbox("食事の流れ初期値", ["普通", "朝しっかり・昼軽め", "食べすぎた", "あまり食べてない"], key="daily_flow")
-        st.checkbox("運動あり初期値", key="workout_today")
-        st.selectbox("目的初期値", ["バランス", "脚やせ", "脂肪燃焼", "むくみ改善"], key="body_goal")
+    st.radio("食事スタイル", ["和食中心", "バランス", "おしゃれカフェ風"], horizontal=True, key="meal_style")
+    st.radio("調理レベル", ["超かんたん", "普通", "しっかり"], horizontal=True, key="ease_level")
+    st.radio("主食の好み", ["ごはん派", "パン派", "どちらも"], horizontal=True, key="staple_preference")
+    st.text_area("よくある冷蔵庫の食材", placeholder="例：卵、豆腐、納豆、鶏むね肉、にんじん、玉ねぎ、キャベツ", key="fridge_items")
+    st.radio("プランタイプ初期値", ["通常", "外食", "コンビニ"], horizontal=True, key="plan_type")
+    st.checkbox("主婦リアル提案モード初期値", key="real_mode")
+    st.selectbox("食事の流れ初期値", ["普通", "朝しっかり・昼軽め", "食べすぎた", "あまり食べてない"], key="daily_flow")
+    st.checkbox("運動あり初期値", key="workout_today")
+    st.selectbox("目的初期値", ["バランス", "脚やせ", "脂肪燃焼", "むくみ改善"], key="body_goal")
 
-    with st.expander("📷 写真機能について", expanded=False):
-        st.caption("写真で記録メニューでは、冷蔵庫写真・体重計写真・全身写真を使った記録補助を行います。")
-        st.caption("スマホではスキャン、PCではアップロードの使い方がおすすめです。")
+    st.divider()
+    st.subheader("📷 写真機能について")
+    st.caption("写真で記録メニューでは、冷蔵庫写真・体重計写真・全身写真を使った記録補助を行います。")
+    st.caption("スマホではスキャン、PCではアップロードの使い方がおすすめです。")
 
-    if st.button("💾 初期設定を保存"):
-        save_user_settings()
-        st.success("初期設定を保存しました。次回もこの値が反映されます。")
-        st.rerun()
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("💾 初期設定を保存"):
+            save_user_settings()
+            st.success("初期設定を保存しました。次回もこの値が反映されます。")
+            st.rerun()
 
-    if st.button("↺ 初期設定をリセット"):
-        reset_user_settings()
-        save_user_settings()
-        st.success("初期設定をリセットしました。")
-        st.rerun()
+    with col2:
+        if st.button("↺ 初期設定をリセット"):
+            reset_user_settings()
+            save_user_settings()
+            st.success("初期設定をリセットしました。")
+            st.rerun()
