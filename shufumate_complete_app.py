@@ -45,13 +45,20 @@ def ensure_headers():
     settings_ws = sh.worksheet("Settings")
     diet_ws = sh.worksheet("DietLogs")
     plans_ws = sh.worksheet("TodayPlans")
+    bodycheck_ws = sh.worksheet("BodyCheck")
 
     settings_header = [
         "user_id", "age", "height_cm", "start_weight",
         "target_weight", "start_body_fat", "target_body_fat",
         "meal_style", "ease_level", "staple_preference",
         "fridge_items", "plan_type",
-        "real_mode", "daily_flow", "workout_today", "body_goal"
+        "real_mode", "daily_flow", "workout_today", "body_goal",
+        "bodycheck_height_cm", "bodycheck_weight_kg", "bodycheck_body_fat_percent",
+        "bodycheck_target_weight_kg", "bodycheck_activity_level",
+        "bodycheck_bmi", "bodycheck_bmi_label", "bodycheck_standard_weight_kg",
+        "bodycheck_fat_mass_kg", "bodycheck_lean_mass_kg",
+        "bodycheck_bmr_kcal", "bodycheck_tdee_kcal", "bodycheck_target_calorie_kcal",
+        "bodycheck_protein_g", "bodycheck_fat_g", "bodycheck_carb_g", "bodycheck_updated_at"
     ]
     diet_header = [
         "user_id", "date", "age", "height_cm", "weight",
@@ -59,14 +66,26 @@ def ensure_headers():
         "bmi", "goal_calories"
     ]
     plan_header = ["user_id", "date", "plan_text"]
+    bodycheck_header = [
+        "user_id", "timestamp", "height_cm", "weight_kg", "body_fat_percent",
+        "target_weight_kg", "activity_level", "bmi", "bmi_label",
+        "standard_weight_kg", "fat_mass_kg", "lean_mass_kg",
+        "bmr_kcal", "tdee_kcal", "target_calorie_kcal",
+        "protein_g", "fat_g", "carb_g"
+    ]
 
     settings_values = settings_ws.get_all_values()
     diet_values = diet_ws.get_all_values()
     plan_values = plans_ws.get_all_values()
+    bodycheck_values = bodycheck_ws.get_all_values()
 
     if not settings_values or settings_values[0] != settings_header:
+        existing_rows = settings_values[1:] if len(settings_values) > 1 else []
         settings_ws.clear()
         settings_ws.append_row(settings_header)
+        for row in existing_rows:
+            padded = row + [""] * (len(settings_header) - len(row))
+            settings_ws.append_row(padded[:len(settings_header)])
 
     if not diet_values or diet_values[0] != diet_header:
         diet_ws.clear()
@@ -75,6 +94,14 @@ def ensure_headers():
     if not plan_values or plan_values[0] != plan_header:
         plans_ws.clear()
         plans_ws.append_row(plan_header)
+
+    if not bodycheck_values or bodycheck_values[0] != bodycheck_header:
+        existing_rows = bodycheck_values[1:] if len(bodycheck_values) > 1 else []
+        bodycheck_ws.clear()
+        bodycheck_ws.append_row(bodycheck_header)
+        for row in existing_rows:
+            padded = row + [""] * (len(bodycheck_header) - len(row))
+            bodycheck_ws.append_row(padded[:len(bodycheck_header)])
 
 
 def load_user_settings():
@@ -95,6 +122,18 @@ def load_user_settings():
         row_dict = dict(zip(header, row))
 
         if row_dict.get("user_id") == USER_ID:
+            def to_float(value, default):
+                try:
+                    return float(value)
+                except Exception:
+                    return default
+
+            def to_int(value, default):
+                try:
+                    return int(float(value))
+                except Exception:
+                    return default
+
             return {
                 "common_age": int(float(row_dict["age"])),
                 "common_height": float(row_dict["height_cm"]),
@@ -111,6 +150,23 @@ def load_user_settings():
                 "daily_flow": row_dict.get("daily_flow", "普通") or "普通",
                 "workout_today": str(row_dict.get("workout_today", "False")).lower() == "true",
                 "body_goal": row_dict.get("body_goal", "バランス") or "バランス",
+                "bodycheck_height": to_float(row_dict.get("bodycheck_height_cm", ""), 158.0),
+                "bodycheck_weight": to_float(row_dict.get("bodycheck_weight_kg", ""), 50.0),
+                "bodycheck_body_fat": to_float(row_dict.get("bodycheck_body_fat_percent", ""), 30.0),
+                "bodycheck_target_weight": to_float(row_dict.get("bodycheck_target_weight_kg", ""), 48.0),
+                "bodycheck_activity_level": row_dict.get("bodycheck_activity_level", "ふつう") or "ふつう",
+                "bodycheck_bmi": to_float(row_dict.get("bodycheck_bmi", ""), 0.0),
+                "bodycheck_bmi_label": row_dict.get("bodycheck_bmi_label", "") or "",
+                "bodycheck_standard_weight": to_float(row_dict.get("bodycheck_standard_weight_kg", ""), 0.0),
+                "bodycheck_fat_mass": to_float(row_dict.get("bodycheck_fat_mass_kg", ""), 0.0),
+                "bodycheck_lean_mass": to_float(row_dict.get("bodycheck_lean_mass_kg", ""), 0.0),
+                "bodycheck_bmr": to_int(row_dict.get("bodycheck_bmr_kcal", ""), 0),
+                "bodycheck_tdee": to_int(row_dict.get("bodycheck_tdee_kcal", ""), 0),
+                "bodycheck_target_calorie": to_int(row_dict.get("bodycheck_target_calorie_kcal", ""), 0),
+                "bodycheck_protein": to_int(row_dict.get("bodycheck_protein_g", ""), 0),
+                "bodycheck_fat": to_int(row_dict.get("bodycheck_fat_g", ""), 0),
+                "bodycheck_carb": to_int(row_dict.get("bodycheck_carb_g", ""), 0),
+                "bodycheck_updated_at": row_dict.get("bodycheck_updated_at", "") or "",
             }
     return None
 
@@ -136,6 +192,23 @@ def save_user_settings():
         st.session_state["daily_flow"],
         str(st.session_state["workout_today"]),
         st.session_state["body_goal"],
+        st.session_state["bodycheck_height"],
+        st.session_state["bodycheck_weight"],
+        st.session_state["bodycheck_body_fat"],
+        st.session_state["bodycheck_target_weight"],
+        st.session_state["bodycheck_activity_level"],
+        st.session_state["bodycheck_bmi"],
+        st.session_state["bodycheck_bmi_label"],
+        st.session_state["bodycheck_standard_weight"],
+        st.session_state["bodycheck_fat_mass"],
+        st.session_state["bodycheck_lean_mass"],
+        st.session_state["bodycheck_bmr"],
+        st.session_state["bodycheck_tdee"],
+        st.session_state["bodycheck_target_calorie"],
+        st.session_state["bodycheck_protein"],
+        st.session_state["bodycheck_fat"],
+        st.session_state["bodycheck_carb"],
+        st.session_state["bodycheck_updated_at"],
     ]
 
     row_index = None
@@ -145,7 +218,7 @@ def save_user_settings():
             break
 
     if row_index:
-        ws.update(f"A{row_index}:P{row_index}", [row_values])
+        ws.update(f"A{row_index}:AG{row_index}", [row_values])
     else:
         ws.append_row(row_values)
 
@@ -166,6 +239,25 @@ def reset_user_settings():
     st.session_state["daily_flow"] = "普通"
     st.session_state["workout_today"] = False
     st.session_state["body_goal"] = "バランス"
+
+    st.session_state["bodycheck_height"] = 158.0
+    st.session_state["bodycheck_weight"] = 50.0
+    st.session_state["bodycheck_body_fat"] = 30.0
+    st.session_state["bodycheck_target_weight"] = 48.0
+    st.session_state["bodycheck_activity_level"] = "ふつう"
+    st.session_state["bodycheck_bmi"] = 0.0
+    st.session_state["bodycheck_bmi_label"] = ""
+    st.session_state["bodycheck_standard_weight"] = 0.0
+    st.session_state["bodycheck_fat_mass"] = 0.0
+    st.session_state["bodycheck_lean_mass"] = 0.0
+    st.session_state["bodycheck_bmr"] = 0
+    st.session_state["bodycheck_tdee"] = 0
+    st.session_state["bodycheck_target_calorie"] = 0
+    st.session_state["bodycheck_protein"] = 0
+    st.session_state["bodycheck_fat"] = 0
+    st.session_state["bodycheck_carb"] = 0
+    st.session_state["bodycheck_updated_at"] = ""
+    st.session_state["latest_bodycheck"] = None
 
 
 def load_settings_into_session():
@@ -279,6 +371,349 @@ def upsert_today_plan(date_str, plan_text):
         ws.update(f"A{row_index}:C{row_index}", [row_values])
     else:
         ws.append_row(row_values)
+
+
+def ensure_bodycheck_sheet():
+    sh = get_spreadsheet()
+    ws = sh.worksheet("BodyCheck")
+    values = ws.get_all_values()
+    header = [
+        "user_id", "timestamp", "height_cm", "weight_kg", "body_fat_percent",
+        "target_weight_kg", "activity_level", "bmi", "bmi_label",
+        "standard_weight_kg", "fat_mass_kg", "lean_mass_kg",
+        "bmr_kcal", "tdee_kcal", "target_calorie_kcal",
+        "protein_g", "fat_g", "carb_g"
+    ]
+    if not values or values[0] != header:
+        existing_rows = values[1:] if len(values) > 1 else []
+        ws.clear()
+        ws.append_row(header)
+        for row in existing_rows:
+            padded = row + [""] * (len(header) - len(row))
+            ws.append_row(padded[:len(header)])
+    return ws
+
+
+def save_bodycheck_result(result_dict):
+    ws = ensure_bodycheck_sheet()
+    row_values = [
+        USER_ID,
+        result_dict["timestamp"],
+        result_dict["height_cm"],
+        result_dict["weight_kg"],
+        result_dict["body_fat_percent"],
+        result_dict["target_weight_kg"],
+        result_dict["activity_level"],
+        result_dict["bmi"],
+        result_dict["bmi_label"],
+        result_dict["standard_weight_kg"],
+        result_dict["fat_mass_kg"],
+        result_dict["lean_mass_kg"],
+        result_dict["bmr_kcal"],
+        result_dict["tdee_kcal"],
+        result_dict["target_calorie_kcal"],
+        result_dict["protein_g"],
+        result_dict["fat_g"],
+        result_dict["carb_g"],
+    ]
+    ws.append_row(row_values)
+
+
+def load_latest_bodycheck():
+    ws = get_sheet("BodyCheck")
+    values = ws.get_all_values()
+    if len(values) < 2:
+        return None
+
+    header = values[0]
+    data_rows = values[1:]
+    latest_row = None
+
+    for row in data_rows:
+        if not row:
+            continue
+        row = row + [""] * (len(header) - len(row))
+        row_dict = dict(zip(header, row))
+        if row_dict.get("user_id") == USER_ID:
+            latest_row = row_dict
+
+    if not latest_row:
+        return None
+
+    def to_float(v, default=0.0):
+        try:
+            return float(v)
+        except Exception:
+            return default
+
+    def to_int(v, default=0):
+        try:
+            return int(float(v))
+        except Exception:
+            return default
+
+    return {
+        "timestamp": latest_row.get("timestamp", ""),
+        "height_cm": to_float(latest_row.get("height_cm", ""), 158.0),
+        "weight_kg": to_float(latest_row.get("weight_kg", ""), 50.0),
+        "body_fat_percent": to_float(latest_row.get("body_fat_percent", ""), 30.0),
+        "target_weight_kg": to_float(latest_row.get("target_weight_kg", ""), 48.0),
+        "activity_level": latest_row.get("activity_level", "ふつう") or "ふつう",
+        "bmi": to_float(latest_row.get("bmi", ""), 0.0),
+        "bmi_label": latest_row.get("bmi_label", "") or "",
+        "standard_weight_kg": to_float(latest_row.get("standard_weight_kg", ""), 0.0),
+        "fat_mass_kg": to_float(latest_row.get("fat_mass_kg", ""), 0.0),
+        "lean_mass_kg": to_float(latest_row.get("lean_mass_kg", ""), 0.0),
+        "bmr_kcal": to_int(latest_row.get("bmr_kcal", ""), 0),
+        "tdee_kcal": to_int(latest_row.get("tdee_kcal", ""), 0),
+        "target_calorie_kcal": to_int(latest_row.get("target_calorie_kcal", ""), 0),
+        "protein_g": to_int(latest_row.get("protein_g", ""), 0),
+        "fat_g": to_int(latest_row.get("fat_g", ""), 0),
+        "carb_g": to_int(latest_row.get("carb_g", ""), 0),
+    }
+
+
+def save_bodycheck_to_session_and_settings(result_dict):
+    st.session_state["latest_bodycheck"] = result_dict
+    st.session_state["bodycheck_height"] = result_dict["height_cm"]
+    st.session_state["bodycheck_weight"] = result_dict["weight_kg"]
+    st.session_state["bodycheck_body_fat"] = result_dict["body_fat_percent"]
+    st.session_state["bodycheck_target_weight"] = result_dict["target_weight_kg"]
+    st.session_state["bodycheck_activity_level"] = result_dict["activity_level"]
+    st.session_state["bodycheck_bmi"] = result_dict["bmi"]
+    st.session_state["bodycheck_bmi_label"] = result_dict["bmi_label"]
+    st.session_state["bodycheck_standard_weight"] = result_dict["standard_weight_kg"]
+    st.session_state["bodycheck_fat_mass"] = result_dict["fat_mass_kg"]
+    st.session_state["bodycheck_lean_mass"] = result_dict["lean_mass_kg"]
+    st.session_state["bodycheck_bmr"] = result_dict["bmr_kcal"]
+    st.session_state["bodycheck_tdee"] = result_dict["tdee_kcal"]
+    st.session_state["bodycheck_target_calorie"] = result_dict["target_calorie_kcal"]
+    st.session_state["bodycheck_protein"] = result_dict["protein_g"]
+    st.session_state["bodycheck_fat"] = result_dict["fat_g"]
+    st.session_state["bodycheck_carb"] = result_dict["carb_g"]
+    st.session_state["bodycheck_updated_at"] = result_dict["timestamp"]
+    save_user_settings()
+
+
+def sync_latest_bodycheck_from_storage():
+    if st.session_state.get("latest_bodycheck"):
+        return
+
+    saved = load_user_settings()
+    if saved and saved.get("bodycheck_updated_at"):
+        st.session_state["latest_bodycheck"] = {
+            "timestamp": saved.get("bodycheck_updated_at", ""),
+            "height_cm": saved.get("bodycheck_height", 158.0),
+            "weight_kg": saved.get("bodycheck_weight", 50.0),
+            "body_fat_percent": saved.get("bodycheck_body_fat", 30.0),
+            "target_weight_kg": saved.get("bodycheck_target_weight", 48.0),
+            "activity_level": saved.get("bodycheck_activity_level", "ふつう"),
+            "bmi": saved.get("bodycheck_bmi", 0.0),
+            "bmi_label": saved.get("bodycheck_bmi_label", ""),
+            "standard_weight_kg": saved.get("bodycheck_standard_weight", 0.0),
+            "fat_mass_kg": saved.get("bodycheck_fat_mass", 0.0),
+            "lean_mass_kg": saved.get("bodycheck_lean_mass", 0.0),
+            "bmr_kcal": saved.get("bodycheck_bmr", 0),
+            "tdee_kcal": saved.get("bodycheck_tdee", 0),
+            "target_calorie_kcal": saved.get("bodycheck_target_calorie", 0),
+            "protein_g": saved.get("bodycheck_protein", 0),
+            "fat_g": saved.get("bodycheck_fat", 0),
+            "carb_g": saved.get("bodycheck_carb", 0),
+        }
+        return
+
+    latest = load_latest_bodycheck()
+    if latest:
+        st.session_state["latest_bodycheck"] = latest
+
+
+def get_activity_factor(level):
+    if level == "低い":
+        return 1.2
+    if level == "高い":
+        return 1.75
+    return 1.5
+
+
+def get_bmi_label(bmi):
+    if bmi < 18.5:
+        return "やせ"
+    if bmi < 25:
+        return "標準"
+    if bmi < 30:
+        return "肥満気味"
+    return "肥満"
+
+
+def get_bodyfat_label(body_fat):
+    if body_fat < 20:
+        return "かなり低め"
+    if body_fat < 28:
+        return "標準〜やや引き締まり"
+    if body_fat < 35:
+        return "やや高め"
+    return "高め"
+
+
+def build_bodycheck_result(height, weight, body_fat, target_weight, activity_level):
+    height_m = height / 100
+    bmi = weight / (height_m ** 2)
+    standard_weight = 22 * (height_m ** 2)
+    fat_mass = weight * (body_fat / 100)
+    lean_mass = weight - fat_mass
+    bmr = 370 + (21.6 * lean_mass)
+    tdee = bmr * get_activity_factor(activity_level)
+
+    diff_from_target = weight - target_weight
+    if diff_from_target > 0:
+        target_calorie = tdee - 300
+    elif diff_from_target < 0:
+        target_calorie = tdee + 200
+    else:
+        target_calorie = tdee
+
+    protein_g = max(50, target_weight * 1.2)
+    fat_g = (target_calorie * 0.25) / 9
+    carb_g = (target_calorie - (protein_g * 4 + fat_g * 9)) / 4
+    carb_g = max(50, carb_g)
+
+    return {
+        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "height_cm": round(height, 1),
+        "weight_kg": round(weight, 1),
+        "body_fat_percent": round(body_fat, 1),
+        "target_weight_kg": round(target_weight, 1),
+        "activity_level": activity_level,
+        "bmi": round(bmi, 1),
+        "bmi_label": get_bmi_label(bmi),
+        "standard_weight_kg": round(standard_weight, 1),
+        "fat_mass_kg": round(fat_mass, 1),
+        "lean_mass_kg": round(lean_mass, 1),
+        "bmr_kcal": round(bmr),
+        "tdee_kcal": round(tdee),
+        "target_calorie_kcal": round(target_calorie),
+        "protein_g": round(protein_g),
+        "fat_g": round(fat_g),
+        "carb_g": round(carb_g),
+    }
+
+
+def show_body_type_check():
+    st.header("📏 体型チェック")
+    st.caption("身長・体重・体脂肪率から、BMIや食事の目安を確認できます。")
+
+    st.markdown(
+        """
+        <style>
+        .bodycheck-box {
+            background: #fffaf7;
+            border: 1px solid #f1ddd2;
+            border-radius: 16px;
+            padding: 16px;
+            margin-top: 12px;
+            margin-bottom: 12px;
+        }
+        .bodycheck-title {
+            font-size: 1.15rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+        .bodycheck-main {
+            font-size: 1.4rem;
+            font-weight: 800;
+            color: #d16b47;
+            margin-bottom: 10px;
+        }
+        .bodycheck-text {
+            line-height: 1.8;
+            font-size: 0.95rem;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    with st.form("body_type_check_form", clear_on_submit=False):
+        height = st.number_input(
+            "身長（cm）",
+            min_value=100.0,
+            max_value=220.0,
+            value=float(st.session_state["bodycheck_height"]),
+            step=0.5,
+            format="%.1f",
+        )
+        weight = st.number_input(
+            "体重（kg）",
+            min_value=20.0,
+            max_value=200.0,
+            value=float(st.session_state["bodycheck_weight"]),
+            step=0.1,
+            format="%.1f",
+        )
+        body_fat = st.number_input(
+            "体脂肪率（%）",
+            min_value=1.0,
+            max_value=70.0,
+            value=float(st.session_state["bodycheck_body_fat"]),
+            step=0.1,
+            format="%.1f",
+        )
+        target_weight = st.number_input(
+            "目標体重（kg）",
+            min_value=20.0,
+            max_value=200.0,
+            value=float(st.session_state["bodycheck_target_weight"]),
+            step=0.1,
+            format="%.1f",
+        )
+        activity_level = st.selectbox(
+            "活動量",
+            ["低い", "ふつう", "高い"],
+            index=["低い", "ふつう", "高い"].index(st.session_state["bodycheck_activity_level"]),
+        )
+        submitted = st.form_submit_button("チェックして保存する", width="stretch")
+
+    if submitted:
+        result = build_bodycheck_result(height, weight, body_fat, target_weight, activity_level)
+        save_bodycheck_result(result)
+        save_bodycheck_to_session_and_settings(result)
+        st.success("体型チェック結果を保存しました。今日のおすすめにも連動します。")
+
+    latest = st.session_state.get("latest_bodycheck")
+    if latest:
+        fat_label = get_bodyfat_label(float(latest.get("body_fat_percent", 0)))
+        diff = float(latest.get("weight_kg", 0)) - float(latest.get("target_weight_kg", 0))
+
+        st.markdown(
+            f"""
+            <div class="bodycheck-box">
+                <div class="bodycheck-title">最新のチェック結果</div>
+                <div class="bodycheck-main">BMI：{latest['bmi']}（{latest['bmi_label']}）</div>
+                <div class="bodycheck-text">
+                    ・体脂肪率：{latest['body_fat_percent']}%（{fat_label}）<br>
+                    ・標準体重の目安：{latest['standard_weight_kg']}kg<br>
+                    ・目標体重まで：{diff:+.1f}kg<br>
+                    ・脂肪量の目安：{latest['fat_mass_kg']}kg<br>
+                    ・除脂肪体重の目安：{latest['lean_mass_kg']}kg<br>
+                    ・更新日時：{latest['timestamp']}
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        c1, c2 = st.columns(2)
+        with c1:
+            st.metric("目標摂取カロリー", f"{latest['target_calorie_kcal']} kcal")
+            st.metric("たんぱく質", f"{latest['protein_g']} g")
+        with c2:
+            st.metric("脂質", f"{latest['fat_g']} g")
+            st.metric("炭水化物", f"{latest['carb_g']} g")
+
+        st.progress(min(max(int((float(latest['bmi']) / 30) * 100), 0), 100))
+        st.caption("BMIの目安バー")
+    else:
+        st.info("まだ体型チェックの保存データがありません。")
 
 
 # -----------------------------
@@ -682,7 +1117,7 @@ def extract_shopping_items(plan_texts):
 
 def sync_settings_on_mode_enter(current_mode: str):
     if st.session_state.get("last_mode") != current_mode:
-        if current_mode in ["ダイエット管理", "献立・運動プラン", "設定"]:
+        if current_mode in ["ダイエット管理", "献立・運動プラン", "設定", "体型チェック"]:
             load_settings_into_session()
         st.session_state["last_mode"] = current_mode
 
@@ -721,6 +1156,24 @@ defaults = {
     "body_goal_scan": "バランス",
     "ideal_body_prompt_result": "",
     "fridge_scan_images": [],
+    "bodycheck_height": 158.0,
+    "bodycheck_weight": 50.0,
+    "bodycheck_body_fat": 30.0,
+    "bodycheck_target_weight": 48.0,
+    "bodycheck_activity_level": "ふつう",
+    "bodycheck_bmi": 0.0,
+    "bodycheck_bmi_label": "",
+    "bodycheck_standard_weight": 0.0,
+    "bodycheck_fat_mass": 0.0,
+    "bodycheck_lean_mass": 0.0,
+    "bodycheck_bmr": 0,
+    "bodycheck_tdee": 0,
+    "bodycheck_target_calorie": 0,
+    "bodycheck_protein": 0,
+    "bodycheck_fat": 0,
+    "bodycheck_carb": 0,
+    "bodycheck_updated_at": "",
+    "latest_bodycheck": None,
 }
 for k, v in defaults.items():
     if k not in st.session_state:
@@ -743,6 +1196,7 @@ if "settings_loaded" not in st.session_state:
         st.session_state["today_plan_date"] = saved_plan_date
         st.session_state["today_plan_text"] = saved_plan_text
 
+    sync_latest_bodycheck_from_storage()
     st.session_state["settings_loaded"] = True
 
 
@@ -759,6 +1213,7 @@ mode = st.sidebar.radio("機能を選んでください", [
     "アーユルヴェーダ",
     "写真で記録",
     "体型チェック",
+    "体型スキャン",
     "家計簿",
     "スケジュール",
     "教育費・人生設計",
@@ -768,6 +1223,19 @@ mode = st.sidebar.radio("機能を選んでください", [
 
 if mode == "今日のおすすめ":
     st.header("👉 今日のおすすめ")
+
+    latest_bodycheck = st.session_state.get("latest_bodycheck")
+    if latest_bodycheck:
+        st.subheader("📏 体型チェック連動")
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            st.metric("たんぱく質", f"{float(latest_bodycheck.get('protein_g', 0)):.0f}g")
+        with c2:
+            st.metric("脂質", f"{float(latest_bodycheck.get('fat_g', 0)):.0f}g")
+        with c3:
+            st.metric("炭水化物", f"{float(latest_bodycheck.get('carb_g', 0)):.0f}g")
+        st.caption(f"目標摂取カロリー: {float(latest_bodycheck.get('target_calorie_kcal', 0)):.0f} kcal")
+        st.divider()
 
     today_str = datetime.today().strftime("%Y-%m-%d")
     col1, col2 = st.columns(2)
@@ -903,6 +1371,13 @@ elif mode == "献立・運動プラン":
     st.selectbox("今日の食事バランス", ["普通", "朝しっかり・昼軽め", "食べすぎた", "あまり食べてない"], key="daily_flow")
     st.checkbox("🏃‍♀️ 今日運動あり（ジム・ヨガなど）", key="workout_today")
     st.selectbox("目的", ["バランス", "脚やせ", "脂肪燃焼", "むくみ改善"], key="body_goal")
+
+    latest_bodycheck = st.session_state.get("latest_bodycheck")
+    if latest_bodycheck:
+        st.info(
+            f"体型チェック連動: 目標摂取カロリー {latest_bodycheck.get('target_calorie_kcal', 0)} kcal / "
+            f"P {latest_bodycheck.get('protein_g', 0)}g / F {latest_bodycheck.get('fat_g', 0)}g / C {latest_bodycheck.get('carb_g', 0)}g"
+        )
 
     if st.session_state["dosha_type"]:
         st.info(f"🌿 現在の体質設定：{st.session_state['dosha_type']}")
@@ -1206,7 +1681,11 @@ elif mode == "写真で記録":
                 st.warning("反映できる数値が見つかりませんでした。")
 
 elif mode == "体型チェック":
-    st.header("🪞 体型チェック")
+    sync_settings_on_mode_enter(mode)
+    show_body_type_check()
+
+elif mode == "体型スキャン":
+    st.header("🪞 体型スキャン")
     st.caption("顔がはっきり写らない距離・角度での撮影がおすすめです。")
 
     st.selectbox(
@@ -1388,8 +1867,17 @@ elif mode == "設定":
     st.selectbox("目的初期値", ["バランス", "脚やせ", "脂肪燃焼", "むくみ改善"], key="body_goal")
 
     st.divider()
+    st.subheader("📏 体型チェック初期値")
+    st.number_input("体型チェック用 身長（cm）", min_value=100.0, max_value=220.0, step=0.5, format="%.1f", key="bodycheck_height")
+    st.number_input("体型チェック用 体重（kg）", min_value=20.0, max_value=200.0, step=0.1, format="%.1f", key="bodycheck_weight")
+    st.number_input("体型チェック用 体脂肪率（%）", min_value=1.0, max_value=70.0, step=0.1, format="%.1f", key="bodycheck_body_fat")
+    st.number_input("体型チェック用 目標体重（kg）", min_value=20.0, max_value=200.0, step=0.1, format="%.1f", key="bodycheck_target_weight")
+    st.selectbox("体型チェック用 活動量", ["低い", "ふつう", "高い"], key="bodycheck_activity_level")
+
+    st.divider()
     st.subheader("📷 写真機能について")
-    st.caption("写真で記録メニューでは、冷蔵庫写真・体重計写真・全身写真を使った記録補助を行います。")
+    st.caption("写真で記録メニューでは、冷蔵庫写真・体重計写真を使った記録補助を行います。")
+    st.caption("体型スキャンでは、全身写真から見え方コメントを作れます。")
     st.caption("スマホではスキャン、PCではアップロードの使い方がおすすめです。")
 
     col1, col2 = st.columns(2)
