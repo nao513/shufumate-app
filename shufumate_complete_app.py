@@ -798,13 +798,18 @@ def create_plan_for_date(
 # -----------------------------
 
 def render_common_body_inputs():
+    gender = st.selectbox(
+        "性別（任意）",
+        ["未選択", "女性", "男性", "その他", "回答しない"],
+        key="common_gender"
+    )
     age = st.number_input("年齢", min_value=20, max_value=100, step=1, key="common_age")
     height_cm = st.number_input("身長（cm）", min_value=145.0, max_value=200.0, step=0.5, format="%.1f", key="common_height")
-    weight = st.number_input("現在の体重（kg）", min_value=30.0, max_value=200.0, step=0.1, format="%.1f", key="common_weight")
-    target_weight = st.number_input("目標体重（kg）", min_value=30.0, max_value=150.0, step=0.1, format="%.1f", key="common_target_weight")
+    weight = st.number_input("現在の体重（kg）", min_value=39.0, max_value=200.0, step=0.1, format="%.1f", key="common_weight")
+    target_weight = st.number_input("目標体重（kg）", min_value=39.0, max_value=150.0, step=0.1, format="%.1f", key="common_target_weight")
     body_fat = st.number_input("体脂肪率（%）", min_value=5.0, max_value=60.0, step=0.1, format="%.1f", key="common_body_fat")
     target_body_fat = st.number_input("目標体脂肪率（%）", min_value=5.0, max_value=60.0, step=0.1, format="%.1f", key="common_target_body_fat")
-    return age, height_cm, weight, target_weight, body_fat, target_body_fat
+    return gender, age, height_cm, weight, target_weight, body_fat, target_body_fat
     
 def extract_shopping_items(plan_texts):
     
