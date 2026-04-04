@@ -548,7 +548,6 @@ def generate_ideal_body_image(client, ideal_prompt_text: str, size: str = "1024x
 # -----------------------------
 # Plan generation
 # -----------------------------
-
 def diagnose_dosha_advanced(answers: dict):
     scores = {"ヴァータ": 0, "ピッタ": 0, "カパ": 0}
 
