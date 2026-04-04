@@ -1504,7 +1504,7 @@ elif mode == "スケジュール":
         date = st.date_input("予定日", datetime.today())
         event_type = st.selectbox("種類", ["運動", "買い物", "献立準備", "学校", "通院", "その他"])
         event = st.text_input("予定内容")
-        s_submitted = st.form_submit_button("追加する")import base64
+        s_submitted = st.form_submit_button("追加する")
 import io
 import re
 from datetime import datetime, timedelta
