@@ -836,7 +836,96 @@ def create_plan_for_date(
     )
     return res.output_text
 
+def ask_shufumate_advice(
+    client,
+    question,
+    gender,
+    age,
+    height_cm,
+    weight,
+    body_fat,
+    target_weight,
+    target_body_fat,
+    dosha_type,
+    fridge_items,
+    daily_flow,
+    workout_today,
+    body_goal,
+    lunch_style,
+    category,
+    area="",
+    site_hint=""
+):
+    area_rule = ""
+    if category == "外食相談" and area.strip():
+        area_rule = f"""
+【地域情報】
+- 相談エリア: {area}
 
+【外食相談ルール】
+- 実在店を断定しすぎず、「こういう店・こういう選び方がよい」で答える
+- エリアに合いそうな店のジャンルや選び方を優先する
+- 運動前後なら食べ方のポイントも入れる
+"""
+
+    site_rule = ""
+    if site_hint.strip():
+        site_rule = f"""
+【参考導線】
+- 必要に応じて、ユーザーのおすすめ記事導線として次のサイト活用も提案してよい
+- {site_hint}
+"""
+
+    prompt = f"""
+あなたは、主婦向けのやさしい生活・食事・運動アドバイザーです。
+質問者に寄り添って、日本語でわかりやすく答えてください。
+
+【相談カテゴリ】
+{category}
+
+【質問】
+{question}
+
+【利用者情報】
+- 性別: {gender}
+- 年齢: {age}
+- 身長: {height_cm} cm
+- 体重: {weight} kg
+- 体脂肪率: {body_fat} %
+- 目標体重: {target_weight} kg
+- 目標体脂肪率: {target_body_fat} %
+- 体質傾向: {dosha_type if dosha_type else "未設定"}
+- 冷蔵庫の食材: {fridge_items if fridge_items else "未入力"}
+- 今日の食事バランス: {daily_flow}
+- 今日の運動: {"あり" if workout_today else "なし"}
+- 目的: {body_goal}
+- 平日昼食スタイル: {lunch_style}
+
+{area_rule}
+{site_rule}
+
+【回答ルール】
+- 主婦がすぐ行動できる答えにする
+- 厳しすぎず、やさしく現実的に答える
+- 食事相談は、食べない方向だけでなく「どう調整するか」を含める
+- 運動前後の相談は、タイミングとおすすめ食品を具体的に入れる
+- 外食相談は、「こういう店・こういう選び方がよい」とわかる形にする
+- 店名を無理に断定しない
+- 医療判断はしない
+- 断定表現を避け、「〜の可能性があります」「〜がおすすめです」と表現する
+- 3〜6行程度で簡潔に
+- 最後に「ひとことアドバイス」を1つ入れる
+
+【出力形式】
+■回答:
+■ひとことアドバイス:
+"""
+    response = client.responses.create(
+        model="gpt-4.1-mini",
+        input=prompt
+    )
+    return response.output_text
+    
 # -----------------------------
 # Helpers
 # -----------------------------
@@ -952,6 +1041,10 @@ defaults = {
     "ideal_body_image_bytes": None,
     "fridge_scan_images": [],
     "meal_eval_result": "",
+    "quick_advice_result": "",
+    "quick_advice_question": "",
+    "advice_area": "",
+    "site_hint": "syufuosusume.com",
 }
 for k, v in defaults.items():
     if k not in st.session_state:
@@ -982,12 +1075,14 @@ if "settings_loaded" not in st.session_state:
 # -----------------------------
 st.title("🍀 ShufuMate｜主婦の味方アプリ")
 st.caption("ダイエット・家計・予定・教育・人生設計・お得情報を総合管理")
+st.caption("※現在はお試し版です。生活の参考としてご利用ください。医療・診断・緊急判断には使用しないでください。")
 
 mode = st.sidebar.radio("機能を選んでください", [
     "今日のおすすめ",
     "ダイエット管理",
     "献立・運動プラン",
     "食事写真評価",
+    "なんでも相談",
     "アーユルヴェーダ",
     "写真で記録",
     "体型チェック",
@@ -1287,6 +1382,86 @@ elif mode == "食事写真評価":
             file_name="meal_day_evaluation.txt",
             mime="text/plain"
         )
+
+elif mode == "なんでも相談":
+    st.header("💬 なんでも相談")
+    st.caption("食事・運動・外食・今日の困りごとを気軽に相談できます。")
+
+    st.warning(
+        "【お試し版の注意】\n"
+        "この機能は一般的な生活アドバイス用です。医療診断・治療判断はできません。\n"
+        "体調不良が強い場合、持病がある場合、妊娠中、服薬中、食物アレルギーがある場合は、医師・薬剤師・管理栄養士などの専門家へ相談してください。\n"
+        "外食相談は店名を断定せず、選び方の参考として使ってください。営業時間・提供内容は実際のお店で確認してください。"
+    )
+
+    gender, age, height_cm, weight, target_weight, body_fat, target_body_fat = render_common_body_inputs()
+
+    category = st.selectbox(
+        "相談カテゴリ",
+        ["食事相談", "運動相談", "外食相談", "体調・気分相談", "その他"],
+        key="advice_category"
+    )
+
+    if category == "外食相談":
+        st.text_input(
+            "相談エリア",
+            placeholder="例：長命ヶ丘、吉成、仙台駅周辺",
+            key="advice_area"
+        )
+
+    st.text_area(
+        "相談内容",
+        placeholder="例：おにぎりを1個にした方がいい？\n例：運動前に何を食べたらいい？\n例：運動後、近所でどういう店を選べばいい？",
+        key="quick_advice_question",
+        height=140
+    )
+
+    if st.button("🪄 相談してみる"):
+        question = st.session_state["quick_advice_question"].strip()
+        area = st.session_state.get("advice_area", "").strip()
+
+        if not question:
+            st.warning("相談内容を入力してください。")
+        else:
+            client = get_openai_client()
+            with st.spinner("相談内容を整理しています..."):
+                result = ask_shufumate_advice(
+                    client=client,
+                    question=question,
+                    gender=gender,
+                    age=age,
+                    height_cm=height_cm,
+                    weight=weight,
+                    body_fat=body_fat,
+                    target_weight=target_weight,
+                    target_body_fat=target_body_fat,
+                    dosha_type=st.session_state["dosha_type"],
+                    fridge_items=st.session_state["fridge_items"],
+                    daily_flow=st.session_state["daily_flow"],
+                    workout_today=st.session_state["workout_today"],
+                    body_goal=st.session_state["body_goal"],
+                    lunch_style=st.session_state["lunch_style"],
+                    category=category,
+                    area=area,
+                    site_hint=st.session_state.get("site_hint", "syufuosusume.com")
+                )
+            st.session_state["quick_advice_result"] = result
+            st.success("回答を作成しました。")
+
+    st.text_area(
+        "相談結果",
+        key="quick_advice_result",
+        height=220
+    )
+
+    st.info("※回答は参考用です。最終判断は、その日の体調・予定・空腹具合に合わせて無理なく調整してください。")
+
+    st.subheader("💡 相談例")
+    st.write("・おにぎりを1個にした方がいい？")
+    st.write("・運動前に何を食べたらいい？")
+    st.write("・運動後、長命ヶ丘でどういう店を選べばいい？")
+    st.write("・夕飯前にお腹が空きすぎた時どうする？")
+
 
 elif mode == "アーユルヴェーダ":
     st.header("🌿 アーユルヴェーダ体質チェック")
