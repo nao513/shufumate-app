@@ -13,7 +13,6 @@ from google.oauth2.service_account import Credentials
 
 st.set_page_config(page_title="ShufuMate｜主婦の味方アプリ", layout="wide")
 
-USER_ID = "nao513"
 
 # -----------------------------
 # Google Sheets
@@ -88,6 +87,7 @@ def ensure_headers():
 def load_user_settings():
     ws = get_sheet("Settings")
     values = ws.get_all_values()
+    current_user_id = get_current_user_id()
 
     if len(values) < 2:
         return None
@@ -102,7 +102,7 @@ def load_user_settings():
         row = row + [""] * (len(header) - len(row))
         row_dict = dict(zip(header, row))
 
-        if row_dict.get("user_id") == USER_ID:
+        if row_dict.get("user_id") == current_user_id:
             return {
                 "common_gender": row_dict.get("gender", "未選択") or "未選択",
                 "common_age": int(float(row_dict["age"])),
@@ -124,13 +124,13 @@ def load_user_settings():
             }
     return None
 
-
 def save_user_settings():
     ws = get_sheet("Settings")
     values = ws.get_all_values()
+    current_user_id = get_current_user_id()
 
     row_values = [
-        USER_ID,
+        current_user_id,
         st.session_state["common_gender"],
         st.session_state["common_age"],
         st.session_state["common_height"],
@@ -152,7 +152,7 @@ def save_user_settings():
 
     row_index = None
     for i, row in enumerate(values[1:], start=2):
-        if row and row[0] == USER_ID:
+        if row and row[0] == current_user_id:
             row_index = i
             break
 
@@ -160,7 +160,7 @@ def save_user_settings():
         ws.update(f"A{row_index}:R{row_index}", [row_values])
     else:
         ws.append_row(row_values)
-
+        
 
 def reset_user_settings():
     st.session_state["common_gender"] = "未選択"
@@ -192,6 +192,7 @@ def load_settings_into_session():
 def load_diet_logs():
     ws = get_sheet("DietLogs")
     values = ws.get_all_values()
+    current_user_id = get_current_user_id()
 
     if len(values) < 2:
         return []
@@ -205,7 +206,7 @@ def load_diet_logs():
             continue
 
         row_dict = dict(zip(header, row))
-        if row_dict.get("user_id") == USER_ID:
+        if row_dict.get("user_id") == current_user_id:
             logs.append({
                 "日付": row_dict["date"],
                 "性別": row_dict.get("gender", "未選択"),
@@ -220,14 +221,15 @@ def load_diet_logs():
             })
 
     return logs
-
+    
 
 def upsert_diet_log(log_dict):
     ws = get_sheet("DietLogs")
     values = ws.get_all_values()
+    current_user_id = get_current_user_id()
 
     row_values = [
-        USER_ID,
+        current_user_id,
         log_dict["日付"],
         log_dict["性別"],
         log_dict["年齢"],
@@ -242,7 +244,7 @@ def upsert_diet_log(log_dict):
 
     row_index = None
     for i, row in enumerate(values[1:], start=2):
-        if len(row) >= 2 and row[0] == USER_ID and row[1] == log_dict["日付"]:
+        if len(row) >= 2 and row[0] == current_user_id and row[1] == log_dict["日付"]:
             row_index = i
             break
 
@@ -250,11 +252,12 @@ def upsert_diet_log(log_dict):
         ws.update(f"A{row_index}:K{row_index}", [row_values])
     else:
         ws.append_row(row_values)
-
+        
 
 def load_today_plan():
     ws = get_sheet("TodayPlans")
     values = ws.get_all_values()
+    current_user_id = get_current_user_id()
 
     if len(values) < 2:
         return None, None
@@ -270,24 +273,25 @@ def load_today_plan():
             continue
 
         row_dict = dict(zip(header, row))
-        if row_dict.get("user_id") == USER_ID:
+        if row_dict.get("user_id") == current_user_id:
             row_date = row_dict.get("date", "")
             if latest_date is None or row_date >= latest_date:
                 latest_date = row_date
                 latest_text = row_dict.get("plan_text", "")
 
     return latest_date, latest_text
-
+    
 
 def upsert_today_plan(date_str, plan_text):
     ws = get_sheet("TodayPlans")
     values = ws.get_all_values()
+    current_user_id = get_current_user_id()
 
-    row_values = [USER_ID, date_str, plan_text]
+    row_values = [current_user_id, date_str, plan_text]
 
     row_index = None
     for i, row in enumerate(values[1:], start=2):
-        if len(row) >= 2 and row[0] == USER_ID and row[1] == date_str:
+        if len(row) >= 2 and row[0] == current_user_id and row[1] == date_str:
             row_index = i
             break
 
@@ -925,6 +929,12 @@ def ask_shufumate_advice(
         input=prompt
     )
     return response.output_text
+
+def get_current_user_id():
+    name = st.session_state.get("user_name_input", "").strip()
+    if name:
+        return name
+    return "guest"
     
 # -----------------------------
 # Helpers
@@ -1007,6 +1017,7 @@ def sync_settings_on_mode_enter(current_mode: str):
 # Session defaults
 # -----------------------------
 defaults = {
+    "user_name_input": "",
     "common_gender": "未選択",
     "common_age": 40,
     "common_height": 160.0,
@@ -1075,6 +1086,8 @@ if "settings_loaded" not in st.session_state:
 # -----------------------------
 st.title("🍀 ShufuMate｜主婦の味方アプリ")
 st.caption("ダイエット・家計・予定・教育・人生設計・お得情報を総合管理")
+st.text_input("お名前（ニックネーム）", key="user_name_input")
+st.caption("※家族や身近な人と試す時は、ニックネームを変えると記録が分かれます。")
 st.caption("※現在はお試し版です。食事・運動・生活の参考としてご利用ください。体調不良が強い場合や医療判断が必要な場合は、専門家へご相談ください。")
 
 mode = st.sidebar.radio("機能を選んでください", [
