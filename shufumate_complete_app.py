@@ -2067,19 +2067,9 @@ elif mode == "スケジュール":
             hide_index=True
         )
 
-        chart_df = timeline_df.set_index("項目")[["時刻"]]
-        timeline_df = build_daily_timeline_df(recommended)
+        render_daily_timeline_html(recommended)
 
-if not timeline_df.empty:
-    st.dataframe(
-        timeline_df[["項目", "時間"]],
-        use_container_width=True,
-        hide_index=True
-    )
-
-    render_daily_timeline_html(recommended)
-
-st.caption("※0〜24時の中で、起床・食事・入浴・就寝の目安時間を1日の流れとして見える化しています。")
+    st.caption("※0〜24時の中で、起床・食事・入浴・就寝の目安時間を1日の流れとして見える化しています。")
 
     st.divider()
     st.subheader("➕ 選択日の予定を追加")
