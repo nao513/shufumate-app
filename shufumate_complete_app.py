@@ -2057,7 +2057,7 @@ elif mode == "スケジュール":
 
     st.caption("※目安として、睡眠7時間以上・就寝1時間前までの入浴を意識します。")
 
-        st.subheader("🕒 24時間タイムライン")
+    st.subheader("🕒 24時間タイムライン")
 
     timeline_df = build_daily_timeline_df(recommended)
 
@@ -2068,10 +2068,9 @@ elif mode == "スケジュール":
             hide_index=True
         )
 
-        render_daily_timeline_html(recommended)
+    render_daily_timeline_html(recommended)
 
     st.caption("※0〜24時の中で、起床・食事・入浴・就寝の目安時間を1日の流れとして見える化しています。")
-
     st.divider()
     st.subheader("➕ 選択日の予定を追加")
     st.write(f"選択中の日付: **{selected_date}**")
