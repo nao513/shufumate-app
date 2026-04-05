@@ -55,14 +55,14 @@ def ensure_headers():
     plans_ws = get_or_create_worksheet(sh, "TodayPlans")
 
     settings_header = [
-        "user_id", "age", "height_cm", "start_weight",
+        "user_id", "gender", "age", "height_cm", "start_weight",
         "target_weight", "start_body_fat", "target_body_fat",
         "meal_style", "ease_level", "staple_preference",
-        "fridge_items", "plan_type",
+        "fridge_items", "plan_type", "lunch_style",
         "real_mode", "daily_flow", "workout_today", "body_goal"
     ]
     diet_header = [
-        "user_id", "date", "age", "height_cm", "weight",
+        "user_id", "date", "gender", "age", "height_cm", "weight",
         "target_weight", "body_fat", "target_body_fat",
         "bmi", "goal_calories"
     ]
@@ -83,7 +83,7 @@ def ensure_headers():
     if not plan_values or plan_values[0] != plan_header:
         plans_ws.clear()
         plans_ws.append_row(plan_header)
-        
+
 
 def load_user_settings():
     ws = get_sheet("Settings")
@@ -104,6 +104,7 @@ def load_user_settings():
 
         if row_dict.get("user_id") == USER_ID:
             return {
+                "common_gender": row_dict.get("gender", "未選択") or "未選択",
                 "common_age": int(float(row_dict["age"])),
                 "common_height": float(row_dict["height_cm"]),
                 "common_weight": float(row_dict["start_weight"]),
@@ -115,6 +116,7 @@ def load_user_settings():
                 "staple_preference": row_dict.get("staple_preference", "ごはん派") or "ごはん派",
                 "fridge_items": row_dict.get("fridge_items", "") or "",
                 "plan_type": row_dict.get("plan_type", "通常") or "通常",
+                "lunch_style": row_dict.get("lunch_style", "指定なし") or "指定なし",
                 "real_mode": str(row_dict.get("real_mode", "True")).lower() == "true",
                 "daily_flow": row_dict.get("daily_flow", "普通") or "普通",
                 "workout_today": str(row_dict.get("workout_today", "False")).lower() == "true",
@@ -129,6 +131,7 @@ def save_user_settings():
 
     row_values = [
         USER_ID,
+        st.session_state["common_gender"],
         st.session_state["common_age"],
         st.session_state["common_height"],
         st.session_state["common_weight"],
@@ -140,6 +143,7 @@ def save_user_settings():
         st.session_state["staple_preference"],
         st.session_state["fridge_items"],
         st.session_state["plan_type"],
+        st.session_state["lunch_style"],
         str(st.session_state["real_mode"]),
         st.session_state["daily_flow"],
         str(st.session_state["workout_today"]),
@@ -153,7 +157,7 @@ def save_user_settings():
             break
 
     if row_index:
-        ws.update(f"A{row_index}:P{row_index}", [row_values])
+        ws.update(f"A{row_index}:R{row_index}", [row_values])
     else:
         ws.append_row(row_values)
 
@@ -171,6 +175,7 @@ def reset_user_settings():
     st.session_state["staple_preference"] = "ごはん派"
     st.session_state["fridge_items"] = ""
     st.session_state["plan_type"] = "通常"
+    st.session_state["lunch_style"] = "指定なし"
     st.session_state["real_mode"] = True
     st.session_state["daily_flow"] = "普通"
     st.session_state["workout_today"] = False
@@ -203,6 +208,7 @@ def load_diet_logs():
         if row_dict.get("user_id") == USER_ID:
             logs.append({
                 "日付": row_dict["date"],
+                "性別": row_dict.get("gender", "未選択"),
                 "年齢": float(row_dict["age"]),
                 "身長(cm)": float(row_dict["height_cm"]),
                 "体重(kg)": float(row_dict["weight"]),
@@ -223,6 +229,7 @@ def upsert_diet_log(log_dict):
     row_values = [
         USER_ID,
         log_dict["日付"],
+        log_dict["性別"],
         log_dict["年齢"],
         log_dict["身長(cm)"],
         log_dict["体重(kg)"],
@@ -240,7 +247,7 @@ def upsert_diet_log(log_dict):
             break
 
     if row_index:
-        ws.update(f"A{row_index}:J{row_index}", [row_values])
+        ws.update(f"A{row_index}:K{row_index}", [row_values])
     else:
         ws.append_row(row_values)
 
@@ -391,6 +398,7 @@ BMI: xx.x
     )
     return response.output_text
 
+
 def evaluate_meal_day_from_images(client, breakfast_img, lunch_img, dinner_img):
     content = [
         {
@@ -420,30 +428,12 @@ def evaluate_meal_day_from_images(client, breakfast_img, lunch_img, dinner_img):
 ■ひとこと:
 """
         },
-        {
-            "type": "input_text",
-            "text": "1枚目が朝食です。"
-        },
-        {
-            "type": "input_image",
-            "image_url": image_file_to_data_url(breakfast_img)
-        },
-        {
-            "type": "input_text",
-            "text": "2枚目が昼食です。"
-        },
-        {
-            "type": "input_image",
-            "image_url": image_file_to_data_url(lunch_img)
-        },
-        {
-            "type": "input_text",
-            "text": "3枚目が夕食です。"
-        },
-        {
-            "type": "input_image",
-            "image_url": image_file_to_data_url(dinner_img)
-        }
+        {"type": "input_text", "text": "1枚目が朝食です。"},
+        {"type": "input_image", "image_url": image_file_to_data_url(breakfast_img)},
+        {"type": "input_text", "text": "2枚目が昼食です。"},
+        {"type": "input_image", "image_url": image_file_to_data_url(lunch_img)},
+        {"type": "input_text", "text": "3枚目が夕食です。"},
+        {"type": "input_image", "image_url": image_file_to_data_url(dinner_img)},
     ]
 
     response = client.responses.create(
@@ -451,6 +441,7 @@ def evaluate_meal_day_from_images(client, breakfast_img, lunch_img, dinner_img):
         input=[{"role": "user", "content": content}]
     )
     return response.output_text
+
 
 def generate_body_balance_comment(client, resized_image, body_goal="バランス"):
     response = client.responses.create(
@@ -547,9 +538,10 @@ def generate_ideal_body_image(client, ideal_prompt_text: str, size: str = "1024x
 
     return b64_to_bytes(image_b64)
 
+
 # -----------------------------
-# Plan generation
-# -----------------------------　
+# Ayurveda / state check
+# -----------------------------
 def diagnose_dosha_advanced(answers: dict):
     scores = {"ヴァータ": 0, "ピッタ": 0, "カパ": 0}
 
@@ -612,6 +604,7 @@ def diagnose_dosha_advanced(answers: dict):
 
     return result_type, scores
 
+
 def get_ayurveda_foods(dosha_type):
     foods_map = {
         "ヴァータ": ["乳製品", "牛乳", "肉", "魚", "さつまいも", "オレンジ"],
@@ -662,6 +655,47 @@ def get_ayurveda_advice_advanced(dosha_type):
     return base.get(dosha_type, {})
 
 
+def get_current_state_advice(
+    sweet_craving,
+    salty_craving,
+    fatigue,
+    irritable,
+    sleepy_after_meal,
+    swelling,
+    coldness,
+    constipation_now,
+    dry_skin
+):
+    results = []
+
+    if sweet_craving:
+        results.append("甘いものが無性に食べたい時は、疲れ・ストレス・エネルギー不足、たんぱく質不足気味の可能性があります。まずは食事を抜かず、たんぱく質と温かい汁物を意識してみましょう。")
+    if salty_craving:
+        results.append("しょっぱいものが欲しい時は、疲労感やミネラル不足、水分バランスの乱れが関係していることがあります。")
+    if fatigue:
+        results.append("だるさが強い時は、カパの重さ、睡眠不足、栄養不足、動かなさすぎが重なっていることがあります。")
+    if irritable:
+        results.append("イライラしやすい時は、ピッタの乱れや空腹時間の長さが関係していることがあります。")
+    if sleepy_after_meal:
+        results.append("食後すぐ眠い時は、糖質に偏った食事や食べすぎ、血糖値変動の可能性があります。")
+    if swelling:
+        results.append("むくみやすい時は、水分代謝の低下やカパ寄りの乱れ、塩分過多が関係していることがあります。")
+    if coldness:
+        results.append("冷えやすい時は、ヴァータの乱れやエネルギー不足が関係していることがあります。")
+    if constipation_now:
+        results.append("便秘ぎみの時は、ヴァータの乱れ、水分不足、冷えが関係していることがあります。")
+    if dry_skin:
+        results.append("乾燥しやすい時は、ヴァータ寄りの乱れや水分・油分不足が関係していることがあります。")
+
+    if not results:
+        return "大きな乱れチェックは入っていません。今は比較的安定している可能性があります。"
+
+    return "\n\n".join(results)
+
+
+# -----------------------------
+# Plan generation
+# -----------------------------
 def create_plan_for_date(
     client,
     date_str,
@@ -678,6 +712,7 @@ def create_plan_for_date(
     staple_preference="ごはん派",
     fridge_items="",
     plan_type="通常",
+    lunch_style="指定なし",
     real_mode=False,
     daily_flow="普通",
     workout_today=False,
@@ -711,6 +746,28 @@ def create_plan_for_date(
 ・リアルに買いやすい内容にしてください
 """
 
+    lunch_style_rule = ""
+    if lunch_style == "お弁当":
+        lunch_style_rule = """
+昼食はお弁当向けにしてください。
+・冷めても食べやすい
+・汁気が少ない
+・詰めやすい
+・前日の夜や朝に準備しやすい
+"""
+    elif lunch_style == "コンビニ":
+        lunch_style_rule = """
+昼食はコンビニで買いやすい内容にしてください。
+・おにぎり、味噌汁、サラダ、サラダチキン、ゆで卵など現実的な組み合わせ
+"""
+    elif lunch_style == "おすすめ定番":
+        lunch_style_rule = """
+昼食はユーザーのおすすめ定番を優先してください。
+・タンパク質おにぎり
+・味噌玉の味噌汁
+・必要に応じて、ゆで卵、サラダ、豆腐、サラダチキンなどを組み合わせる
+"""
+
     real_mode_rule = ""
     if real_mode:
         real_mode_rule = f"""
@@ -736,8 +793,6 @@ def create_plan_for_date(
 ④今日のベスト献立
 ⑤今日1日の最終評価
 ⑥ひとことで
-
-トーンは、やさしい主婦アドバイザー風にしてください。
 """
 
     prompt = f"""
@@ -756,6 +811,7 @@ def create_plan_for_date(
 - 調理レベル: {ease_level}
 - 主食の好み: {staple_preference}
 - プランタイプ: {plan_type}
+- 平日昼食スタイル: {lunch_style}
 
 【重要ルール】
 - 日本の一般家庭で作りやすいメニューにしてください
@@ -763,28 +819,14 @@ def create_plan_for_date(
 - 主婦向けに、手軽・簡単・現実的な献立にしてください
 - 難しい横文字料理や、おしゃれすぎるカフェ料理は避けてください
 - 朝食は特に手軽にしてください
-- できれば節約・時短も意識してください
+- 節約・時短を意識してください
 - たんぱく質をしっかり取れるようにしてください
 - おにぎり、味噌汁、納豆、豆腐、卵、鶏むね肉、鮭、さば等も積極的に使ってよいです
 - {dosha_rule}
 - {fridge_rule}
 - {plan_type_rule}
+- {lunch_style_rule}
 - {real_mode_rule}
-
-【食事スタイルのルール】
-- 和食中心: 味噌汁、おにぎり、焼き魚、納豆、卵、豆腐、煮物などを優先
-- バランス: 和食中心だが洋風も少し可
-- おしゃれカフェ風: 少しおしゃれでもよいが、家庭で作りやすい範囲
-
-【調理レベルのルール】
-- 超かんたん: 10〜15分程度、工程少なめ
-- 普通: 20分程度
-- しっかり: 少し手間をかけてもよい
-
-【主食の好み】
-- ごはん派なら、ごはん・おにぎり中心
-- パン派なら、パン・トースト中心
-- どちらもなら、バランスよく
 
 {date_str}の1日の健康的なダイエットプランを作ってください。
 """
@@ -798,7 +840,6 @@ def create_plan_for_date(
 # -----------------------------
 # Helpers
 # -----------------------------
-
 def render_common_body_inputs():
     gender = st.selectbox(
         "性別（任意）",
@@ -812,9 +853,9 @@ def render_common_body_inputs():
     body_fat = st.number_input("体脂肪率（%）", min_value=5.0, max_value=60.0, step=0.1, format="%.1f", key="common_body_fat")
     target_body_fat = st.number_input("目標体脂肪率（%）", min_value=5.0, max_value=60.0, step=0.1, format="%.1f", key="common_target_body_fat")
     return gender, age, height_cm, weight, target_weight, body_fat, target_body_fat
-    
+
+
 def extract_shopping_items(plan_texts):
-    
     def categorize_item(item: str) -> str:
         meat_egg = ["鶏", "豚", "牛", "ひき肉", "ささみ", "むね肉", "もも肉", "ベーコン", "ハム", "卵"]
         seafood = ["鮭", "さば", "サバ", "まぐろ", "ツナ", "ぶり", "たら", "エビ", "いか", "あさり", "魚"]
@@ -877,17 +918,19 @@ def sync_settings_on_mode_enter(current_mode: str):
 # Session defaults
 # -----------------------------
 defaults = {
+    "common_gender": "未選択",
     "common_age": 40,
     "common_height": 160.0,
-    "common_weight": 40.0,
-    "common_target_weight": 45.0,
-    "common_body_fat": 15.0,
-    "common_target_body_fat": 22.0,
+    "common_weight": 50.0,
+    "common_target_weight": 48.0,
+    "common_body_fat": 28.0,
+    "common_target_body_fat": 24.0,
     "meal_style": "和食中心",
     "ease_level": "超かんたん",
     "staple_preference": "ごはん派",
     "fridge_items": "",
     "plan_type": "通常",
+    "lunch_style": "指定なし",
     "real_mode": True,
     "daily_flow": "普通",
     "workout_today": False,
@@ -906,9 +949,9 @@ defaults = {
     "body_scan_comment": "",
     "body_goal_scan": "バランス",
     "ideal_body_prompt_result": "",
-"ideal_body_image_bytes": None,
-"fridge_scan_images": [],
-"meal_eval_result": "",
+    "ideal_body_image_bytes": None,
+    "fridge_scan_images": [],
+    "meal_eval_result": "",
 }
 for k, v in defaults.items():
     if k not in st.session_state:
@@ -992,12 +1035,12 @@ if mode == "今日のおすすめ":
     st.divider()
     st.subheader("🌿 今日の体質アドバイス")
     if st.session_state["dosha_type"]:
-        advice = get_ayurveda_advice(st.session_state["dosha_type"])
+        advice = get_ayurveda_advice_advanced(st.session_state["dosha_type"])
         st.write(f"体質タイプ：**{st.session_state['dosha_type']}**")
-        st.write(f"特徴：{advice['特徴']}")
-        st.write(f"食事：{advice['食事']}")
-        st.write(f"過ごし方：{advice['生活']}")
-        st.write(f"運動：{advice['運動']}")
+        st.write(f"特徴：{advice.get('特徴', '')}")
+        st.write(f"食事：{advice.get('食事', '')}")
+        st.write(f"過ごし方：{advice.get('生活', '')}")
+        st.write(f"運動：{advice.get('運動', '')}")
     else:
         st.info("まだアーユルヴェーダ体質チェックが未実施です。")
 
@@ -1014,6 +1057,8 @@ elif mode == "ダイエット管理":
     st.header("📝 ダイエット管理")
 
     gender, age, height_cm, weight, target_weight, body_fat, target_body_fat = render_common_body_inputs()
+    weeks = st.slider("目標達成までの期間（週）", 1, 52, 4)
+
     bmi = weight / ((height_cm / 100) ** 2)
     bmr = weight * 22 * 1.5
     cal_deficit = ((weight - target_weight) * 7200) / (weeks * 7)
@@ -1029,6 +1074,7 @@ elif mode == "ダイエット管理":
     if st.button("📌 今日のデータを記録"):
         log = {
             "日付": datetime.today().strftime("%Y-%m-%d"),
+            "性別": gender,
             "年齢": age,
             "身長(cm)": height_cm,
             "体重(kg)": weight,
@@ -1074,9 +1120,9 @@ elif mode == "献立・運動プラン":
     st.session_state["diet_logs"] = load_diet_logs()
     st.header("🥗献立＆🏃運動プラン")
 
-   gender, age, height_cm, weight, target_weight, body_fat, target_body_fat = render_common_body_inputs()
+    gender, age, height_cm, weight, target_weight, body_fat, target_body_fat = render_common_body_inputs()
 
-st.radio("食事スタイル", ["和食中心", "バランス", "おしゃれカフェ風"], horizontal=True, key="meal_style")
+    st.radio("食事スタイル", ["和食中心", "バランス", "おしゃれカフェ風"], horizontal=True, key="meal_style")
     st.radio("調理レベル", ["超かんたん", "普通", "しっかり"], horizontal=True, key="ease_level")
     st.radio("主食の好み", ["ごはん派", "パン派", "どちらも"], horizontal=True, key="staple_preference")
     st.text_area(
@@ -1085,6 +1131,11 @@ st.radio("食事スタイル", ["和食中心", "バランス", "おしゃれカ
         key="fridge_items"
     )
     st.radio("プランタイプ", ["通常", "外食", "コンビニ"], horizontal=True, key="plan_type")
+    st.selectbox(
+        "平日のお昼スタイル",
+        ["指定なし", "お弁当", "コンビニ", "おすすめ定番", "外食", "自宅"],
+        key="lunch_style"
+    )
     st.checkbox("👩 主婦リアル提案モード", key="real_mode")
     st.selectbox("今日の食事バランス", ["普通", "朝しっかり・昼軽め", "食べすぎた", "あまり食べてない"], key="daily_flow")
     st.checkbox("🏃‍♀️ 今日運動あり（ジム・ヨガなど）", key="workout_today")
@@ -1115,6 +1166,7 @@ st.radio("食事スタイル", ["和食中心", "バランス", "おしゃれカ
                 st.session_state["staple_preference"],
                 st.session_state["fridge_items"],
                 st.session_state["plan_type"],
+                st.session_state["lunch_style"],
                 st.session_state["real_mode"],
                 st.session_state["daily_flow"],
                 st.session_state["workout_today"],
@@ -1151,6 +1203,7 @@ st.radio("食事スタイル", ["和食中心", "バランス", "おしゃれカ
                     st.session_state["staple_preference"],
                     st.session_state["fridge_items"],
                     st.session_state["plan_type"],
+                    st.session_state["lunch_style"],
                     st.session_state["real_mode"],
                     st.session_state["daily_flow"],
                     st.session_state["workout_today"],
@@ -1185,14 +1238,9 @@ elif mode == "食事写真評価":
 
     st.subheader("🍙 朝食")
     breakfast_camera = st.camera_input("朝食を撮る", key="breakfast_camera")
-    breakfast_upload = st.file_uploader(
-        "または朝食写真をアップロード",
-        type=["jpg", "jpeg", "png"],
-        key="breakfast_upload"
-    )
+    breakfast_upload = st.file_uploader("または朝食写真をアップロード", type=["jpg", "jpeg", "png"], key="breakfast_upload")
     breakfast_source = breakfast_camera if breakfast_camera is not None else breakfast_upload
     breakfast_img = resize_image(breakfast_source, max_size=768) if breakfast_source is not None else None
-
     if breakfast_img is not None:
         st.image(breakfast_img, use_container_width=True)
 
@@ -1200,14 +1248,9 @@ elif mode == "食事写真評価":
 
     st.subheader("🍱 昼食")
     lunch_camera = st.camera_input("昼食を撮る", key="lunch_camera")
-    lunch_upload = st.file_uploader(
-        "または昼食写真をアップロード",
-        type=["jpg", "jpeg", "png"],
-        key="lunch_upload"
-    )
+    lunch_upload = st.file_uploader("または昼食写真をアップロード", type=["jpg", "jpeg", "png"], key="lunch_upload")
     lunch_source = lunch_camera if lunch_camera is not None else lunch_upload
     lunch_img = resize_image(lunch_source, max_size=768) if lunch_source is not None else None
-
     if lunch_img is not None:
         st.image(lunch_img, use_container_width=True)
 
@@ -1215,14 +1258,9 @@ elif mode == "食事写真評価":
 
     st.subheader("🍽 夕食")
     dinner_camera = st.camera_input("夕食を撮る", key="dinner_camera")
-    dinner_upload = st.file_uploader(
-        "または夕食写真をアップロード",
-        type=["jpg", "jpeg", "png"],
-        key="dinner_upload"
-    )
+    dinner_upload = st.file_uploader("または夕食写真をアップロード", type=["jpg", "jpeg", "png"], key="dinner_upload")
     dinner_source = dinner_camera if dinner_camera is not None else dinner_upload
     dinner_img = resize_image(dinner_source, max_size=768) if dinner_source is not None else None
-
     if dinner_img is not None:
         st.image(dinner_img, use_container_width=True)
 
@@ -1234,22 +1272,13 @@ elif mode == "食事写真評価":
         else:
             client = get_openai_client()
             with st.spinner("1日の食事バランスを分析中..."):
-                result = evaluate_meal_day_from_images(
-                    client,
-                    breakfast_img,
-                    lunch_img,
-                    dinner_img
-                )
+                result = evaluate_meal_day_from_images(client, breakfast_img, lunch_img, dinner_img)
 
             st.session_state["meal_eval_result"] = result
             st.success("1日の食事評価を作成しました。")
             st.rerun()
 
-    st.text_area(
-        "評価結果",
-        key="meal_eval_result",
-        height=320
-    )
+    st.text_area("評価結果", key="meal_eval_result", height=320)
 
     if st.session_state["meal_eval_result"]:
         st.download_button(
@@ -1311,6 +1340,17 @@ elif mode == "アーユルヴェーダ":
         "よく眠る・居眠りが多い"
     ], key="ay_q8")
 
+    st.subheader("🍫 今の状態チェック")
+    sweet_craving = st.checkbox("甘いものが無性に食べたい", key="state_sweet")
+    salty_craving = st.checkbox("しょっぱいものが欲しい", key="state_salty")
+    fatigue = st.checkbox("ずっとだるい・疲れやすい", key="state_fatigue")
+    irritable = st.checkbox("イライラしやすい", key="state_irritable")
+    sleepy_after_meal = st.checkbox("食後すぐ眠くなる", key="state_sleepy")
+    swelling = st.checkbox("むくみやすい", key="state_swelling")
+    coldness = st.checkbox("冷えやすい", key="state_cold")
+    constipation_now = st.checkbox("最近便秘ぎみ", key="state_constipation")
+    dry_skin = st.checkbox("肌や口が乾燥しやすい", key="state_dry")
+
     if st.button("🌿 体質をチェック"):
         answers = {
             "体型": q1,
@@ -1365,11 +1405,25 @@ elif mode == "アーユルヴェーダ":
                 st.subheader("🧺 冷蔵庫との相性")
                 st.write("今の冷蔵庫食材との一致は少なめです。買い足し候補としておすすめ食材を活用できます。")
 
+    if st.button("🪷 今の状態をみる"):
+        current_state_text = get_current_state_advice(
+            sweet_craving,
+            salty_craving,
+            fatigue,
+            irritable,
+            sleepy_after_meal,
+            swelling,
+            coldness,
+            constipation_now,
+            dry_skin
+        )
+        st.subheader("📝 今の乱れチェック")
+        st.write(current_state_text)
+
     if st.button("↺ 体質診断をリセット"):
         st.session_state["dosha_type"] = ""
         st.session_state["dosha_scores"] = {"ヴァータ": 0, "ピッタ": 0, "カパ": 0}
         st.success("体質診断をリセットしました。")
-
 
 elif mode == "写真で記録":
     st.header("📷 写真で記録")
@@ -1424,11 +1478,7 @@ elif mode == "写真で記録":
                 st.success("食材候補を抽出しました。")
                 st.rerun()
 
-        st.text_area(
-            "読み取った食材候補",
-            key="photo_fridge_items",
-            height=180
-        )
+        st.text_area("読み取った食材候補", key="photo_fridge_items", height=180)
 
         if st.button("➡ 冷蔵庫食材に反映"):
             text = st.session_state["photo_fridge_items"]
@@ -1523,15 +1573,9 @@ elif mode == "体型チェック":
     )
 
     body_camera = st.camera_input("全身を撮る", key="body_camera_scan")
-
-    uploaded_body = st.file_uploader(
-        "または全身写真をアップロード",
-        type=["jpg", "jpeg", "png"],
-        key="body_photo_upload"
-    )
+    uploaded_body = st.file_uploader("または全身写真をアップロード", type=["jpg", "jpeg", "png"], key="body_photo_upload")
 
     source_body = body_camera if body_camera is not None else uploaded_body
-    resized_body = None
 
     if source_body is not None:
         resized_body = resize_image(source_body, max_size=768)
@@ -1543,12 +1587,7 @@ elif mode == "体型チェック":
             if st.button("🪄 体型コメントを自動生成"):
                 client = get_openai_client()
                 with st.spinner("体型バランスを分析中..."):
-                    result = generate_body_balance_comment(
-                        client,
-                        resized_body,
-                        st.session_state["body_goal_scan"]
-                    )
-
+                    result = generate_body_balance_comment(client, resized_body, st.session_state["body_goal_scan"])
                 st.session_state["body_scan_comment"] = result
                 st.success("体型コメントを生成しました。")
                 st.rerun()
@@ -1558,12 +1597,7 @@ elif mode == "体型チェック":
                 client = get_openai_client()
                 source_comment = st.session_state["body_scan_comment"] or "まだ体型コメントなし"
                 with st.spinner("理想イメージを整理中..."):
-                    result = generate_ideal_body_prompt(
-                        client,
-                        source_comment,
-                        st.session_state["body_goal_scan"]
-                    )
-
+                    result = generate_ideal_body_prompt(client, source_comment, st.session_state["body_goal_scan"])
                 st.session_state["ideal_body_prompt_result"] = result
                 st.success("理想イメージ用プロンプトを作成しました。")
                 st.rerun()
@@ -1577,7 +1611,6 @@ elif mode == "体型チェック":
                 else:
                     with st.spinner("理想イメージを生成中..."):
                         image_bytes = generate_ideal_body_image(client, prompt_text, size="1024x1024")
-
                     if image_bytes:
                         st.session_state["ideal_body_image_bytes"] = image_bytes
                         st.success("理想イメージを生成しました。")
@@ -1585,17 +1618,8 @@ elif mode == "体型チェック":
                     else:
                         st.error("画像生成に失敗しました。")
 
-    st.text_area(
-        "体型バランスコメント",
-        key="body_scan_comment",
-        height=240
-    )
-
-    st.text_area(
-        "理想イメージ用プロンプト",
-        key="ideal_body_prompt_result",
-        height=240
-    )
+    st.text_area("体型バランスコメント", key="body_scan_comment", height=240)
+    st.text_area("理想イメージ用プロンプト", key="ideal_body_prompt_result", height=240)
 
     if st.session_state["ideal_body_image_bytes"]:
         st.subheader("🖼 理想イメージ")
@@ -1690,21 +1714,19 @@ elif mode == "教育費・人生設計":
 
     st.metric("想定教育費合計", f"{total_cost} 万円")
 
-
 elif mode == "お得情報":
     st.header("📢 お得情報")
     st.info("ここは今後拡張できます。")
-
 
 elif mode == "設定":
     st.header("⚙️ 設定")
 
     st.subheader("📌 初期設定")
+    st.selectbox("性別（任意）", ["未選択", "女性", "男性", "その他", "回答しない"], key="common_gender")
     st.number_input("年齢", min_value=20, max_value=100, step=1, key="common_age")
     st.number_input("身長（cm）", min_value=145.0, max_value=200.0, step=0.5, format="%.1f", key="common_height")
     st.number_input("スタート時の体重（kg）", min_value=39.0, max_value=200.0, step=0.1, format="%.1f", key="common_weight")
-　　 st.number_input("目標体重（kg）", min_value=39.0, max_value=150.0, step=0.1, format="%.1f", key="common_target_weight")
-    st.number_input("目標体重（kg）", min_value=30.0, max_value=150.0, step=0.1, format="%.1f", key="common_target_weight")
+    st.number_input("目標体重（kg）", min_value=39.0, max_value=150.0, step=0.1, format="%.1f", key="common_target_weight")
     st.number_input("スタート時の体脂肪率（%）", min_value=5.0, max_value=60.0, step=0.1, format="%.1f", key="common_body_fat")
     st.number_input("目標体脂肪率（%）", min_value=5.0, max_value=60.0, step=0.1, format="%.1f", key="common_target_body_fat")
 
@@ -1714,6 +1736,7 @@ elif mode == "設定":
     st.radio("主食の好み", ["ごはん派", "パン派", "どちらも"], horizontal=True, key="staple_preference")
     st.text_area("よくある冷蔵庫の食材", key="fridge_items")
     st.radio("プランタイプ初期値", ["通常", "外食", "コンビニ"], horizontal=True, key="plan_type")
+    st.selectbox("平日のお昼スタイル", ["指定なし", "お弁当", "コンビニ", "おすすめ定番", "外食", "自宅"], key="lunch_style")
     st.checkbox("主婦リアル提案モード初期値", key="real_mode")
     st.selectbox("食事の流れ初期値", ["普通", "朝しっかり・昼軽め", "食べすぎた", "あまり食べてない"], key="daily_flow")
     st.checkbox("運動あり初期値", key="workout_today")
