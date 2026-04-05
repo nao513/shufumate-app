@@ -3,6 +3,7 @@ import base64
 import io
 import re
 import calendar
+import streamlit.components.v1 as components
 from datetime import datetime, timedelta
 
 import gspread
@@ -1134,7 +1135,7 @@ def render_daily_timeline_html(schedule_dict: dict):
         )
     html_parts.append("</div></div>")
 
-    st.markdown("".join(html_parts), unsafe_allow_html=True)
+    components.html("".join(html_parts), height=220, scrolling=False)
 
 def get_recommended_daily_schedule(wake_time_str: str):
     try:
@@ -2056,7 +2057,7 @@ elif mode == "スケジュール":
 
     st.caption("※目安として、睡眠7時間以上・就寝1時間前までの入浴を意識します。")
 
-    st.subheader("🕒 24時間タイムライン")
+        st.subheader("🕒 24時間タイムライン")
 
     timeline_df = build_daily_timeline_df(recommended)
 
