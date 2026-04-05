@@ -1,3 +1,4 @@
+
 import base64
 import io
 import re
@@ -158,12 +159,13 @@ def save_user_settings():
 
 
 def reset_user_settings():
+    st.session_state["common_gender"] = "未選択"
     st.session_state["common_age"] = 40
     st.session_state["common_height"] = 160.0
-    st.session_state["common_weight"] = 40.0
-    st.session_state["common_target_weight"] = 45.0
-    st.session_state["common_body_fat"] = 15.0
-    st.session_state["common_target_body_fat"] = 22.0
+    st.session_state["common_weight"] = 50.0
+    st.session_state["common_target_weight"] = 48.0
+    st.session_state["common_body_fat"] = 28.0
+    st.session_state["common_target_body_fat"] = 24.0
     st.session_state["meal_style"] = "和食中心"
     st.session_state["ease_level"] = "超かんたん"
     st.session_state["staple_preference"] = "ごはん派"
@@ -1011,9 +1013,7 @@ elif mode == "ダイエット管理":
     st.session_state["diet_logs"] = load_diet_logs()
     st.header("📝 ダイエット管理")
 
-    age, height_cm, weight, target_weight, body_fat, target_body_fat = render_common_body_inputs()
-    weeks = st.slider("目標達成までの期間（週）", 1, 52, 4)
-
+    gender, age, height_cm, weight, target_weight, body_fat, target_body_fat = render_common_body_inputs()
     bmi = weight / ((height_cm / 100) ** 2)
     bmr = weight * 22 * 1.5
     cal_deficit = ((weight - target_weight) * 7200) / (weeks * 7)
@@ -1074,10 +1074,9 @@ elif mode == "献立・運動プラン":
     st.session_state["diet_logs"] = load_diet_logs()
     st.header("🥗献立＆🏃運動プラン")
 
-    gender = st.radio("性別", ["女性", "男性"], horizontal=True)
-    age, height_cm, weight, target_weight, body_fat, target_body_fat = render_common_body_inputs()
+   gender, age, height_cm, weight, target_weight, body_fat, target_body_fat = render_common_body_inputs()
 
-    st.radio("食事スタイル", ["和食中心", "バランス", "おしゃれカフェ風"], horizontal=True, key="meal_style")
+st.radio("食事スタイル", ["和食中心", "バランス", "おしゃれカフェ風"], horizontal=True, key="meal_style")
     st.radio("調理レベル", ["超かんたん", "普通", "しっかり"], horizontal=True, key="ease_level")
     st.radio("主食の好み", ["ごはん派", "パン派", "どちらも"], horizontal=True, key="staple_preference")
     st.text_area(
@@ -1703,7 +1702,8 @@ elif mode == "設定":
     st.subheader("📌 初期設定")
     st.number_input("年齢", min_value=20, max_value=100, step=1, key="common_age")
     st.number_input("身長（cm）", min_value=145.0, max_value=200.0, step=0.5, format="%.1f", key="common_height")
-    st.number_input("スタート時の体重（kg）", min_value=30.0, max_value=200.0, step=0.1, format="%.1f", key="common_weight")
+    st.number_input("スタート時の体重（kg）", min_value=39.0, max_value=200.0, step=0.1, format="%.1f", key="common_weight")
+　　 st.number_input("目標体重（kg）", min_value=39.0, max_value=150.0, step=0.1, format="%.1f", key="common_target_weight")
     st.number_input("目標体重（kg）", min_value=30.0, max_value=150.0, step=0.1, format="%.1f", key="common_target_weight")
     st.number_input("スタート時の体脂肪率（%）", min_value=5.0, max_value=60.0, step=0.1, format="%.1f", key="common_body_fat")
     st.number_input("目標体脂肪率（%）", min_value=5.0, max_value=60.0, step=0.1, format="%.1f", key="common_target_body_fat")
