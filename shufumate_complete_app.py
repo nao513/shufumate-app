@@ -1040,6 +1040,102 @@ def build_daily_timeline_df(schedule_dict: dict):
         df = df.sort_values("時刻")
     return df
 
+def render_daily_timeline_html(schedule_dict: dict):
+    items = [
+        ("起床", "#f59e0b"),
+        ("朝食", "#10b981"),
+        ("昼食", "#3b82f6"),
+        ("夕食", "#8b5cf6"),
+        ("入浴", "#f97316"),
+        ("就寝", "#64748b"),
+    ]
+
+    html_parts = []
+    html_parts.append("""
+    <div style="border:1px solid #e5e7eb;border-radius:16px;padding:16px;background:#ffffff;">
+      <div style="font-weight:700;font-size:18px;margin-bottom:12px;">1日の流れタイムライン</div>
+      <div style="position:relative;height:56px;border-radius:12px;background:#f8fafc;border:1px solid #e5e7eb;margin-bottom:14px;">
+    """)
+
+    for hour in range(25):
+        left = (hour / 24) * 100
+        if hour < 24:
+            html_parts.append(
+                f"""
+                <div style="position:absolute;left:{left}%;top:0;height:56px;width:1px;background:#e5e7eb;"></div>
+                <div style="position:absolute;left:{left}%;top:36px;transform:translateX(-50%);font-size:11px;color:#64748b;">
+                    {hour}
+                </div>
+                """
+            )
+
+    for label, color in items:
+        time_str = schedule_dict.get(label, "")
+        decimal_time = time_to_decimal(time_str)
+        left = (decimal_time / 24) * 100
+
+        html_parts.append(
+            f"""
+            <div title="{label} {time_str}"
+                 style="
+                    position:absolute;
+                    left:calc({left}% - 10px);
+                    top:8px;
+                    width:20px;
+                    height:20px;
+                    border-radius:999px;
+                    background:{color};
+                    border:2px solid white;
+                    box-shadow:0 1px 4px rgba(0,0,0,0.15);
+                 ">
+            </div>
+            <div style="
+                    position:absolute;
+                    left:{left}%;
+                    top:-2px;
+                    transform:translateX(-50%);
+                    font-size:11px;
+                    font-weight:600;
+                    color:#111827;
+                    white-space:nowrap;
+                 ">
+                 {label}
+            </div>
+            """
+        )
+
+    html_parts.append("</div>")
+
+    html_parts.append('<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">')
+    for label, color in items:
+        time_str = schedule_dict.get(label, "")
+        html_parts.append(
+            f"""
+            <div style="
+                display:flex;
+                align-items:center;
+                gap:8px;
+                padding:8px 10px;
+                border:1px solid #e5e7eb;
+                border-radius:12px;
+                background:#fafafa;
+            ">
+                <span style="
+                    display:inline-block;
+                    width:12px;
+                    height:12px;
+                    border-radius:999px;
+                    background:{color};
+                "></span>
+                <span style="font-size:13px;color:#374151;">{label}</span>
+                <span style="margin-left:auto;font-weight:700;color:#111827;">{time_str}</span>
+            </div>
+            """
+        )
+    html_parts.append("</div></div>")
+
+    st.markdown("".join(html_parts), unsafe_allow_html=True)
+
 def get_recommended_daily_schedule(wake_time_str: str):
     try:
         wake_dt = datetime.strptime(wake_time_str, "%H:%M")
@@ -1972,9 +2068,18 @@ elif mode == "スケジュール":
         )
 
         chart_df = timeline_df.set_index("項目")[["時刻"]]
-        st.bar_chart(chart_df)
+        timeline_df = build_daily_timeline_df(recommended)
 
-    st.caption("※0〜24時の中で、起床・食事・入浴・就寝の目安時間を見える化しています。")
+if not timeline_df.empty:
+    st.dataframe(
+        timeline_df[["項目", "時間"]],
+        use_container_width=True,
+        hide_index=True
+    )
+
+    render_daily_timeline_html(recommended)
+
+st.caption("※0〜24時の中で、起床・食事・入浴・就寝の目安時間を1日の流れとして見える化しています。")
 
     st.divider()
     st.subheader("➕ 選択日の予定を追加")
