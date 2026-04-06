@@ -2102,10 +2102,11 @@ elif mode == "写真で記録":
                 st.success("食材候補を抽出しました。")
                 st.rerun()
 
-        st.text_area("読み取った食材候補", key="photo_fridge_items", height=180)
+                st.text_area("読み取った食材候補", key="photo_fridge_items", height=180)
+
         if st.button("🧹 読み取り結果をクリア", use_container_width=True):
-    st.session_state["photo_fridge_items"] = ""
-    st.rerun()
+            st.session_state["photo_fridge_items"] = ""
+            st.rerun()
 
         if st.button("➡ 冷蔵庫食材に反映"):
             text = st.session_state["photo_fridge_items"]
@@ -2113,7 +2114,7 @@ elif mode == "写真で記録":
                 text = text.split("食材候補:")[-1].strip()
             st.session_state["fridge_items"] = text
             st.success("冷蔵庫の食材に反映しました。")
-
+            
     with tab2:
         st.subheader("⚖ 体重計写真から記録候補を管理")
 
