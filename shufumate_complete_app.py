@@ -2531,29 +2531,27 @@ elif mode == "設定":
 
     st.subheader("🍽 献立の初期値")
     st.radio("食事スタイル", ["和食中心", "バランス", "おしゃれカフェ風"], horizontal=True, key="meal_style")
+    elif mode == "設定":
+    st.header("⚙️ 設定")
+
+    st.subheader("📌 初期設定")
+    st.selectbox("性別（任意）", ["未選択", "女性", "男性", "その他", "回答しない"], key="common_gender")
+    st.number_input("年齢", min_value=20, max_value=100, step=1, key="common_age")
+    st.number_input("身長（cm）", min_value=145.0, max_value=200.0, step=0.5, format="%.1f", key="common_height")
+    st.number_input("スタート時の体重（kg）", min_value=39.0, max_value=200.0, step=0.1, format="%.1f", key="common_weight")
+    st.number_input("目標体重（kg）", min_value=39.0, max_value=150.0, step=0.1, format="%.1f", key="common_target_weight")
+    st.number_input("スタート時の体脂肪率（%）", min_value=5.0, max_value=60.0, step=0.1, format="%.1f", key="common_body_fat")
+    st.number_input("目標体脂肪率（%）", min_value=5.0, max_value=60.0, step=0.1, format="%.1f", key="common_target_body_fat")
+
+    st.subheader("🍽 献立の初期値")
+    st.radio("食事スタイル", ["和食中心", "バランス", "おしゃれカフェ風"], horizontal=True, key="meal_style")
     st.radio("調理レベル", ["超かんたん", "普通", "しっかり"], horizontal=True, key="ease_level")
     st.radio("主食の好み", ["ごはん派", "パン派", "どちらも"], horizontal=True, key="staple_preference")
     st.text_area("よくある冷蔵庫の食材", key="fridge_items")
-    st.text_area(
-        "食べられないもの・避けたいもの",
-        key="avoid_foods",
-        placeholder="例：えび、かに、牡蠣、辛いもの など"
-    )
-    st.text_area(
-        "わたしの定番・好きな食事",
-        key="favorite_meals",
-        placeholder="例：納豆、豆乳、ブルーベリー、タンパク質おにぎり"
-    )
-    st.text_input(
-        "おすすめタンパク質おにぎり",
-        key="favorite_protein_onigiri",
-        placeholder="例：鮭枝豆おにぎり"
-    )
-    st.text_input(
-        "味噌玉味噌汁",
-        key="favorite_misodama_soup",
-        placeholder="例：わかめ・豆腐・ねぎの味噌玉"
-    )
+    st.text_area("避けたい食材・苦手なもの", key="avoid_foods")
+    st.text_area("好きな定番メニュー", key="favorite_meals")
+    st.text_input("お気に入りのタンパク質おにぎり", key="favorite_protein_onigiri")
+    st.text_input("お気に入りの味噌玉みそ汁", key="favorite_misodama_soup")
     st.radio("プランタイプ初期値", ["通常", "外食", "コンビニ"], horizontal=True, key="plan_type")
     st.selectbox("平日のお昼スタイル", ["指定なし", "お弁当", "コンビニ", "おすすめ定番", "外食", "自宅"], key="lunch_style")
     st.checkbox("主婦リアル提案モード初期値", key="real_mode")
@@ -2561,14 +2559,7 @@ elif mode == "設定":
     st.checkbox("運動あり初期値", key="workout_today")
     st.selectbox("目的初期値", ["バランス", "脚やせ", "脂肪燃焼", "むくみ改善"], key="body_goal")
 
-    save_col, reset_col = st.columns(2)
-    with save_col:
-        if st.button(f"💾 {UI_TEXT['save']}", use_container_width=True):
-            save_user_settings()
-            st.success("初期設定を保存しました。")
-
-    with reset_col:
-           if st.button("💾 初期設定を保存"):
+    if st.button("💾 初期設定を保存"):
         save_user_settings()
         st.session_state["settings_snapshot"] = get_settings_snapshot()
         st.success("初期設定を保存しました。")
