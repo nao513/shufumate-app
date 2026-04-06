@@ -116,6 +116,24 @@ def get_current_user_id():
         return name
     return "guest"
 
+def reload_user_data_if_needed():
+    current_user_id = get_current_user_id()
+
+    if st.session_state.get("last_loaded_user_id") != current_user_id:
+        saved = load_user_settings()
+        if saved:
+            for k, v in saved.items():
+                st.session_state[k] = v
+
+        st.session_state["diet_logs"] = load_diet_logs()
+        sync_common_from_latest_diet_log()
+
+        saved_plan_date, saved_plan_text = load_today_plan()
+        if saved_plan_date and saved_plan_text:
+            st.session_state["today_plan_date"] = saved_plan_date
+            st.session_state["today_plan_text"] = saved_plan_text
+
+        st.session_state["last_loaded_user_id"] = current_user_id        
 
 def load_user_settings():
     ws = get_sheet("Settings")
@@ -269,6 +287,27 @@ def load_diet_logs():
 
     return logs
 
+def sync_common_from_latest_diet_log():
+    logs = st.session_state.get("diet_logs", [])
+    if not logs:
+        return
+
+    latest = logs[-1]
+
+    if "性別" in latest and latest["性別"] not in [None, ""]:
+        st.session_state["common_gender"] = latest["性別"]
+    if "年齢" in latest and latest["年齢"] not in [None, ""]:
+        st.session_state["common_age"] = int(float(latest["年齢"]))
+    if "身長(cm)" in latest and latest["身長(cm)"] not in [None, ""]:
+        st.session_state["common_height"] = float(latest["身長(cm)"])
+    if "体重(kg)" in latest and latest["体重(kg)"] not in [None, ""]:
+        st.session_state["common_weight"] = float(latest["体重(kg)"])
+    if "目標体重(kg)" in latest and latest["目標体重(kg)"] not in [None, ""]:
+        st.session_state["common_target_weight"] = float(latest["目標体重(kg)"])
+    if "体脂肪率(%)" in latest and latest["体脂肪率(%)"] not in [None, ""]:
+        st.session_state["common_body_fat"] = float(latest["体脂肪率(%)"])
+    if "目標体脂肪率(%)" in latest and latest["目標体脂肪率(%)"] not in [None, ""]:
+        st.session_state["common_target_body_fat"] = float(latest["目標体脂肪率(%)"])
 
 def upsert_diet_log(log_dict):
     ws = get_sheet("DietLogs")
@@ -1290,6 +1329,7 @@ def get_recommended_daily_schedule(wake_time_str: str):
 # -----------------------------
 defaults = {
     "user_name_input": "",
+    "last_loaded_user_id": "",
     "common_gender": "未選択",
     "common_age": 40,
     "common_height": 160.0,
@@ -1355,6 +1395,7 @@ if "settings_loaded" not in st.session_state:
             st.session_state[k] = v
 
     st.session_state["diet_logs"] = load_diet_logs()
+    sync_common_from_latest_diet_log()
     saved_plan_date, saved_plan_text = load_today_plan()
     if saved_plan_date and saved_plan_text:
         st.session_state["today_plan_date"] = saved_plan_date
@@ -1369,6 +1410,7 @@ if "settings_loaded" not in st.session_state:
 st.title("🍀 ShufuMate｜主婦の味方アプリ")
 st.caption("ダイエット・家計・予定・教育・人生設計・お得情報を総合管理")
 st.text_input("お名前（ニックネーム）", key="user_name_input")
+reload_user_data_if_needed()
 st.caption("※家族や身近な人と試す時は、ニックネームを変えると記録が分かれます。")
 st.caption("※現在はお試し版です。食事・運動・生活の参考としてご利用ください。体調不良が強い場合や医療判断が必要な場合は、専門家へご相談ください。")
 
@@ -1504,6 +1546,7 @@ elif mode == "ダイエット管理":
 
         upsert_diet_log(log)
         st.session_state["diet_logs"] = load_diet_logs()
+        sync_common_from_latest_diet_log()
         st.success("今日の記録を保存しました✨")
         st.rerun()
 
@@ -1998,7 +2041,11 @@ elif mode == "写真で記録":
         if st.session_state["fridge_scan_images"]:
             st.write(f"保存中の画像: {len(st.session_state['fridge_scan_images'])}枚")
             for i, img in enumerate(st.session_state["fridge_scan_images"]):
-                st.image(img, caption=f"冷蔵庫画像 {i+1}", use_container_width=True)
+    st.image(img, caption=f"冷蔵庫画像 {i+1}", use_container_width=True)
+
+    if st.button(f"🗑 この画像を削除 {i+1}", key=f"delete_fridge_{i}", use_container_width=True):
+        st.session_state["fridge_scan_images"].pop(i)
+        st.rerun()
 
             if st.button("🥬 スキャン画像から食材抽出"):
                 client = get_openai_client()
@@ -2010,6 +2057,9 @@ elif mode == "写真で記録":
                 st.rerun()
 
         st.text_area("読み取った食材候補", key="photo_fridge_items", height=180)
+        if st.button("🧹 読み取り結果をクリア", use_container_width=True):
+    st.session_state["photo_fridge_items"] = ""
+    st.rerun()
 
         if st.button("➡ 冷蔵庫食材に反映"):
             text = st.session_state["photo_fridge_items"]
@@ -2054,6 +2104,10 @@ elif mode == "写真で記録":
             key="photo_scale_result",
             height=220
         )
+
+            if st.button("🧹 数値候補をクリア", use_container_width=True):
+        st.session_state["photo_scale_result"] = ""
+        st.rerun()
 
         st.caption("内容を見ながら、ダイエット管理へ反映できます。")
 
