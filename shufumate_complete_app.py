@@ -1,4 +1,3 @@
-
 import base64
 import io
 import re
@@ -14,6 +13,15 @@ from PIL import Image
 from google.oauth2.service_account import Credentials
 
 st.set_page_config(page_title="ShufuMate｜主婦の味方アプリ", layout="wide")
+
+UI_TEXT = {
+    "update": "更新する",
+    "save": "保存する",
+    "delete": "削除",
+    "upload": "写真を追加",
+    "settings": "設定",
+    "notice": "お知らせ",
+}
 
 
 # -----------------------------
@@ -48,6 +56,32 @@ def get_or_create_worksheet(sh, title, rows=1000, cols=30):
         return sh.add_worksheet(title=title, rows=rows, cols=cols)
 
 
+def rewrite_sheet_with_header(ws, expected_header):
+    values = ws.get_all_values()
+
+    if not values:
+        ws.clear()
+        ws.append_row(expected_header)
+        return
+
+    current_header = values[0]
+    data_rows = values[1:]
+
+    if current_header == expected_header:
+        return
+
+    migrated_rows = []
+    for row in data_rows:
+        row = row + [""] * (len(current_header) - len(row))
+        row_dict = dict(zip(current_header, row))
+        migrated_rows.append([row_dict.get(col, "") for col in expected_header])
+
+    ws.clear()
+    ws.append_row(expected_header)
+    if migrated_rows:
+        ws.append_rows(migrated_rows)
+
+
 def ensure_headers():
     sh = get_spreadsheet()
 
@@ -59,7 +93,9 @@ def ensure_headers():
         "user_id", "gender", "age", "height_cm", "start_weight",
         "target_weight", "start_body_fat", "target_body_fat",
         "meal_style", "ease_level", "staple_preference",
-        "fridge_items", "plan_type", "lunch_style",
+        "fridge_items", "avoid_foods", "favorite_meals",
+        "favorite_protein_onigiri", "favorite_misodama_soup",
+        "plan_type", "lunch_style",
         "real_mode", "daily_flow", "workout_today", "body_goal"
     ]
     diet_header = [
@@ -69,21 +105,16 @@ def ensure_headers():
     ]
     plan_header = ["user_id", "date", "plan_text"]
 
-    settings_values = settings_ws.get_all_values()
-    diet_values = diet_ws.get_all_values()
-    plan_values = plans_ws.get_all_values()
+    rewrite_sheet_with_header(settings_ws, settings_header)
+    rewrite_sheet_with_header(diet_ws, diet_header)
+    rewrite_sheet_with_header(plans_ws, plan_header)
 
-    if not settings_values or settings_values[0] != settings_header:
-        settings_ws.clear()
-        settings_ws.append_row(settings_header)
 
-    if not diet_values or diet_values[0] != diet_header:
-        diet_ws.clear()
-        diet_ws.append_row(diet_header)
-
-    if not plan_values or plan_values[0] != plan_header:
-        plans_ws.clear()
-        plans_ws.append_row(plan_header)
+def get_current_user_id():
+    name = st.session_state.get("user_name_input", "").strip()
+    if name:
+        return name
+    return "guest"
 
 
 def load_user_settings():
@@ -107,16 +138,20 @@ def load_user_settings():
         if row_dict.get("user_id") == current_user_id:
             return {
                 "common_gender": row_dict.get("gender", "未選択") or "未選択",
-                "common_age": int(float(row_dict["age"])),
-                "common_height": float(row_dict["height_cm"]),
-                "common_weight": float(row_dict["start_weight"]),
-                "common_target_weight": float(row_dict["target_weight"]),
-                "common_body_fat": float(row_dict["start_body_fat"]),
-                "common_target_body_fat": float(row_dict["target_body_fat"]),
+                "common_age": int(float(row_dict["age"])) if row_dict.get("age") else 40,
+                "common_height": float(row_dict["height_cm"]) if row_dict.get("height_cm") else 160.0,
+                "common_weight": float(row_dict["start_weight"]) if row_dict.get("start_weight") else 50.0,
+                "common_target_weight": float(row_dict["target_weight"]) if row_dict.get("target_weight") else 48.0,
+                "common_body_fat": float(row_dict["start_body_fat"]) if row_dict.get("start_body_fat") else 28.0,
+                "common_target_body_fat": float(row_dict["target_body_fat"]) if row_dict.get("target_body_fat") else 24.0,
                 "meal_style": row_dict.get("meal_style", "和食中心") or "和食中心",
                 "ease_level": row_dict.get("ease_level", "超かんたん") or "超かんたん",
                 "staple_preference": row_dict.get("staple_preference", "ごはん派") or "ごはん派",
                 "fridge_items": row_dict.get("fridge_items", "") or "",
+                "avoid_foods": row_dict.get("avoid_foods", "") or "",
+                "favorite_meals": row_dict.get("favorite_meals", "") or "",
+                "favorite_protein_onigiri": row_dict.get("favorite_protein_onigiri", "") or "",
+                "favorite_misodama_soup": row_dict.get("favorite_misodama_soup", "") or "",
                 "plan_type": row_dict.get("plan_type", "通常") or "通常",
                 "lunch_style": row_dict.get("lunch_style", "指定なし") or "指定なし",
                 "real_mode": str(row_dict.get("real_mode", "True")).lower() == "true",
@@ -125,6 +160,7 @@ def load_user_settings():
                 "body_goal": row_dict.get("body_goal", "バランス") or "バランス",
             }
     return None
+
 
 def save_user_settings():
     ws = get_sheet("Settings")
@@ -144,6 +180,10 @@ def save_user_settings():
         st.session_state["ease_level"],
         st.session_state["staple_preference"],
         st.session_state["fridge_items"],
+        st.session_state.get("avoid_foods", ""),
+        st.session_state.get("favorite_meals", ""),
+        st.session_state.get("favorite_protein_onigiri", ""),
+        st.session_state.get("favorite_misodama_soup", ""),
         st.session_state["plan_type"],
         st.session_state["lunch_style"],
         str(st.session_state["real_mode"]),
@@ -159,10 +199,10 @@ def save_user_settings():
             break
 
     if row_index:
-        ws.update(f"A{row_index}:R{row_index}", [row_values])
+        ws.update(f"A{row_index}:V{row_index}", [row_values])
     else:
         ws.append_row(row_values)
-        
+
 
 def reset_user_settings():
     st.session_state["common_gender"] = "未選択"
@@ -176,6 +216,10 @@ def reset_user_settings():
     st.session_state["ease_level"] = "超かんたん"
     st.session_state["staple_preference"] = "ごはん派"
     st.session_state["fridge_items"] = ""
+    st.session_state["avoid_foods"] = ""
+    st.session_state["favorite_meals"] = ""
+    st.session_state["favorite_protein_onigiri"] = ""
+    st.session_state["favorite_misodama_soup"] = ""
     st.session_state["plan_type"] = "通常"
     st.session_state["lunch_style"] = "指定なし"
     st.session_state["real_mode"] = True
@@ -207,6 +251,7 @@ def load_diet_logs():
         if not row or len(row) < len(header):
             continue
 
+        row = row + [""] * (len(header) - len(row))
         row_dict = dict(zip(header, row))
         if row_dict.get("user_id") == current_user_id:
             logs.append({
@@ -223,7 +268,7 @@ def load_diet_logs():
             })
 
     return logs
-    
+
 
 def upsert_diet_log(log_dict):
     ws = get_sheet("DietLogs")
@@ -254,7 +299,7 @@ def upsert_diet_log(log_dict):
         ws.update(f"A{row_index}:K{row_index}", [row_values])
     else:
         ws.append_row(row_values)
-        
+
 
 def load_today_plan():
     ws = get_sheet("TodayPlans")
@@ -274,6 +319,7 @@ def load_today_plan():
         if not row or len(row) < len(header):
             continue
 
+        row = row + [""] * (len(header) - len(row))
         row_dict = dict(zip(header, row))
         if row_dict.get("user_id") == current_user_id:
             row_date = row_dict.get("date", "")
@@ -282,7 +328,7 @@ def load_today_plan():
                 latest_text = row_dict.get("plan_text", "")
 
     return latest_date, latest_text
-    
+
 
 def upsert_today_plan(date_str, plan_text):
     ws = get_sheet("TodayPlans")
@@ -339,6 +385,37 @@ def image_file_to_data_url(file_like):
 
 def b64_to_bytes(b64_string: str) -> bytes:
     return base64.b64decode(b64_string)
+
+
+def delete_uploaded_state(upload_keys=None, stored_keys=None, success_message="削除しました。"):
+    upload_keys = upload_keys or []
+    stored_keys = stored_keys or []
+
+    for key in upload_keys:
+        st.session_state.pop(key, None)
+
+    for key in stored_keys:
+        if key.endswith("_list"):
+            st.session_state[key] = []
+        else:
+            st.session_state[key] = None if "bytes" in key else ""
+
+    st.success(success_message)
+    st.rerun()
+
+
+def photo_uploader_with_delete(label, upload_key, bytes_key):
+    uploaded = st.file_uploader(label, type=["jpg", "jpeg", "png"], key=upload_key)
+
+    if uploaded is not None:
+        st.session_state[bytes_key] = uploaded.getvalue()
+
+    if st.session_state.get(bytes_key):
+        st.image(st.session_state[bytes_key], use_container_width=True)
+        if st.button(f"🗑 {label}を削除", key=f"delete_{bytes_key}"):
+            st.session_state.pop(bytes_key, None)
+            st.session_state.pop(upload_key, None)
+            st.rerun()
 
 
 def extract_foods_from_images(client, images):
@@ -717,6 +794,10 @@ def create_plan_for_date(
     ease_level="超かんたん",
     staple_preference="ごはん派",
     fridge_items="",
+    avoid_foods="",
+    favorite_meals="",
+    favorite_protein_onigiri="",
+    favorite_misodama_soup="",
     plan_type="通常",
     lunch_style="指定なし",
     real_mode=False,
@@ -735,6 +816,21 @@ def create_plan_for_date(
     fridge_rule = ""
     if fridge_items.strip():
         fridge_rule = f"冷蔵庫にある食材をできるだけ優先して使ってください: {fridge_items}"
+
+    avoid_rule = ""
+    if avoid_foods.strip():
+        avoid_rule = f"次の食材・料理は献立に入れないでください: {avoid_foods}"
+
+    favorite_rule = ""
+    if favorite_meals.strip() or favorite_protein_onigiri.strip() or favorite_misodama_soup.strip():
+        favorite_rule = f"""
+ユーザーの定番・好きな食事:
+- 定番食: {favorite_meals if favorite_meals else "未入力"}
+- おすすめタンパク質おにぎり: {favorite_protein_onigiri if favorite_protein_onigiri else "未入力"}
+- 味噌玉味噌汁: {favorite_misodama_soup if favorite_misodama_soup else "未入力"}
+
+上記はできるだけ優先して提案に入れてください。
+"""
 
     plan_type_rule = ""
     if plan_type == "外食":
@@ -767,10 +863,10 @@ def create_plan_for_date(
 ・おにぎり、味噌汁、サラダ、サラダチキン、ゆで卵など現実的な組み合わせ
 """
     elif lunch_style == "おすすめ定番":
-        lunch_style_rule = """
+        lunch_style_rule = f"""
 昼食はユーザーのおすすめ定番を優先してください。
-・タンパク質おにぎり
-・味噌玉の味噌汁
+・タンパク質おにぎり: {favorite_protein_onigiri if favorite_protein_onigiri else "タンパク質おにぎり"}
+・味噌玉の味噌汁: {favorite_misodama_soup if favorite_misodama_soup else "味噌玉味噌汁"}
 ・必要に応じて、ゆで卵、サラダ、豆腐、サラダチキンなどを組み合わせる
 """
 
@@ -830,6 +926,8 @@ def create_plan_for_date(
 - おにぎり、味噌汁、納豆、豆腐、卵、鶏むね肉、鮭、さば等も積極的に使ってよいです
 - {dosha_rule}
 - {fridge_rule}
+- {avoid_rule}
+- {favorite_rule}
 - {plan_type_rule}
 - {lunch_style_rule}
 - {real_mode_rule}
@@ -841,6 +939,7 @@ def create_plan_for_date(
         input=prompt
     )
     return res.output_text
+
 
 def ask_shufumate_advice(
     client,
@@ -854,6 +953,10 @@ def ask_shufumate_advice(
     target_body_fat,
     dosha_type,
     fridge_items,
+    avoid_foods,
+    favorite_meals,
+    favorite_protein_onigiri,
+    favorite_misodama_soup,
     daily_flow,
     workout_today,
     body_goal,
@@ -902,6 +1005,10 @@ def ask_shufumate_advice(
 - 目標体脂肪率: {target_body_fat} %
 - 体質傾向: {dosha_type if dosha_type else "未設定"}
 - 冷蔵庫の食材: {fridge_items if fridge_items else "未入力"}
+- 避けたい食材: {avoid_foods if avoid_foods else "未入力"}
+- 定番食: {favorite_meals if favorite_meals else "未入力"}
+- おすすめタンパク質おにぎり: {favorite_protein_onigiri if favorite_protein_onigiri else "未入力"}
+- 味噌玉味噌汁: {favorite_misodama_soup if favorite_misodama_soup else "未入力"}
 - 今日の食事バランス: {daily_flow}
 - 今日の運動: {"あり" if workout_today else "なし"}
 - 目的: {body_goal}
@@ -914,6 +1021,8 @@ def ask_shufumate_advice(
 - 主婦がすぐ行動できる答えにする
 - 厳しすぎず、やさしく現実的に答える
 - 食事相談は、食べない方向だけでなく「どう調整するか」を含める
+- 避けたい食材は提案に含めない
+- 定番食やおすすめおにぎり・味噌汁は必要に応じて活用する
 - 運動前後の相談は、タイミングとおすすめ食品を具体的に入れる
 - 外食相談は、「こういう店・こういう選び方がよい」とわかる形にする
 - 店名を無理に断定しない
@@ -932,15 +1041,26 @@ def ask_shufumate_advice(
     )
     return response.output_text
 
-def get_current_user_id():
-    name = st.session_state.get("user_name_input", "").strip()
-    if name:
-        return name
-    return "guest"
-    
+
 # -----------------------------
 # Helpers
 # -----------------------------
+def get_common_profile():
+    return {
+        "gender": st.session_state.get("common_gender", "未選択"),
+        "age": st.session_state.get("common_age", 40),
+        "height": st.session_state.get("common_height", 160.0),
+        "weight": st.session_state.get("common_weight", 50.0),
+        "target_weight": st.session_state.get("common_target_weight", 48.0),
+        "body_fat": st.session_state.get("common_body_fat", 28.0),
+        "target_body_fat": st.session_state.get("common_target_body_fat", 24.0),
+        "avoid_foods": st.session_state.get("avoid_foods", ""),
+        "favorite_meals": st.session_state.get("favorite_meals", ""),
+        "favorite_protein_onigiri": st.session_state.get("favorite_protein_onigiri", ""),
+        "favorite_misodama_soup": st.session_state.get("favorite_misodama_soup", ""),
+    }
+
+
 def render_common_body_inputs():
     gender = st.selectbox(
         "性別（任意）",
@@ -1014,9 +1134,11 @@ def sync_settings_on_mode_enter(current_mode: str):
             load_settings_into_session()
         st.session_state["last_mode"] = current_mode
 
+
 def build_month_calendar(year: int, month: int):
-    cal = calendar.Calendar(firstweekday=6)  # 日曜はじまり
+    cal = calendar.Calendar(firstweekday=6)
     return cal.monthdayscalendar(year, month)
+
 
 def time_to_decimal(time_str: str) -> float:
     try:
@@ -1024,6 +1146,7 @@ def time_to_decimal(time_str: str) -> float:
         return dt.hour + dt.minute / 60
     except Exception:
         return 0.0
+
 
 def build_daily_timeline_df(schedule_dict: dict):
     rows = []
@@ -1040,6 +1163,7 @@ def build_daily_timeline_df(schedule_dict: dict):
     if not df.empty:
         df = df.sort_values("時刻")
     return df
+
 
 def render_daily_timeline_html(schedule_dict: dict):
     items = [
@@ -1137,6 +1261,7 @@ def render_daily_timeline_html(schedule_dict: dict):
 
     components.html("".join(html_parts), height=220, scrolling=False)
 
+
 def get_recommended_daily_schedule(wake_time_str: str):
     try:
         wake_dt = datetime.strptime(wake_time_str, "%H:%M")
@@ -1159,6 +1284,7 @@ def get_recommended_daily_schedule(wake_time_str: str):
         "睡眠目安": "7時間以上",
     }
 
+
 # -----------------------------
 # Session defaults
 # -----------------------------
@@ -1175,6 +1301,10 @@ defaults = {
     "ease_level": "超かんたん",
     "staple_preference": "ごはん派",
     "fridge_items": "",
+    "avoid_foods": "",
+    "favorite_meals": "",
+    "favorite_protein_onigiri": "",
+    "favorite_misodama_soup": "",
     "plan_type": "通常",
     "lunch_style": "指定なし",
     "real_mode": True,
@@ -1186,9 +1316,9 @@ defaults = {
     "today_plan_date": "",
     "expenses": [],
     "schedules": [],
-"selected_schedule_date": "",
-"wake_time_str": "06:30",
-"dosha_type": "",
+    "selected_schedule_date": "",
+    "wake_time_str": "06:30",
+    "dosha_type": "",
     "dosha_scores": {"ヴァータ": 0, "ピッタ": 0, "カパ": 0},
     "last_mode": "",
     "photo_fridge_items": "",
@@ -1204,6 +1334,10 @@ defaults = {
     "quick_advice_question": "",
     "advice_area": "",
     "site_hint": "syufuosusume.com",
+    "breakfast_img_bytes": None,
+    "lunch_img_bytes": None,
+    "dinner_img_bytes": None,
+    "body_photo_bytes": None,
 }
 for k, v in defaults.items():
     if k not in st.session_state:
@@ -1307,6 +1441,23 @@ if mode == "今日のおすすめ":
     else:
         st.info("まだ冷蔵庫食材の登録がありません。")
 
+    st.subheader("🚫 避けたい食材")
+    if st.session_state["avoid_foods"]:
+        st.write(st.session_state["avoid_foods"])
+    else:
+        st.caption("未設定")
+
+    st.subheader("🍙 定番食")
+    if st.session_state["favorite_meals"]:
+        st.write(st.session_state["favorite_meals"])
+    else:
+        st.caption("未設定")
+
+    if st.session_state["favorite_protein_onigiri"]:
+        st.write(f"おすすめタンパク質おにぎり：{st.session_state['favorite_protein_onigiri']}")
+    if st.session_state["favorite_misodama_soup"]:
+        st.write(f"味噌玉味噌汁：{st.session_state['favorite_misodama_soup']}")
+
 elif mode == "ダイエット管理":
     sync_settings_on_mode_enter(mode)
     st.session_state["diet_logs"] = load_diet_logs()
@@ -1386,6 +1537,26 @@ elif mode == "献立・運動プラン":
         placeholder="例：卵、豆腐、納豆、鶏むね肉、にんじん、玉ねぎ、キャベツ",
         key="fridge_items"
     )
+    st.text_area(
+        "食べられないもの・避けたいもの",
+        placeholder="例：えび、かに、牡蠣、辛いもの",
+        key="avoid_foods"
+    )
+    st.text_area(
+        "わたしの定番・好きな食事",
+        placeholder="例：納豆、豆乳、ブルーベリー、タンパク質おにぎり",
+        key="favorite_meals"
+    )
+    st.text_input(
+        "おすすめタンパク質おにぎり",
+        placeholder="例：鮭枝豆おにぎり",
+        key="favorite_protein_onigiri"
+    )
+    st.text_input(
+        "味噌玉味噌汁",
+        placeholder="例：わかめ・豆腐・ねぎの味噌玉",
+        key="favorite_misodama_soup"
+    )
     st.radio("プランタイプ", ["通常", "外食", "コンビニ"], horizontal=True, key="plan_type")
     st.selectbox(
         "平日のお昼スタイル",
@@ -1421,6 +1592,10 @@ elif mode == "献立・運動プラン":
                 st.session_state["ease_level"],
                 st.session_state["staple_preference"],
                 st.session_state["fridge_items"],
+                st.session_state["avoid_foods"],
+                st.session_state["favorite_meals"],
+                st.session_state["favorite_protein_onigiri"],
+                st.session_state["favorite_misodama_soup"],
                 st.session_state["plan_type"],
                 st.session_state["lunch_style"],
                 st.session_state["real_mode"],
@@ -1458,6 +1633,10 @@ elif mode == "献立・運動プラン":
                     st.session_state["ease_level"],
                     st.session_state["staple_preference"],
                     st.session_state["fridge_items"],
+                    st.session_state["avoid_foods"],
+                    st.session_state["favorite_meals"],
+                    st.session_state["favorite_protein_onigiri"],
+                    st.session_state["favorite_misodama_soup"],
                     st.session_state["plan_type"],
                     st.session_state["lunch_style"],
                     st.session_state["real_mode"],
@@ -1499,6 +1678,11 @@ elif mode == "食事写真評価":
     breakfast_img = resize_image(breakfast_source, max_size=768) if breakfast_source is not None else None
     if breakfast_img is not None:
         st.image(breakfast_img, use_container_width=True)
+        if st.button("🗑 朝食写真を削除"):
+            delete_uploaded_state(
+                upload_keys=["breakfast_camera", "breakfast_upload"],
+                success_message="朝食写真を削除しました。"
+            )
 
     st.divider()
 
@@ -1509,6 +1693,11 @@ elif mode == "食事写真評価":
     lunch_img = resize_image(lunch_source, max_size=768) if lunch_source is not None else None
     if lunch_img is not None:
         st.image(lunch_img, use_container_width=True)
+        if st.button("🗑 昼食写真を削除"):
+            delete_uploaded_state(
+                upload_keys=["lunch_camera", "lunch_upload"],
+                success_message="昼食写真を削除しました。"
+            )
 
     st.divider()
 
@@ -1519,6 +1708,11 @@ elif mode == "食事写真評価":
     dinner_img = resize_image(dinner_source, max_size=768) if dinner_source is not None else None
     if dinner_img is not None:
         st.image(dinner_img, use_container_width=True)
+        if st.button("🗑 夕食写真を削除"):
+            delete_uploaded_state(
+                upload_keys=["dinner_camera", "dinner_upload"],
+                success_message="夕食写真を削除しました。"
+            )
 
     st.divider()
 
@@ -1549,10 +1743,10 @@ elif mode == "なんでも相談":
     st.caption("食事・運動・外食・今日の困りごとを気軽に相談できます。")
 
     st.info(
-    "ShufuMateは、主婦の毎日に寄り添う参考アプリとして作成中のお試し版です。\n"
-    "毎日の食事・運動・暮らしのヒントとしてご活用ください。\n"
-    "体調や状況には個人差があるため、無理のない範囲で参考にし、不安が強い場合は専門家へご相談ください。"
-   )
+        "ShufuMateは、主婦の毎日に寄り添う参考アプリとして作成中のお試し版です。\n"
+        "毎日の食事・運動・暮らしのヒントとしてご活用ください。\n"
+        "体調や状況には個人差があるため、無理のない範囲で参考にし、不安が強い場合は専門家へご相談ください。"
+    )
     gender, age, height_cm, weight, target_weight, body_fat, target_body_fat = render_common_body_inputs()
 
     category = st.selectbox(
@@ -1596,6 +1790,10 @@ elif mode == "なんでも相談":
                     target_body_fat=target_body_fat,
                     dosha_type=st.session_state["dosha_type"],
                     fridge_items=st.session_state["fridge_items"],
+                    avoid_foods=st.session_state["avoid_foods"],
+                    favorite_meals=st.session_state["favorite_meals"],
+                    favorite_protein_onigiri=st.session_state["favorite_protein_onigiri"],
+                    favorite_misodama_soup=st.session_state["favorite_misodama_soup"],
                     daily_flow=st.session_state["daily_flow"],
                     workout_today=st.session_state["workout_today"],
                     body_goal=st.session_state["body_goal"],
@@ -1620,7 +1818,6 @@ elif mode == "なんでも相談":
     st.write("・運動前に何を食べたらいい？")
     st.write("・運動後、長命ヶ丘でどういう店を選べばいい？")
     st.write("・夕飯前にお腹が空きすぎた時どうする？")
-
 
 elif mode == "アーユルヴェーダ":
     st.header("🌿 アーユルヴェーダ体質チェック")
@@ -1845,6 +2042,12 @@ elif mode == "写真で記録":
                 st.success("数値候補を抽出しました✨")
                 st.rerun()
 
+            if st.button("🗑 体重計写真を削除"):
+                delete_uploaded_state(
+                    upload_keys=["scale_photo_upload"],
+                    success_message="体重計写真を削除しました。"
+                )
+
         st.text_area(
             "読み取った数値候補メモ",
             placeholder="例：体重: 51.2\n体脂肪率: 25.6\n骨格筋率: 27.2",
@@ -1914,6 +2117,12 @@ elif mode == "体型チェック":
     if source_body is not None:
         resized_body = resize_image(source_body, max_size=768)
         st.image(resized_body, caption="全身スキャン画像", use_container_width=True)
+
+        if st.button("🗑 全身写真を削除"):
+            delete_uploaded_state(
+                upload_keys=["body_camera_scan", "body_photo_upload"],
+                success_message="全身写真を削除しました。"
+            )
 
         col1, col2, col3 = st.columns(3)
 
@@ -2119,7 +2328,6 @@ elif mode == "スケジュール":
     bath_time = recommended["入浴"]
     st.write(f"理想の目安：**入浴 {bath_time} → 就寝 {sleep_time}**")
     st.write("睡眠は **7時間以上確保** を目標にしましょう。")
-    
 
 elif mode == "教育費・人生設計":
     st.header("📘 教育費・人生設計")
@@ -2177,6 +2385,26 @@ elif mode == "設定":
     st.radio("調理レベル", ["超かんたん", "普通", "しっかり"], horizontal=True, key="ease_level")
     st.radio("主食の好み", ["ごはん派", "パン派", "どちらも"], horizontal=True, key="staple_preference")
     st.text_area("よくある冷蔵庫の食材", key="fridge_items")
+    st.text_area(
+        "食べられないもの・避けたいもの",
+        key="avoid_foods",
+        placeholder="例：えび、かに、牡蠣、辛いもの など"
+    )
+    st.text_area(
+        "わたしの定番・好きな食事",
+        key="favorite_meals",
+        placeholder="例：納豆、豆乳、ブルーベリー、タンパク質おにぎり"
+    )
+    st.text_input(
+        "おすすめタンパク質おにぎり",
+        key="favorite_protein_onigiri",
+        placeholder="例：鮭枝豆おにぎり"
+    )
+    st.text_input(
+        "味噌玉味噌汁",
+        key="favorite_misodama_soup",
+        placeholder="例：わかめ・豆腐・ねぎの味噌玉"
+    )
     st.radio("プランタイプ初期値", ["通常", "外食", "コンビニ"], horizontal=True, key="plan_type")
     st.selectbox("平日のお昼スタイル", ["指定なし", "お弁当", "コンビニ", "おすすめ定番", "外食", "自宅"], key="lunch_style")
     st.checkbox("主婦リアル提案モード初期値", key="real_mode")
@@ -2184,11 +2412,15 @@ elif mode == "設定":
     st.checkbox("運動あり初期値", key="workout_today")
     st.selectbox("目的初期値", ["バランス", "脚やせ", "脂肪燃焼", "むくみ改善"], key="body_goal")
 
-    if st.button("💾 初期設定を保存"):
-        save_user_settings()
-        st.success("初期設定を保存しました。")
+    save_col, reset_col = st.columns(2)
+    with save_col:
+        if st.button(f"💾 {UI_TEXT['save']}", use_container_width=True):
+            save_user_settings()
+            st.success("初期設定を保存しました。")
 
-    if st.button("↺ 初期設定をリセット"):
-        reset_user_settings()
-        save_user_settings()
-        st.success("初期設定をリセットしました。")
+    with reset_col:
+        if st.button("↺ 初期設定をリセット", use_container_width=True):
+            reset_user_settings()
+            save_user_settings()
+            st.success("初期設定をリセットしました。")
+            st.rerun()
