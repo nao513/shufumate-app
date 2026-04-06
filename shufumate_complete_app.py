@@ -2153,8 +2153,8 @@ elif mode == "写真で記録":
         )
 
             if st.button("🧹 数値候補をクリア", use_container_width=True):
-        st.session_state["photo_scale_result"] = ""
-        st.rerun()
+               st.session_state["photo_scale_result"] = ""
+               st.rerun()
 
         st.caption("内容を見ながら、ダイエット管理へ反映できます。")
 
