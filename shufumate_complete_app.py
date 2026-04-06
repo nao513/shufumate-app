@@ -2084,14 +2084,15 @@ elif mode == "写真で記録":
             st.rerun()
 
         if st.session_state["fridge_scan_images"]:
-    st.write(f"保存中の画像: {len(st.session_state['fridge_scan_images'])}枚")
+            st.write(f"保存中の画像: {len(st.session_state['fridge_scan_images'])}枚")
 
-    for i, img in enumerate(st.session_state["fridge_scan_images"]):
-        st.image(img, caption=f"冷蔵庫画像 {i+1}", use_container_width=True)
+            for i, img in enumerate(st.session_state["fridge_scan_images"]):
+                st.image(img, caption=f"冷蔵庫画像 {i+1}", use_container_width=True)
 
-        if st.button(f"🗑 この画像を削除 {i+1}", key=f"delete_fridge_{i}", use_container_width=True):
-            st.session_state["fridge_scan_images"].pop(i)
-            st.rerun()
+                if st.button(f"🗑 この画像を削除 {i+1}", key=f"delete_fridge_{i}", use_container_width=True):
+                    st.session_state["fridge_scan_images"].pop(i)
+                    st.rerun()
+
             if st.button("🥬 スキャン画像から食材抽出"):
                 client = get_openai_client()
                 with st.spinner("AIが食材を読み取り中..."):
