@@ -111,13 +111,13 @@ def ensure_headers():
 
 
 def get_current_user_id():
-    name = st.session_state.get("user_name_input", "").strip()
-    if name:
-        return name
-    return "guest"
-
+    return st.session_state.get("user_name_input", "").strip()
+    
 def reload_user_data_if_needed():
     current_user_id = get_current_user_id()
+
+    if not current_user_id:
+        return
 
     if st.session_state.get("last_loaded_user_id") != current_user_id:
         saved = load_user_settings()
@@ -133,7 +133,9 @@ def reload_user_data_if_needed():
             st.session_state["today_plan_date"] = saved_plan_date
             st.session_state["today_plan_text"] = saved_plan_text
 
-        st.session_state["last_loaded_user_id"] = current_user_id        
+        st.session_state["last_loaded_user_id"] = current_user_id
+        st.session_state["settings_snapshot"] = get_settings_snapshot()
+        
 
 def load_user_settings():
     ws = get_sheet("Settings")
@@ -251,6 +253,41 @@ def load_settings_into_session():
     if saved:
         for k, v in saved.items():
             st.session_state[k] = v
+
+def get_settings_snapshot():
+    return {
+        "common_gender": st.session_state.get("common_gender", "未選択"),
+        "common_age": st.session_state.get("common_age", 40),
+        "common_height": st.session_state.get("common_height", 160.0),
+        "common_weight": st.session_state.get("common_weight", 50.0),
+        "common_target_weight": st.session_state.get("common_target_weight", 48.0),
+        "common_body_fat": st.session_state.get("common_body_fat", 28.0),
+        "common_target_body_fat": st.session_state.get("common_target_body_fat", 24.0),
+        "meal_style": st.session_state.get("meal_style", "和食中心"),
+        "ease_level": st.session_state.get("ease_level", "超かんたん"),
+        "staple_preference": st.session_state.get("staple_preference", "ごはん派"),
+        "fridge_items": st.session_state.get("fridge_items", ""),
+        "avoid_foods": st.session_state.get("avoid_foods", ""),
+        "favorite_meals": st.session_state.get("favorite_meals", ""),
+        "favorite_protein_onigiri": st.session_state.get("favorite_protein_onigiri", ""),
+        "favorite_misodama_soup": st.session_state.get("favorite_misodama_soup", ""),
+        "plan_type": st.session_state.get("plan_type", "通常"),
+        "lunch_style": st.session_state.get("lunch_style", "指定なし"),
+        "real_mode": st.session_state.get("real_mode", True),
+        "daily_flow": st.session_state.get("daily_flow", "普通"),
+        "workout_today": st.session_state.get("workout_today", False),
+        "body_goal": st.session_state.get("body_goal", "バランス"),
+    }
+
+
+def autosave_settings_if_changed():
+    current_snapshot = get_settings_snapshot()
+    previous_snapshot = st.session_state.get("settings_snapshot", {})
+
+    if previous_snapshot and current_snapshot != previous_snapshot:
+        save_user_settings()
+
+    st.session_state["settings_snapshot"] = current_snapshot
 
 
 def load_diet_logs():
@@ -1330,6 +1367,7 @@ def get_recommended_daily_schedule(wake_time_str: str):
 defaults = {
     "user_name_input": "",
     "last_loaded_user_id": "",
+    "settings_snapshot": {},
     "common_gender": "未選択",
     "common_age": 40,
     "common_height": 160.0,
@@ -1396,6 +1434,7 @@ if "settings_loaded" not in st.session_state:
 
     st.session_state["diet_logs"] = load_diet_logs()
     sync_common_from_latest_diet_log()
+
     saved_plan_date, saved_plan_text = load_today_plan()
     if saved_plan_date and saved_plan_text:
         st.session_state["today_plan_date"] = saved_plan_date
@@ -1410,7 +1449,13 @@ if "settings_loaded" not in st.session_state:
 st.title("🍀 ShufuMate｜主婦の味方アプリ")
 st.caption("ダイエット・家計・予定・教育・人生設計・お得情報を総合管理")
 st.text_input("お名前（ニックネーム）", key="user_name_input")
+
+if not st.session_state["user_name_input"].strip():
+    st.warning("最初にニックネームを入力してください。ご家族や知り合いとは別の名前を入れると、記録が分かれます。")
+    st.stop()
+
 reload_user_data_if_needed()
+
 st.caption("※家族や身近な人と試す時は、ニックネームを変えると記録が分かれます。")
 st.caption("※現在はお試し版です。食事・運動・生活の参考としてご利用ください。体調不良が強い場合や医療判断が必要な場合は、専門家へご相談ください。")
 
@@ -2473,8 +2518,15 @@ elif mode == "設定":
             st.success("初期設定を保存しました。")
 
     with reset_col:
-        if st.button("↺ 初期設定をリセット", use_container_width=True):
-            reset_user_settings()
-            save_user_settings()
-            st.success("初期設定をリセットしました。")
-            st.rerun()
+           if st.button("💾 初期設定を保存"):
+        save_user_settings()
+        st.session_state["settings_snapshot"] = get_settings_snapshot()
+        st.success("初期設定を保存しました。")
+
+    if st.button("↺ 初期設定をリセット"):
+        reset_user_settings()
+        save_user_settings()
+        st.session_state["settings_snapshot"] = get_settings_snapshot()
+        st.success("初期設定をリセットしました。")
+
+    autosave_settings_if_changed()
