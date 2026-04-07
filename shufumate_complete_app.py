@@ -1665,7 +1665,7 @@ elif mode == "献立・運動プラン":
     today_str = datetime.today().strftime("%Y-%m-%d")
 
     if st.button("📅 今日のプランを表示"):
-    with st.spinner("生成中..."):
+        with st.spinner("生成中..."):
         plan = create_plan_for_date(
             client,
             today_str,
