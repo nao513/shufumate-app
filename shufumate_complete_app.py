@@ -14,55 +14,6 @@ from google.oauth2.service_account import Credentials
 
 st.set_page_config(page_title="ShufuMate｜主婦の味方アプリ", layout="wide")
 
-ensure_headers()
-
-if "common_gender" not in st.session_state:
-    st.session_state["common_gender"] = "未選択"
-if "common_age" not in st.session_state:
-    st.session_state["common_age"] = 40
-if "common_height" not in st.session_state:
-    st.session_state["common_height"] = 160.0
-if "common_weight" not in st.session_state:
-    st.session_state["common_weight"] = 50.0
-if "common_target_weight" not in st.session_state:
-    st.session_state["common_target_weight"] = 48.0
-if "common_body_fat" not in st.session_state:
-    st.session_state["common_body_fat"] = 28.0
-if "common_target_body_fat" not in st.session_state:
-    st.session_state["common_target_body_fat"] = 24.0
-if "meal_style" not in st.session_state:
-    st.session_state["meal_style"] = "和食中心"
-if "ease_level" not in st.session_state:
-    st.session_state["ease_level"] = "超かんたん"
-if "staple_preference" not in st.session_state:
-    st.session_state["staple_preference"] = "ごはん派"
-if "fridge_items" not in st.session_state:
-    st.session_state["fridge_items"] = ""
-if "avoid_foods" not in st.session_state:
-    st.session_state["avoid_foods"] = ""
-if "favorite_meals" not in st.session_state:
-    st.session_state["favorite_meals"] = ""
-if "favorite_protein_onigiri" not in st.session_state:
-    st.session_state["favorite_protein_onigiri"] = ""
-if "favorite_misodama_soup" not in st.session_state:
-    st.session_state["favorite_misodama_soup"] = ""
-if "plan_type" not in st.session_state:
-    st.session_state["plan_type"] = "通常"
-if "lunch_style" not in st.session_state:
-    st.session_state["lunch_style"] = "指定なし"
-if "real_mode" not in st.session_state:
-    st.session_state["real_mode"] = True
-if "daily_flow" not in st.session_state:
-    st.session_state["daily_flow"] = "普通"
-if "workout_today" not in st.session_state:
-    st.session_state["workout_today"] = False
-if "body_goal" not in st.session_state:
-    st.session_state["body_goal"] = "バランス"
-
-if "settings_loaded" not in st.session_state:
-    load_settings_into_session()
-    st.session_state["settings_loaded"] = True
-
 UI_TEXT = {
     "update": "更新する",
     "save": "保存する",
@@ -1721,10 +1672,51 @@ elif mode == "献立・運動プラン":
     today_str = datetime.today().strftime("%Y-%m-%d")
 
     if st.button("📅 今日のプランを表示"):
-        with st.spinner("生成中..."):
-            plan = create_plan_for_date(
+    with st.spinner("生成中..."):
+        plan = create_plan_for_date(
+            client,
+            today_str,
+            gender,
+            age,
+            height_cm,
+            weight,
+            body_fat,
+            target_weight,
+            target_body_fat,
+            st.session_state["dosha_type"],
+            st.session_state["meal_style"],
+            st.session_state["ease_level"],
+            st.session_state["staple_preference"],
+            st.session_state["fridge_items"],
+            st.session_state["avoid_foods"],
+            st.session_state["favorite_meals"],
+            st.session_state["favorite_protein_onigiri"],
+            st.session_state["favorite_misodama_soup"],
+            st.session_state["plan_type"],
+            st.session_state["lunch_style"],
+            st.session_state["real_mode"],
+            st.session_state["daily_flow"],
+            st.session_state["workout_today"],
+            st.session_state["body_goal"]
+        )
+
+    st.session_state["today_plan_text"] = plan
+    st.session_state["today_plan_date"] = today_str
+    upsert_today_plan(today_str, plan)
+
+    st.subheader(f"今日のプラン（{today_str}）")
+    st.markdown(plan)
+
+st.divider()
+
+if st.button("複数日プラン作成"):
+    results = []
+    with st.spinner("AIが複数日プランを作成中..."):
+        for i in range(days):
+            date = (datetime.today() + timedelta(days=i)).strftime("%Y-%m-%d")
+            plan_text = create_plan_for_date(
                 client,
-                today_str,
+                date,
                 gender,
                 age,
                 height_cm,
@@ -1737,10 +1729,6 @@ elif mode == "献立・運動プラン":
                 st.session_state["ease_level"],
                 st.session_state["staple_preference"],
                 st.session_state["fridge_items"],
-                st.session_state.get("avoid_foods", ""),
-                st.session_state.get("favorite_meals", ""),
-                st.session_state.get("favorite_protein_onigiri", ""),
-                st.session_state.get("favorite_misodama_soup", ""),
                 st.session_state["avoid_foods"],
                 st.session_state["favorite_meals"],
                 st.session_state["favorite_protein_onigiri"],
@@ -1752,65 +1740,24 @@ elif mode == "献立・運動プラン":
                 st.session_state["workout_today"],
                 st.session_state["body_goal"]
             )
+            results.append({"日付": date, "プラン": plan_text})
 
-        st.session_state["today_plan_text"] = plan
-        st.session_state["today_plan_date"] = today_str
-        upsert_today_plan(today_str, plan)
+    df = pd.DataFrame(results)
+    st.success("プラン完成✨")
+    st.dataframe(df, use_container_width=True)
 
-        st.subheader(f"今日のプラン（{today_str}）")
-        st.markdown(plan)
+    csv = df.to_csv(index=False).encode("utf-8-sig")
+    st.download_button("📥 献立・運動プランCSVダウンロード", data=csv, file_name="plan.csv", mime="text/csv")
 
-    st.divider()
-
-    if st.button("複数日プラン作成"):
-        results = []
-        with st.spinner("AIが複数日プランを作成中..."):
-            for i in range(days):
-                date = (datetime.today() + timedelta(days=i)).strftime("%Y-%m-%d")
-                plan_text = create_plan_for_date(
-                    client,
-                    date,
-                    gender,
-                    age,
-                    height_cm,
-                    weight,
-                    body_fat,
-                    target_weight,
-                    target_body_fat,
-                    st.session_state["dosha_type"],
-                    st.session_state["meal_style"],
-                    st.session_state["ease_level"],
-                    st.session_state["staple_preference"],
-                    st.session_state["fridge_items"],
-                    st.session_state["avoid_foods"],
-                    st.session_state["favorite_meals"],
-                    st.session_state["favorite_protein_onigiri"],
-                    st.session_state["favorite_misodama_soup"],
-                    st.session_state["plan_type"],
-                    st.session_state["lunch_style"],
-                    st.session_state["real_mode"],
-                    st.session_state["daily_flow"],
-                    st.session_state["workout_today"],
-                    st.session_state["body_goal"]
-                )
-                results.append({"日付": date, "プラン": plan_text})
-
-        df = pd.DataFrame(results)
-        st.success("プラン完成✨")
-        st.dataframe(df, use_container_width=True)
-
-        csv = df.to_csv(index=False).encode("utf-8-sig")
-        st.download_button("📥 献立・運動プランCSVダウンロード", data=csv, file_name="plan.csv", mime="text/csv")
-
-        st.subheader("🛒 買い物リストまとめ")
-        shopping_df = extract_shopping_items(df["プラン"].tolist())
-        if not shopping_df.empty:
-            st.dataframe(shopping_df, use_container_width=True)
-            shopping_csv = shopping_df.to_csv(index=False).encode("utf-8-sig")
-            st.download_button("📥 買い物リストCSVダウンロード", data=shopping_csv, file_name="shopping_list.csv", mime="text/csv")
-        else:
-            st.info("買い物リストを抽出できませんでした。")
-
+    st.subheader("🛒 買い物リストまとめ")
+    shopping_df = extract_shopping_items(df["プラン"].tolist())
+    if not shopping_df.empty:
+        st.dataframe(shopping_df, use_container_width=True)
+        shopping_csv = shopping_df.to_csv(index=False).encode("utf-8-sig")
+        st.download_button("📥 買い物リストCSVダウンロード", data=shopping_csv, file_name="shopping_list.csv", mime="text/csv")
+    else:
+        st.info("買い物リストを抽出できませんでした。")
+        
 elif mode == "食事写真評価":
     st.header("📸 食事写真で1日評価")
     st.caption("朝・昼・夜の写真から、1日の食事バランスをやさしくチェックします。")
