@@ -2060,6 +2060,7 @@ elif mode == "写真で記録":
     with tab1:
         st.subheader("🥬 冷蔵庫スキャン")
         st.caption("スマホでは1枚ずつ撮って追加していく使い方がおすすめです。")
+        st.caption("※ Take Photo＝写真を撮る、Upload＝保存済み写真を追加")
 
         fridge_camera = st.camera_input("冷蔵庫を撮る", key="fridge_camera_scan")
 
@@ -2110,7 +2111,7 @@ elif mode == "写真で記録":
                 st.success("食材候補を抽出しました。")
                 st.rerun()
 
-                st.text_area("読み取った食材候補", key="photo_fridge_items", height=180)
+        st.text_area("読み取った食材候補", key="photo_fridge_items", height=180)
 
         if st.button("🧹 読み取り結果をクリア", use_container_width=True):
             st.session_state["photo_fridge_items"] = ""
@@ -2122,9 +2123,10 @@ elif mode == "写真で記録":
                 text = text.split("食材候補:")[-1].strip()
             st.session_state["fridge_items"] = text
             st.success("冷蔵庫の食材に反映しました。")
-            
+
     with tab2:
         st.subheader("⚖ 体重計写真から記録候補を管理")
+        st.caption("※ Upload＝保存済みの体重計写真を追加")
 
         scale_photo = st.file_uploader(
             "体重計の写真をアップロード",
@@ -2138,68 +2140,24 @@ elif mode == "写真で記録":
             resized_scale = resize_image(scale_photo, max_size=768)
             st.image(resized_scale, caption="アップロードした体重計写真", use_container_width=True)
 
-            if st.button("⚖ 数値を自動抽出"):
-                client = get_openai_client()
-                with st.spinner("AIが数値を読み取り中..."):
-                    result = extract_scale_values_from_image(client, resized_scale)
+            col1, col2 = st.columns(2)
 
-                st.session_state["photo_scale_result"] = result
-                st.success("数値候補を抽出しました✨")
-                st.rerun()
+            with col1:
+                if st.button("⚖ 数値を自動抽出"):
+                    client = get_openai_client()
+                    with st.spinner("AIが数値を読み取り中..."):
+                        result = extract_scale_values_from_image(client, resized_scale)
 
-            if st.button("🗑 体重計写真を削除"):
-                delete_uploaded_state(
-                    upload_keys=["scale_photo_upload"],
-                    success_message="体重計写真を削除しました。"
-                )
+                    st.session_state["photo_scale_result"] = result
+                    st.success("数値候補を抽出しました✨")
+                    st.rerun()
 
-                st.text_area(
-            "読み取った数値候補メモ",
-            placeholder="例：体重: 51.2\n体脂肪率: 25.6\n骨格筋率: 27.2",
-            key="photo_scale_result",
-            height=220
-        )
-
-        if st.button("🧹 数値候補をクリア", use_container_width=True):
-            st.session_state["photo_scale_result"] = ""
-            st.rerun()
-
-        st.caption("内容を見ながら、ダイエット管理へ反映できます。")
-
-        col1, col2 = st.columns(2)
-
-        with col1:
-            if st.button("➡ 体重だけ反映"):
-                text = st.session_state["photo_scale_result"]
-                m = re.search(r"体重[:：]\s*([0-9]+(?:\.[0-9]+)?)", text)
-                if m:
-                    st.session_state["common_weight"] = float(m.group(1))
-                    st.success("体重を反映しました。")
-                else:
-                    st.warning("体重が見つかりませんでした。")
-    with tab2:
-        st.subheader("⚖ 体重計写真から記録候補を管理")
-
-        scale_photo = st.file_uploader(
-            "体重計の写真をアップロード",
-            type=["jpg", "jpeg", "png"],
-            key="scale_photo_upload"
-        )
-
-        resized_scale = None
-
-        if scale_photo is not None:
-            resized_scale = resize_image(scale_photo, max_size=768)
-            st.image(resized_scale, caption="アップロードした体重計写真", use_container_width=True)
-
-            if st.button("⚖ 数値を自動抽出"):
-                client = get_openai_client()
-                with st.spinner("AIが数値を読み取り中..."):
-                    result = extract_scale_values_from_image(client, resized_scale)
-
-                st.session_state["photo_scale_result"] = result
-                st.success("数値候補を抽出しました✨")
-                st.rerun()
+            with col2:
+                if st.button("🗑 体重計写真を削除"):
+                    delete_uploaded_state(
+                        upload_keys=["scale_photo_upload"],
+                        success_message="体重計写真を削除しました。"
+                    )
 
         st.text_area(
             "読み取った数値候補メモ",
@@ -2255,7 +2213,7 @@ elif mode == "写真で記録":
                 st.success("体重・体脂肪率を反映しました。")
             else:
                 st.warning("反映できる数値が見つかりませんでした。")
-
+                
 elif mode == "体型チェック":
     st.header("🪞 体型チェック")
     st.caption("顔がはっきり写らない距離・角度での撮影がおすすめです。")
