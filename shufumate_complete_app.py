@@ -1664,8 +1664,8 @@ elif mode == "献立・運動プラン":
     client = get_openai_client()
     today_str = datetime.today().strftime("%Y-%m-%d")
 
-    if st.button("📅 今日のプランを表示"):
-        with st.spinner("生成中..."):
+if st.button("📅 今日のプランを表示"):
+    with st.spinner("生成中..."):
         plan = create_plan_for_date(
             client,
             today_str,
@@ -1701,6 +1701,56 @@ elif mode == "献立・運動プラン":
     st.markdown(plan)
 
 st.divider()
+
+if st.button("複数日プラン作成"):
+    results = []
+    with st.spinner("AIが複数日プランを作成中..."):
+        for i in range(days):
+            date = (datetime.today() + timedelta(days=i)).strftime("%Y-%m-%d")
+            plan_text = create_plan_for_date(
+                client,
+                date,
+                gender,
+                age,
+                height_cm,
+                weight,
+                body_fat,
+                target_weight,
+                target_body_fat,
+                st.session_state["dosha_type"],
+                st.session_state["meal_style"],
+                st.session_state["ease_level"],
+                st.session_state["staple_preference"],
+                st.session_state["fridge_items"],
+                st.session_state["avoid_foods"],
+                st.session_state["favorite_meals"],
+                st.session_state["favorite_protein_onigiri"],
+                st.session_state["favorite_misodama_soup"],
+                st.session_state["plan_type"],
+                st.session_state["lunch_style"],
+                st.session_state["real_mode"],
+                st.session_state["daily_flow"],
+                st.session_state["workout_today"],
+                st.session_state["body_goal"]
+            )
+            results.append({"日付": date, "プラン": plan_text})
+
+    df = pd.DataFrame(results)
+    st.success("プラン完成✨")
+    st.dataframe(df, use_container_width=True)
+
+    csv = df.to_csv(index=False).encode("utf-8-sig")
+    st.download_button("📥 献立・運動プランCSVダウンロード", data=csv, file_name="plan.csv", mime="text/csv")
+
+    st.subheader("🛒 買い物リストまとめ")
+    shopping_df = extract_shopping_items(df["プラン"].tolist())
+    if not shopping_df.empty:
+        st.dataframe(shopping_df, use_container_width=True)
+        shopping_csv = shopping_df.to_csv(index=False).encode("utf-8-sig")
+        st.download_button("📥 買い物リストCSVダウンロード", data=shopping_csv, file_name="shopping_list.csv", mime="text/csv")
+    else:
+        st.info("買い物リストを抽出できませんでした。")
+        
 
 if st.button("複数日プラン作成"):
     results = []
