@@ -1,10 +1,3 @@
-import base64
-import io
-import re
-import calendar
-import streamlit.components.v1 as components
-from datetime import datetime, timedelta
-
 import gspread
 import pandas as pd
 import streamlit as st
