@@ -14,6 +14,55 @@ from google.oauth2.service_account import Credentials
 
 st.set_page_config(page_title="ShufuMate｜主婦の味方アプリ", layout="wide")
 
+ensure_headers()
+
+if "common_gender" not in st.session_state:
+    st.session_state["common_gender"] = "未選択"
+if "common_age" not in st.session_state:
+    st.session_state["common_age"] = 40
+if "common_height" not in st.session_state:
+    st.session_state["common_height"] = 160.0
+if "common_weight" not in st.session_state:
+    st.session_state["common_weight"] = 50.0
+if "common_target_weight" not in st.session_state:
+    st.session_state["common_target_weight"] = 48.0
+if "common_body_fat" not in st.session_state:
+    st.session_state["common_body_fat"] = 28.0
+if "common_target_body_fat" not in st.session_state:
+    st.session_state["common_target_body_fat"] = 24.0
+if "meal_style" not in st.session_state:
+    st.session_state["meal_style"] = "和食中心"
+if "ease_level" not in st.session_state:
+    st.session_state["ease_level"] = "超かんたん"
+if "staple_preference" not in st.session_state:
+    st.session_state["staple_preference"] = "ごはん派"
+if "fridge_items" not in st.session_state:
+    st.session_state["fridge_items"] = ""
+if "avoid_foods" not in st.session_state:
+    st.session_state["avoid_foods"] = ""
+if "favorite_meals" not in st.session_state:
+    st.session_state["favorite_meals"] = ""
+if "favorite_protein_onigiri" not in st.session_state:
+    st.session_state["favorite_protein_onigiri"] = ""
+if "favorite_misodama_soup" not in st.session_state:
+    st.session_state["favorite_misodama_soup"] = ""
+if "plan_type" not in st.session_state:
+    st.session_state["plan_type"] = "通常"
+if "lunch_style" not in st.session_state:
+    st.session_state["lunch_style"] = "指定なし"
+if "real_mode" not in st.session_state:
+    st.session_state["real_mode"] = True
+if "daily_flow" not in st.session_state:
+    st.session_state["daily_flow"] = "普通"
+if "workout_today" not in st.session_state:
+    st.session_state["workout_today"] = False
+if "body_goal" not in st.session_state:
+    st.session_state["body_goal"] = "バランス"
+
+if "settings_loaded" not in st.session_state:
+    load_settings_into_session()
+    st.session_state["settings_loaded"] = True
+
 UI_TEXT = {
     "update": "更新する",
     "save": "保存する",
@@ -90,14 +139,14 @@ def ensure_headers():
     plans_ws = get_or_create_worksheet(sh, "TodayPlans")
 
     settings_header = [
-        "user_id", "gender", "age", "height_cm", "start_weight",
-        "target_weight", "start_body_fat", "target_body_fat",
-        "meal_style", "ease_level", "staple_preference",
-        "fridge_items", "avoid_foods", "favorite_meals",
-        "favorite_protein_onigiri", "favorite_misodama_soup",
-        "plan_type", "lunch_style",
-        "real_mode", "daily_flow", "workout_today", "body_goal"
-    ]
+    "user_id", "gender", "age", "height_cm", "start_weight",
+    "target_weight", "start_body_fat", "target_body_fat",
+    "meal_style", "ease_level", "staple_preference",
+    "fridge_items", "avoid_foods", "favorite_meals",
+    "favorite_protein_onigiri", "favorite_misodama_soup",
+    "plan_type", "lunch_style",
+    "real_mode", "daily_flow", "workout_today", "body_goal"
+　　]
     diet_header = [
         "user_id", "date", "gender", "age", "height_cm", "weight",
         "target_weight", "body_fat", "target_body_fat",
@@ -168,6 +217,10 @@ def load_user_settings():
                 "ease_level": row_dict.get("ease_level", "超かんたん") or "超かんたん",
                 "staple_preference": row_dict.get("staple_preference", "ごはん派") or "ごはん派",
                 "fridge_items": row_dict.get("fridge_items", "") or "",
+                "avoid_foods": row_dict.get("avoid_foods", "") or "",
+                "favorite_meals": row_dict.get("favorite_meals", "") or "",
+                "favorite_protein_onigiri": row_dict.get("favorite_protein_onigiri", "") or "",
+                "favorite_misodama_soup": row_dict.get("favorite_misodama_soup", "") or "",
                 "avoid_foods": row_dict.get("avoid_foods", "") or "",
                 "favorite_meals": row_dict.get("favorite_meals", "") or "",
                 "favorite_protein_onigiri": row_dict.get("favorite_protein_onigiri", "") or "",
@@ -246,6 +299,10 @@ def reset_user_settings():
     st.session_state["daily_flow"] = "普通"
     st.session_state["workout_today"] = False
     st.session_state["body_goal"] = "バランス"
+    st.session_state["avoid_foods"] = ""
+    st.session_state["favorite_meals"] = ""
+    st.session_state["favorite_protein_onigiri"] = ""
+    st.session_state["favorite_misodama_soup"] = ""
 
 
 def load_settings_into_session():
@@ -1680,6 +1737,10 @@ elif mode == "献立・運動プラン":
                 st.session_state["ease_level"],
                 st.session_state["staple_preference"],
                 st.session_state["fridge_items"],
+                st.session_state.get("avoid_foods", ""),
+                st.session_state.get("favorite_meals", ""),
+                st.session_state.get("favorite_protein_onigiri", ""),
+                st.session_state.get("favorite_misodama_soup", ""),
                 st.session_state["avoid_foods"],
                 st.session_state["favorite_meals"],
                 st.session_state["favorite_protein_onigiri"],
@@ -2534,10 +2595,31 @@ elif mode == "設定":
     st.radio("調理レベル", ["超かんたん", "普通", "しっかり"], horizontal=True, key="ease_level")
     st.radio("主食の好み", ["ごはん派", "パン派", "どちらも"], horizontal=True, key="staple_preference")
     st.text_area("よくある冷蔵庫の食材", key="fridge_items")
-    st.text_area("避けたい食材・苦手なもの", key="avoid_foods")
-    st.text_area("好きな定番メニュー", key="favorite_meals")
-    st.text_input("お気に入りのタンパク質おにぎり", key="favorite_protein_onigiri")
-    st.text_input("お気に入りの味噌玉みそ汁", key="favorite_misodama_soup")
+
+    st.text_area(
+        "食べられないもの・避けたいもの",
+        key="avoid_foods",
+        placeholder="例：えび、かに、牡蠣、辛いもの、牛乳 など"
+    )
+
+    st.text_area(
+        "わたしの定番・好きな食事",
+        key="favorite_meals",
+        placeholder="例：納豆、豆乳、ブルーベリー、タンパク質おにぎり"
+    )
+
+    st.text_input(
+        "おすすめタンパク質おにぎり",
+        key="favorite_protein_onigiri",
+        placeholder="例：鮭枝豆おにぎり"
+    )
+
+    st.text_input(
+        "味噌玉味噌汁",
+        key="favorite_misodama_soup",
+        placeholder="例：わかめ・豆腐・ねぎの味噌玉"
+    )
+
     st.radio("プランタイプ初期値", ["通常", "外食", "コンビニ"], horizontal=True, key="plan_type")
     st.selectbox("平日のお昼スタイル", ["指定なし", "お弁当", "コンビニ", "おすすめ定番", "外食", "自宅"], key="lunch_style")
     st.checkbox("主婦リアル提案モード初期値", key="real_mode")
@@ -2545,15 +2627,38 @@ elif mode == "設定":
     st.checkbox("運動あり初期値", key="workout_today")
     st.selectbox("目的初期値", ["バランス", "脚やせ", "脂肪燃焼", "むくみ改善"], key="body_goal")
 
-    if st.button("💾 初期設定を保存"):
-        save_user_settings()
-        st.session_state["settings_snapshot"] = get_settings_snapshot()
-        st.success("初期設定を保存しました。")
+    st.subheader("🪞 理想イメージの作り方")
+    st.caption("年齢に寄せすぎず、若々しく上品で美しい雰囲気を優先したい場合の設定です。")
 
-    if st.button("↺ 初期設定をリセット"):
-        reset_user_settings()
-        save_user_settings()
-        st.session_state["settings_snapshot"] = get_settings_snapshot()
-        st.success("初期設定をリセットしました。")
+    st.checkbox("理想イメージは若々しく美しく生成する", key="ideal_image_youthful")
+    st.checkbox("年齢感を強く出しすぎない", key="ideal_image_soft_age")
+    st.checkbox("上品で清潔感のある雰囲気を優先する", key="ideal_image_elegant")
+    st.checkbox("本人の雰囲気を少し残したい", key="ideal_image_keep_mood")
 
-    autosave_settings_if_changed()
+    st.text_area(
+        "理想イメージでなりたい雰囲気",
+        key="ideal_image_style_note",
+        placeholder="例：若々しい、透明感、姿勢がよい、すっきりした印象、上品できれい"
+    )
+
+    st.subheader("📷 写真機能について")
+    st.caption("今後追加したい機能メモとして保存用に使えます。")
+
+    st.checkbox("ズーム機能がほしい", key="need_photo_zoom")
+    st.checkbox("トリミング機能がほしい", key="need_photo_crop")
+    st.checkbox("顔が映った時に上だけ切り取りたい", key="need_face_cut")
+    st.checkbox("明るさなどの簡易編集がほしい", key="need_photo_edit")
+
+    c1, c2 = st.columns(2)
+
+    with c1:
+        if st.button("💾 初期設定を保存", use_container_width=True):
+            save_user_settings()
+            st.success("初期設定を保存しました。")
+
+    with c2:
+        if st.button("↺ 初期設定をリセット", use_container_width=True):
+            reset_user_settings()
+            save_user_settings()
+            st.success("初期設定をリセットしました。")
+            st.rerun()
