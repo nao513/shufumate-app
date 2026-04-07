@@ -146,7 +146,7 @@ def ensure_headers():
     "favorite_protein_onigiri", "favorite_misodama_soup",
     "plan_type", "lunch_style",
     "real_mode", "daily_flow", "workout_today", "body_goal"
-　　]
+　]
     diet_header = [
         "user_id", "date", "gender", "age", "height_cm", "weight",
         "target_weight", "body_fat", "target_body_fat",
