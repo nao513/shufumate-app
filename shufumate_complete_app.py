@@ -244,6 +244,7 @@ def reset_user_settings():
     st.session_state["common_target_weight"] = 48.0
     st.session_state["common_body_fat"] = 28.0
     st.session_state["common_target_body_fat"] = 24.0
+
     st.session_state["meal_style"] = "和食中心"
     st.session_state["ease_level"] = "超かんたん"
     st.session_state["staple_preference"] = "ごはん派"
@@ -252,17 +253,13 @@ def reset_user_settings():
     st.session_state["favorite_meals"] = ""
     st.session_state["favorite_protein_onigiri"] = ""
     st.session_state["favorite_misodama_soup"] = ""
+
     st.session_state["plan_type"] = "通常"
     st.session_state["lunch_style"] = "指定なし"
     st.session_state["real_mode"] = True
     st.session_state["daily_flow"] = "普通"
     st.session_state["workout_today"] = False
     st.session_state["body_goal"] = "バランス"
-    st.session_state["avoid_foods"] = ""
-    st.session_state["favorite_meals"] = ""
-    st.session_state["favorite_protein_onigiri"] = ""
-    st.session_state["favorite_misodama_soup"] = ""
-
 
 def load_settings_into_session():
     saved = load_user_settings()
