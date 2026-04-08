@@ -149,6 +149,24 @@ def load_user_settings():
         row = row + [""] * (len(header) - len(row))
         row_dict = dict(zip(header, row))
 
+        def load_user_settings():
+    ws = get_sheet("Settings")
+    values = ws.get_all_values()
+    current_user_id = get_current_user_id()
+
+    if len(values) < 2:
+        return None
+
+    header = values[0]
+    data_rows = values[1:]
+
+    for row in data_rows:
+        if not row:
+            continue
+
+        row = row + [""] * (len(header) - len(row))
+        row_dict = dict(zip(header, row))
+
         if row_dict.get("user_id") == current_user_id:
             return {
                 "common_gender": row_dict.get("gender", "未選択") or "未選択",
@@ -166,10 +184,6 @@ def load_user_settings():
                 "favorite_meals": row_dict.get("favorite_meals", "") or "",
                 "favorite_protein_onigiri": row_dict.get("favorite_protein_onigiri", "") or "",
                 "favorite_misodama_soup": row_dict.get("favorite_misodama_soup", "") or "",
-                "avoid_foods": row_dict.get("avoid_foods", "") or "",
-                "favorite_meals": row_dict.get("favorite_meals", "") or "",
-                "favorite_protein_onigiri": row_dict.get("favorite_protein_onigiri", "") or "",
-                "favorite_misodama_soup": row_dict.get("favorite_misodama_soup", "") or "",
                 "plan_type": row_dict.get("plan_type", "通常") or "通常",
                 "lunch_style": row_dict.get("lunch_style", "指定なし") or "指定なし",
                 "real_mode": str(row_dict.get("real_mode", "True")).lower() == "true",
@@ -177,8 +191,8 @@ def load_user_settings():
                 "workout_today": str(row_dict.get("workout_today", "False")).lower() == "true",
                 "body_goal": row_dict.get("body_goal", "バランス") or "バランス",
             }
-    return None
 
+    return None
 
 def save_user_settings():
     ws = get_sheet("Settings")
