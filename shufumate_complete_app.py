@@ -466,6 +466,55 @@ def resize_image(file, max_size=768):
     buffer.seek(0)
     return buffer
 
+def crop_top_ratio(file_like, top_ratio_percent=15):
+    image = Image.open(file_like).convert("RGB")
+    w, h = image.size
+
+    crop_y = int(h * (top_ratio_percent / 100))
+    crop_y = max(0, min(crop_y, h - 1))
+
+    cropped = image.crop((0, crop_y, w, h))
+
+    buffer = io.BytesIO()
+    cropped.save(buffer, format="JPEG", quality=95)
+    buffer.seek(0)
+    return buffer
+
+
+def generate_ideal_body_image_from_photo(client, image_file_like, body_goal="バランス", face_mode="顔は反映しない"):
+    prompt = f"""
+この全身写真をもとに、理想イメージ案を日本語で作ってください。
+
+ルール:
+- 顔モード: {face_mode}
+- 健康的で上品、若々しく美しい印象にする
+- 年齢を強く感じさせる表現は避ける
+- 姿勢がよく、すっきり見えて、清潔感のある雰囲気にする
+- 無理に細すぎる体型にはしない
+- モチベーションが上がる、憧れ感のあるやさしい表現にする
+- 目的は「{body_goal}」
+
+補足:
+- 「顔は反映しない」の場合は、顔立ちを具体的に再現しない
+- 「顔の雰囲気を少し残す」の場合は、本人の雰囲気を少し残すが個人特定できるほど再現しない
+
+出力形式:
+■理想イメージ説明:
+■画像生成用プロンプト:
+■意識したい変化ポイント:
+"""
+    response = client.responses.create(
+        model="gpt-4.1-mini",
+        input=[{
+            "role": "user",
+            "content": [
+                {"type": "input_text", "text": prompt},
+                {"type": "input_image", "image_url": image_file_to_data_url(image_file_like)}
+            ]
+        }]
+    )
+    return response.output_text
+        
 
 def image_file_to_data_url(file_like):
     b64 = base64.b64encode(file_like.getvalue()).decode("utf-8")
@@ -1419,6 +1468,10 @@ defaults = {
     "body_goal_scan": "バランス",
     "ideal_body_prompt_result": "",
     "ideal_body_image_bytes": None,
+    "body_crop_top_percent": 15,
+    "use_cropped_body": True,
+    "ideal_face_mode": "顔は反映しない",
+    "ideal_image_from_photo_result": "",
     "fridge_scan_images": [],
     "meal_eval_result": "",
     "quick_advice_result": "",
@@ -2232,6 +2285,7 @@ elif mode == "写真で記録":
 elif mode == "体型チェック":
     st.header("🪞 体型チェック")
     st.caption("顔がはっきり写らない距離・角度での撮影がおすすめです。")
+    st.caption("※ Take Photo＝その場で撮影、Upload＝保存済み写真を追加")
 
     st.selectbox(
         "今回の目的",
@@ -2239,18 +2293,65 @@ elif mode == "体型チェック":
         key="body_goal_scan"
     )
 
+    st.radio(
+        "理想イメージの作り方",
+        ["顔は反映しない", "顔の雰囲気を少し残す"],
+        key="ideal_face_mode",
+        horizontal=True
+    )
+
     body_camera = st.camera_input("全身を撮る", key="body_camera_scan")
-    uploaded_body = st.file_uploader("または全身写真をアップロード", type=["jpg", "jpeg", "png"], key="body_photo_upload")
+    uploaded_body = st.file_uploader(
+        "または全身写真をアップロード",
+        type=["jpg", "jpeg", "png"],
+        key="body_photo_upload"
+    )
 
     source_body = body_camera if body_camera is not None else uploaded_body
 
     if source_body is not None:
-        resized_body = resize_image(source_body, max_size=768)
-        st.image(resized_body, caption="全身スキャン画像", use_container_width=True)
+        st.caption("※ 顔が入った時は、下のスライダーで上を少しカットできます。")
+
+        st.slider(
+            "顔が入った時の上カット量（%）",
+            min_value=0,
+            max_value=40,
+            value=15,
+            step=1,
+            key="body_crop_top_percent"
+        )
+
+        st.checkbox(
+            "上をカットした画像を使う",
+            value=True,
+            key="use_cropped_body"
+        )
+
+        original_resized = resize_image(source_body, max_size=768)
+
+        if st.session_state["use_cropped_body"] and st.session_state["body_crop_top_percent"] > 0:
+            cropped_body = crop_top_ratio(source_body, st.session_state["body_crop_top_percent"])
+            resized_body = resize_image(cropped_body, max_size=768)
+        else:
+            resized_body = original_resized
+
+        col_img1, col_img2 = st.columns(2)
+
+        with col_img1:
+            st.image(original_resized, caption="元の画像", use_container_width=True)
+
+        with col_img2:
+            st.image(resized_body, caption="解析に使う画像", use_container_width=True)
 
         if st.button("🗑 全身写真を削除"):
             delete_uploaded_state(
                 upload_keys=["body_camera_scan", "body_photo_upload"],
+                stored_keys=[
+                    "body_scan_comment",
+                    "ideal_body_prompt_result",
+                    "ideal_body_image_bytes",
+                    "ideal_image_from_photo_result"
+                ],
                 success_message="全身写真を削除しました。"
             )
 
@@ -2260,7 +2361,11 @@ elif mode == "体型チェック":
             if st.button("🪄 体型コメントを自動生成"):
                 client = get_openai_client()
                 with st.spinner("体型バランスを分析中..."):
-                    result = generate_body_balance_comment(client, resized_body, st.session_state["body_goal_scan"])
+                    result = generate_body_balance_comment(
+                        client,
+                        resized_body,
+                        st.session_state["body_goal_scan"]
+                    )
                 st.session_state["body_scan_comment"] = result
                 st.success("体型コメントを生成しました。")
                 st.rerun()
@@ -2270,7 +2375,11 @@ elif mode == "体型チェック":
                 client = get_openai_client()
                 source_comment = st.session_state["body_scan_comment"] or "まだ体型コメントなし"
                 with st.spinner("理想イメージを整理中..."):
-                    result = generate_ideal_body_prompt(client, source_comment, st.session_state["body_goal_scan"])
+                    result = generate_ideal_body_prompt(
+                        client,
+                        source_comment,
+                        st.session_state["body_goal_scan"]
+                    )
                 st.session_state["ideal_body_prompt_result"] = result
                 st.success("理想イメージ用プロンプトを作成しました。")
                 st.rerun()
@@ -2278,21 +2387,41 @@ elif mode == "体型チェック":
         with col3:
             if st.button("🖼 理想イメージを生成"):
                 client = get_openai_client()
-                prompt_text = st.session_state["ideal_body_prompt_result"]
-                if not prompt_text.strip():
-                    st.warning("先に理想イメージ用プロンプトを作成してください。")
+
+                if st.session_state["ideal_face_mode"] == "顔の雰囲気を少し残す":
+                    with st.spinner("顔の雰囲気を少し残した理想イメージ案を作成中..."):
+                        result = generate_ideal_body_image_from_photo(
+                            client,
+                            resized_body,
+                            body_goal=st.session_state["body_goal_scan"],
+                            face_mode=st.session_state["ideal_face_mode"]
+                        )
+                    st.session_state["ideal_image_from_photo_result"] = result
+                    st.success("顔の雰囲気を参考にした理想イメージ案を作成しました。")
+                    st.rerun()
                 else:
-                    with st.spinner("理想イメージを生成中..."):
-                        image_bytes = generate_ideal_body_image(client, prompt_text, size="1024x1024")
-                    if image_bytes:
-                        st.session_state["ideal_body_image_bytes"] = image_bytes
-                        st.success("理想イメージを生成しました。")
-                        st.rerun()
+                    prompt_text = st.session_state["ideal_body_prompt_result"]
+                    if not prompt_text.strip():
+                        st.warning("先に理想イメージ用プロンプトを作成してください。")
                     else:
-                        st.error("画像生成に失敗しました。")
+                        with st.spinner("理想イメージを生成中..."):
+                            image_bytes = generate_ideal_body_image(client, prompt_text, size="1024x1024")
+                        if image_bytes:
+                            st.session_state["ideal_body_image_bytes"] = image_bytes
+                            st.success("理想イメージを生成しました。")
+                            st.rerun()
+                        else:
+                            st.error("画像生成に失敗しました。")
 
     st.text_area("体型バランスコメント", key="body_scan_comment", height=240)
     st.text_area("理想イメージ用プロンプト", key="ideal_body_prompt_result", height=240)
+
+    if st.session_state["ideal_face_mode"] == "顔の雰囲気を少し残す":
+        st.text_area(
+            "顔の雰囲気を少し残した理想イメージ案",
+            key="ideal_image_from_photo_result",
+            height=240
+        )
 
     if st.session_state["ideal_body_image_bytes"]:
         st.subheader("🖼 理想イメージ")
@@ -2307,7 +2436,7 @@ elif mode == "体型チェック":
 
     st.caption("骨格を断定するのではなく、見え方やバランス傾向として使うのがおすすめです。")
     st.caption("理想イメージはモチベーション用の参考として使う設計です。")
-
+    
 elif mode == "家計簿":
     st.header("💰 家計簿入力")
     with st.form("budget_form"):
