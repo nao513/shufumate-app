@@ -480,19 +480,26 @@ def load_expenses():
 
 
 def append_expense(expense_dict):
-    ws = get_sheet("Expenses")
-    current_user_id = get_current_user_id()
+    try:
+        ws = get_sheet("Expenses")
+        current_user_id = get_current_user_id()
 
-    row_values = [
-        current_user_id,
-        expense_dict["日付"],
-        expense_dict["カテゴリ"],
-        expense_dict["店名"],
-        expense_dict["金額"],
-        expense_dict["メモ"],
-    ]
+        row_values = [
+            current_user_id,
+            expense_dict["日付"],
+            expense_dict["カテゴリ"],
+            expense_dict["店名"],
+            expense_dict["金額"],
+            expense_dict["メモ"],
+        ]
 
-    ws.append_row(row_values)
+        st.write("DEBUG current_user_id:", current_user_id)
+        st.write("DEBUG row_values:", row_values)
+
+        ws.append_row(row_values)
+        st.success("Expenses シートへ保存しました")
+    except Exception as e:
+        st.error(f"家計簿保存エラー: {e}")
 
 
 # -----------------------------
@@ -2596,6 +2603,7 @@ elif mode == "体型チェック":
     st.caption("骨格を断定するのではなく、見え方やバランス傾向として使うのがおすすめです。")
     st.caption("理想イメージはモチベーション用の参考として使う設計です。")
     
+    
 elif mode == "家計簿":
     st.header("💰 家計簿入力")
     st.caption("レシートを撮影またはアップロードして、家計簿に使う内容を自動で読み取れます。")
@@ -2660,14 +2668,17 @@ elif mode == "家計簿":
         submitted = st.form_submit_button("記録する")
 
     if submitted:
-        st.session_state["expenses"].append({
+        expense = {
             "日付": str(date_value),
             "カテゴリ": category,
             "店名": store_name,
             "金額": amount,
             "メモ": memo
-        })
+        }
+        append_expense(expense)
+        st.session_state["expenses"] = load_expenses()
         st.success("家計簿を記録しました。")
+        st.rerun()
 
     if st.session_state["expenses"]:
         df_exp = pd.DataFrame(st.session_state["expenses"])
