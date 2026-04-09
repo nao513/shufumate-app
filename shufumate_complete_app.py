@@ -2687,10 +2687,48 @@ elif mode == "家計簿":
         st.rerun()
 
     if st.session_state["expenses"]:
+        df_exp = pd.DataFrame(st.session_state["expenses"])
+
+        st.subheader("📈 集計")
+
+        if not df_exp.empty:
+            df_exp["日付"] = pd.to_datetime(df_exp["日付"], errors="coerce")
+
+            today = datetime.today()
+            current_month_df = df_exp[
+                (df_exp["日付"].dt.year == today.year) &
+                (df_exp["日付"].dt.month == today.month)
+            ].copy()
+
+            total_all = int(df_exp["金額"].sum())
+            total_month = int(current_month_df["金額"].sum()) if not current_month_df.empty else 0
+
+            c1, c2 = st.columns(2)
+            c1.metric("累計合計", f"{total_all:,}円")
+            c2.metric("今月の合計", f"{total_month:,}円")
+
+            st.markdown("#### 🧺 カテゴリ別合計")
+            category_df = (
+                df_exp.groupby("カテゴリ", as_index=False)["金額"]
+                .sum()
+                .sort_values("金額", ascending=False)
+            )
+            st.dataframe(category_df, use_container_width=True, hide_index=True)
+
+            st.markdown("#### 🗓 月別合計")
+            month_df = df_exp.copy()
+            month_df["年月"] = month_df["日付"].dt.strftime("%Y-%m")
+            monthly_summary = (
+                month_df.groupby("年月", as_index=False)["金額"]
+                .sum()
+                .sort_values("年月", ascending=False)
+            )
+            st.dataframe(monthly_summary, use_container_width=True, hide_index=True)
+
         st.subheader("📊 記録一覧")
 
-        df_exp = pd.DataFrame(st.session_state["expenses"])
         display_df = df_exp.drop(columns=["_sheet_row"], errors="ignore")
+        display_df["日付"] = display_df["日付"].dt.strftime("%Y-%m-%d")
         st.dataframe(display_df, use_container_width=True)
 
         st.markdown("#### 🗑 記録を削除")
@@ -2720,7 +2758,7 @@ elif mode == "家計簿":
             file_name="kakeibo.csv",
             mime="text/csv"
         )
-
+        
 elif mode == "スケジュール":
     st.header("🗓 スケジュール管理")
 
