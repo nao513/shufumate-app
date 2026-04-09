@@ -149,7 +149,7 @@ def load_user_settings():
         row = row + [""] * (len(header) - len(row))
         row_dict = dict(zip(header, row))
 
-        def load_user_settings():
+def load_user_settings():
     ws = get_sheet("Settings")
     values = ws.get_all_values()
     current_user_id = get_current_user_id()
