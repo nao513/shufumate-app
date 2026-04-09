@@ -1,10 +1,16 @@
+import base64
+import io
+import re
+import calendar
 from datetime import datetime, timedelta
+
 import gspread
 import pandas as pd
 import streamlit as st
 from openai import OpenAI
 from PIL import Image
 from google.oauth2.service_account import Credentials
+
 
 st.set_page_config(page_title="ShufuMate｜主婦の味方アプリ", layout="wide")
 
