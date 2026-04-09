@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 import gspread
 import pandas as pd
 import streamlit as st
+import streamlit.components.v1 as components
 from openai import OpenAI
 from PIL import Image
 from google.oauth2.service_account import Credentials
