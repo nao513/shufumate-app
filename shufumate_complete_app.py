@@ -2608,42 +2608,118 @@ elif mode == "体型チェック":
 
     st.caption("骨格を断定するのではなく、見え方やバランス傾向として使うのがおすすめです。")
     st.caption("理想イメージはモチベーション用の参考として使う設計です。")
-    
-    
-if st.session_state["expenses"]:
-    st.subheader("📊 記録一覧")
 
-    df_exp = pd.DataFrame(st.session_state["expenses"])
-    display_df = df_exp.drop(columns=["_sheet_row"], errors="ignore")
-    st.dataframe(display_df, use_container_width=True)
 
-    st.markdown("#### 🗑 記録を削除")
-    delete_options = []
-    for item in st.session_state["expenses"]:
-        label = f"No.{item['_sheet_row']}｜{item['日付']}｜{item['カテゴリ']}｜{item['店名']}｜{item['金額']}円｜{item['メモ']}"
-        delete_options.append((label, item["_sheet_row"]))
+elif mode == "家計簿":
+    st.header("💰 家計簿入力")
+    st.caption("レシートを撮影またはアップロードして、家計簿に使う内容を自動で読み取れます。")
+    st.caption("※ Take Photo＝その場で撮影、Upload＝保存済み写真を追加")
 
-    selected_label = st.selectbox(
-        "削除する記録を選んでください",
-        [x[0] for x in delete_options],
-        key="expense_delete_label"
+    st.subheader("📷 レシート読取")
+    receipt_camera = st.camera_input("レシートを撮る", key="receipt_camera")
+    receipt_upload = st.file_uploader(
+        "またはレシート画像をアップロード",
+        type=["jpg", "jpeg", "png"],
+        key="receipt_upload"
     )
 
-    selected_row = next(row for label, row in delete_options if label == selected_label)
+    receipt_source = receipt_camera if receipt_camera is not None else receipt_upload
+    resized_receipt = None
 
-    if st.button("この記録を削除する"):
-        delete_expense(selected_row)
+    if receipt_source is not None:
+        resized_receipt = resize_image(receipt_source, max_size=1200)
+        st.image(resized_receipt, caption="レシート画像", use_container_width=True)
+
+        col_a, col_b = st.columns(2)
+
+        with col_a:
+            if st.button("🧾 レシートを読み取る"):
+                client = get_openai_client()
+                with st.spinner("レシートを読み取り中..."):
+                    result = extract_receipt_info(client, resized_receipt)
+
+                st.session_state["receipt_result"] = result
+                parsed = parse_receipt_result(result)
+                st.session_state["receipt_store"] = parsed["store"]
+                st.session_state["receipt_date_text"] = parsed["date"]
+                st.session_state["receipt_amount"] = parsed["amount"]
+                st.session_state["receipt_memo"] = parsed["memo"]
+                st.success("レシート内容を読み取りました。")
+
+        with col_b:
+            if st.button("🗑 レシート画像を削除"):
+                delete_uploaded_state(
+                    upload_keys=["receipt_camera", "receipt_upload"],
+                    stored_keys=["receipt_result"],
+                    success_message="レシート画像を削除しました。"
+                )
+
+    st.text_area("読み取り結果", key="receipt_result", height=220)
+
+    st.divider()
+    st.subheader("✍ 家計簿に登録")
+
+    with st.form("budget_form"):
+        date_value = st.date_input("日付", datetime.today())
+        category = st.selectbox("カテゴリ", ["食費", "日用品", "教育費", "交際費", "医療費", "その他"])
+        store_name = st.text_input("店名", value=st.session_state.get("receipt_store", ""))
+        amount = st.number_input(
+            "金額（円）",
+            min_value=0,
+            step=100,
+            value=int(st.session_state.get("receipt_amount", 0))
+        )
+        memo_default = st.session_state.get("receipt_memo", "")
+        memo = st.text_input("メモ", value=memo_default)
+        submitted = st.form_submit_button("記録する")
+
+    if submitted:
+        expense = {
+            "日付": str(date_value),
+            "カテゴリ": category,
+            "店名": store_name,
+            "金額": amount,
+            "メモ": memo
+        }
+        append_expense(expense)
         st.session_state["expenses"] = load_expenses()
-        st.success("家計簿の記録を削除しました。")
+        st.success("家計簿を記録しました。")
         st.rerun()
 
-    csv = display_df.to_csv(index=False).encode("utf-8-sig")
-    st.download_button(
-        "📥 家計簿CSVダウンロード",
-        data=csv,
-        file_name="kakeibo.csv",
-        mime="text/csv"
-    )        
+    if st.session_state["expenses"]:
+        st.subheader("📊 記録一覧")
+
+        df_exp = pd.DataFrame(st.session_state["expenses"])
+        display_df = df_exp.drop(columns=["_sheet_row"], errors="ignore")
+        st.dataframe(display_df, use_container_width=True)
+
+        st.markdown("#### 🗑 記録を削除")
+        delete_options = []
+        for item in st.session_state["expenses"]:
+            label = f"No.{item['_sheet_row']}｜{item['日付']}｜{item['カテゴリ']}｜{item['店名']}｜{item['金額']}円｜{item['メモ']}"
+            delete_options.append((label, item["_sheet_row"]))
+
+        selected_label = st.selectbox(
+            "削除する記録を選んでください",
+            [x[0] for x in delete_options],
+            key="expense_delete_label"
+        )
+
+        selected_row = next(row for label, row in delete_options if label == selected_label)
+
+        if st.button("この記録を削除する"):
+            delete_expense(selected_row)
+            st.session_state["expenses"] = load_expenses()
+            st.success("家計簿の記録を削除しました。")
+            st.rerun()
+
+        csv = display_df.to_csv(index=False).encode("utf-8-sig")
+        st.download_button(
+            "📥 家計簿CSVダウンロード",
+            data=csv,
+            file_name="kakeibo.csv",
+            mime="text/csv"
+        )
 
 elif mode == "スケジュール":
     st.header("🗓 スケジュール管理")
