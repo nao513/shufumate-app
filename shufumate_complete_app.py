@@ -89,15 +89,16 @@ def ensure_headers():
     settings_ws = get_or_create_worksheet(sh, "Settings")
     diet_ws = get_or_create_worksheet(sh, "DietLogs")
     plans_ws = get_or_create_worksheet(sh, "TodayPlans")
+    expenses_ws = get_or_create_worksheet(sh, "Expenses")
 
     settings_header = [
-    "user_id", "gender", "age", "height_cm", "start_weight",
-    "target_weight", "start_body_fat", "target_body_fat",
-    "meal_style", "ease_level", "staple_preference",
-    "fridge_items", "avoid_foods", "favorite_meals",
-    "favorite_protein_onigiri", "favorite_misodama_soup",
-    "plan_type", "lunch_style",
-    "real_mode", "daily_flow", "workout_today", "body_goal"
+        "user_id", "gender", "age", "height_cm", "start_weight",
+        "target_weight", "start_body_fat", "target_body_fat",
+        "meal_style", "ease_level", "staple_preference",
+        "fridge_items", "avoid_foods", "favorite_meals",
+        "favorite_protein_onigiri", "favorite_misodama_soup",
+        "plan_type", "lunch_style",
+        "real_mode", "daily_flow", "workout_today", "body_goal"
     ]
     diet_header = [
         "user_id", "date", "gender", "age", "height_cm", "weight",
@@ -105,11 +106,13 @@ def ensure_headers():
         "bmi", "goal_calories"
     ]
     plan_header = ["user_id", "date", "plan_text"]
+    expenses_header = ["user_id", "date", "category", "store_name", "amount", "memo"]
 
     rewrite_sheet_with_header(settings_ws, settings_header)
     rewrite_sheet_with_header(diet_ws, diet_header)
     rewrite_sheet_with_header(plans_ws, plan_header)
-
+    rewrite_sheet_with_header(expenses_ws, expenses_header)
+    
 
 def get_current_user_id():
     return st.session_state.get("user_name_input", "").strip()
@@ -127,6 +130,7 @@ def reload_user_data_if_needed():
                 st.session_state[k] = v
 
         st.session_state["diet_logs"] = load_diet_logs()
+        st.session_state["expenses"] = load_expenses()
         sync_common_from_latest_diet_log()
 
         saved_plan_date, saved_plan_text = load_today_plan()
@@ -444,6 +448,52 @@ def upsert_today_plan(date_str, plan_text):
     else:
         ws.append_row(row_values)
 
+def load_expenses():
+    ws = get_sheet("Expenses")
+    values = ws.get_all_values()
+    current_user_id = get_current_user_id()
+
+    if len(values) < 2:
+        return []
+
+    header = values[0]
+    data_rows = values[1:]
+    expenses = []
+
+    for row in data_rows:
+        if not row:
+            continue
+
+        row = row + [""] * (len(header) - len(row))
+        row_dict = dict(zip(header, row))
+
+        if row_dict.get("user_id") == current_user_id:
+            expenses.append({
+                "日付": row_dict.get("date", ""),
+                "カテゴリ": row_dict.get("category", ""),
+                "店名": row_dict.get("store_name", ""),
+                "金額": int(float(row_dict["amount"])) if row_dict.get("amount") else 0,
+                "メモ": row_dict.get("memo", ""),
+            })
+
+    return expenses
+
+
+def append_expense(expense_dict):
+    ws = get_sheet("Expenses")
+    current_user_id = get_current_user_id()
+
+    row_values = [
+        current_user_id,
+        expense_dict["日付"],
+        expense_dict["カテゴリ"],
+        expense_dict["店名"],
+        expense_dict["金額"],
+        expense_dict["メモ"],
+    ]
+
+    ws.append_row(row_values)
+
 
 # -----------------------------
 # OpenAI
@@ -482,6 +532,7 @@ def crop_top_ratio(file_like, top_ratio_percent=15):
 
     cropped = image.crop((0, crop_y, w, h))
 
+    
     buffer = io.BytesIO()
     cropped.save(buffer, format="JPEG", quality=95)
     buffer.seek(0)
@@ -766,6 +817,74 @@ def generate_ideal_body_image(client, ideal_prompt_text: str, size: str = "1024x
 
     return b64_to_bytes(image_b64)
 
+
+def extract_receipt_info(client, resized_image):
+    response = client.responses.create(
+        model="gpt-4.1-mini",
+        input=[{
+            "role": "user",
+            "content": [
+                {
+                    "type": "input_text",
+                    "text": """
+この画像はレシートです。
+家計簿に使いやすいように、日本語で整理してください。
+
+ルール:
+- 読み取れた内容だけを書く
+- 推測しすぎない
+- 合計金額が分かれば最優先で書く
+- 店名、日付、合計金額、主な購入内容を整理する
+- 購入内容は3～10件くらいまででよい
+- 最後に家計簿登録しやすいように短くまとめる
+
+出力形式:
+■店名:
+■日付:
+■合計金額:
+■主な購入内容:
+- 〇〇
+- 〇〇
+- 〇〇
+■家計簿メモ:
+"""
+                },
+                {
+                    "type": "input_image",
+                    "image_url": image_file_to_data_url(resized_image)
+                }
+            ]
+        }]
+    )
+    return response.output_text
+
+
+def parse_receipt_result(text: str):
+    result = {
+        "store": "",
+        "date": "",
+        "amount": 0,
+        "memo": "",
+    }
+
+    store_match = re.search(r"■店名[:：]\s*(.*)", text)
+    date_match = re.search(r"■日付[:：]\s*(.*)", text)
+    amount_match = re.search(r"■合計金額[:：]\s*([0-9,]+)", text)
+    memo_match = re.search(r"■家計簿メモ[:：]\s*(.*)", text)
+
+    if store_match:
+        result["store"] = store_match.group(1).strip()
+
+    if date_match:
+        result["date"] = date_match.group(1).strip()
+
+    if amount_match:
+        result["amount"] = int(amount_match.group(1).replace(",", "").strip())
+
+    if memo_match:
+        result["memo"] = memo_match.group(1).strip()
+
+    return result
 
 # -----------------------------
 # Ayurveda / state check
@@ -1489,6 +1608,11 @@ defaults = {
     "lunch_img_bytes": None,
     "dinner_img_bytes": None,
     "body_photo_bytes": None,
+    "receipt_result": "",
+    "receipt_store": "",
+    "receipt_date_text": "",
+    "receipt_amount": 0,
+    "receipt_memo": "",
 }
 for k, v in defaults.items():
     if k not in st.session_state:
@@ -1514,7 +1638,35 @@ if "settings_loaded" not in st.session_state:
         st.session_state["today_plan_text"] = saved_plan_text
 
     st.session_state["settings_loaded"] = True
+def ensure_headers():
+    sh = get_spreadsheet()
 
+    settings_ws = get_or_create_worksheet(sh, "Settings")
+    diet_ws = get_or_create_worksheet(sh, "DietLogs")
+    plans_ws = get_or_create_worksheet(sh, "TodayPlans")
+    expenses_ws = get_or_create_worksheet(sh, "Expenses")
+
+    settings_header = [
+        "user_id", "gender", "age", "height_cm", "start_weight",
+        "target_weight", "start_body_fat", "target_body_fat",
+        "meal_style", "ease_level", "staple_preference",
+        "fridge_items", "avoid_foods", "favorite_meals",
+        "favorite_protein_onigiri", "favorite_misodama_soup",
+        "plan_type", "lunch_style",
+        "real_mode", "daily_flow", "workout_today", "body_goal"
+    ]
+    diet_header = [
+        "user_id", "date", "gender", "age", "height_cm", "weight",
+        "target_weight", "body_fat", "target_body_fat",
+        "bmi", "goal_calories"
+    ]
+    plan_header = ["user_id", "date", "plan_text"]
+    expenses_header = ["user_id", "date", "category", "store_name", "amount", "memo"]
+
+    rewrite_sheet_with_header(settings_ws, settings_header)
+    rewrite_sheet_with_header(diet_ws, diet_header)
+    rewrite_sheet_with_header(plans_ws, plan_header)
+    rewrite_sheet_with_header(expenses_ws, expenses_header)
 
 # -----------------------------
 # UI
@@ -2446,17 +2598,72 @@ elif mode == "体型チェック":
     
 elif mode == "家計簿":
     st.header("💰 家計簿入力")
+    st.caption("レシートを撮影またはアップロードして、家計簿に使う内容を自動で読み取れます。")
+    st.caption("※ Take Photo＝その場で撮影、Upload＝保存済み写真を追加")
+
+    st.subheader("📷 レシート読取")
+    receipt_camera = st.camera_input("レシートを撮る", key="receipt_camera")
+    receipt_upload = st.file_uploader(
+        "またはレシート画像をアップロード",
+        type=["jpg", "jpeg", "png"],
+        key="receipt_upload"
+    )
+
+    receipt_source = receipt_camera if receipt_camera is not None else receipt_upload
+    resized_receipt = None
+
+    if receipt_source is not None:
+        resized_receipt = resize_image(receipt_source, max_size=1200)
+        st.image(resized_receipt, caption="レシート画像", use_container_width=True)
+
+        col_a, col_b = st.columns(2)
+
+        with col_a:
+            if st.button("🧾 レシートを読み取る"):
+                client = get_openai_client()
+                with st.spinner("レシートを読み取り中..."):
+                    result = extract_receipt_info(client, resized_receipt)
+
+                st.session_state["receipt_result"] = result
+                parsed = parse_receipt_result(result)
+                st.session_state["receipt_store"] = parsed["store"]
+                st.session_state["receipt_date_text"] = parsed["date"]
+                st.session_state["receipt_amount"] = parsed["amount"]
+                st.session_state["receipt_memo"] = parsed["memo"]
+                st.success("レシート内容を読み取りました。")
+
+        with col_b:
+            if st.button("🗑 レシート画像を削除"):
+                delete_uploaded_state(
+                    upload_keys=["receipt_camera", "receipt_upload"],
+                    stored_keys=["receipt_result"],
+                    success_message="レシート画像を削除しました。"
+                )
+
+    st.text_area("読み取り結果", key="receipt_result", height=220)
+
+    st.divider()
+    st.subheader("✍ 家計簿に登録")
+
     with st.form("budget_form"):
-        date = st.date_input("日付", datetime.today())
+        date_value = st.date_input("日付", datetime.today())
         category = st.selectbox("カテゴリ", ["食費", "日用品", "教育費", "交際費", "医療費", "その他"])
-        amount = st.number_input("金額（円）", min_value=0, step=100)
-        memo = st.text_input("メモ")
+        store_name = st.text_input("店名", value=st.session_state.get("receipt_store", ""))
+        amount = st.number_input(
+            "金額（円）",
+            min_value=0,
+            step=100,
+            value=int(st.session_state.get("receipt_amount", 0))
+        )
+        memo_default = st.session_state.get("receipt_memo", "")
+        memo = st.text_input("メモ", value=memo_default)
         submitted = st.form_submit_button("記録する")
 
     if submitted:
         st.session_state["expenses"].append({
-            "日付": str(date),
+            "日付": str(date_value),
             "カテゴリ": category,
+            "店名": store_name,
             "金額": amount,
             "メモ": memo
         })
@@ -2466,6 +2673,15 @@ elif mode == "家計簿":
         df_exp = pd.DataFrame(st.session_state["expenses"])
         st.subheader("📊 記録一覧")
         st.dataframe(df_exp, use_container_width=True)
+
+        csv = df_exp.to_csv(index=False).encode("utf-8-sig")
+        st.download_button(
+            "📥 家計簿CSVダウンロード",
+            data=csv,
+            file_name="kakeibo.csv",
+            mime="text/csv"
+        )
+        
 
 elif mode == "スケジュール":
     st.header("🗓 スケジュール管理")
