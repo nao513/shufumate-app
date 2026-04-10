@@ -2043,6 +2043,7 @@ elif mode == "なんでも相談":
         "毎日の食事・運動・暮らしのヒントとしてご活用ください。\n"
         "体調や状況には個人差があるため、無理のない範囲で参考にし、不安が強い場合は専門家へご相談ください。"
     )
+
     gender, age, height_cm, weight, target_weight, body_fat, target_body_fat = render_common_body_inputs()
 
     category = st.selectbox(
@@ -2051,15 +2052,26 @@ elif mode == "なんでも相談":
         key="advice_category"
     )
 
-        category = st.selectbox(
-        "相談カテゴリ",
-        ["食事相談", "運動相談", "外食相談", "体調・気分相談", "その他"],
-        key="advice_category"
-    )
-
     if category == "外食相談":
         prefecture = st.session_state.get("home_prefecture", "")
         default_area = st.session_state.get("home_area", "")
+
+        if prefecture or default_area:
+            st.caption(f"初期設定の地域: {prefecture} {default_area}".strip())
+
+        st.text_input(
+            "相談エリア",
+            value=default_area,
+            placeholder="例：長命ヶ丘、吉成、仙台駅周辺",
+            key="advice_area"
+        )
+
+    st.text_area(
+        "相談内容",
+        placeholder="例：おにぎりを1個にした方がいい？\n例：運動前に何を食べたらいい？\n例：運動後、近所でどういう店を選べばいい？",
+        key="quick_advice_question",
+        height=140
+    )
 
         if prefecture or default_area:
             st.caption(f"初期設定の地域: {prefecture} {default_area}".strip())
