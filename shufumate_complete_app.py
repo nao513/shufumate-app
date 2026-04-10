@@ -2059,7 +2059,7 @@ elif mode == "なんでも相談":
         if prefecture or default_area:
             st.caption(f"初期設定の地域: {prefecture} {default_area}".strip())
 
-        st.text_input(
+            st.text_input(
             "相談エリア",
             value=default_area,
             placeholder="例：長命ヶ丘、吉成、仙台駅周辺",
