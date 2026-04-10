@@ -2052,12 +2052,6 @@ elif mode == "なんでも相談":
         key="advice_category"
     )
 
-        category = st.selectbox(
-        "相談カテゴリ",
-        ["食事相談", "運動相談", "外食相談", "体調・気分相談", "その他"],
-        key="advice_category"
-    )
-
     if category == "外食相談":
         prefecture = st.session_state.get("home_prefecture", "")
         default_area = st.session_state.get("home_area", "")
@@ -2079,17 +2073,6 @@ elif mode == "なんでも相談":
         height=140
     )
 
-
-        if prefecture or default_area:
-            st.caption(f"初期設定の地域: {prefecture} {default_area}".strip())
-
-        st.text_input(
-            "相談エリア",
-            value=default_area,
-            placeholder="例：長命ヶ丘、吉成、仙台駅周辺",
-            key="advice_area"
-        )
-        
     if st.button("🪄 相談してみる"):
         question = st.session_state["quick_advice_question"].strip()
         area = st.session_state.get("advice_area", "").strip()
@@ -2139,7 +2122,7 @@ elif mode == "なんでも相談":
     st.write("・運動前に何を食べたらいい？")
     st.write("・運動後、長命ヶ丘でどういう店を選べばいい？")
     st.write("・夕飯前にお腹が空きすぎた時どうする？")
-
+    
 elif mode == "アーユルヴェーダ":
     st.header("🌿 アーユルヴェーダ体質チェック")
     st.write("8項目から体質傾向をチェックします。チェックが多い体質が今の自分に近い目です。")
