@@ -1125,7 +1125,7 @@ def create_plan_for_date(
 ・リアルに買いやすい内容にしてください
 """
 
-    lunch_style_rule = ""
+        lunch_style_rule = ""
     if lunch_style == "お弁当":
         lunch_style_rule = """
 昼食はお弁当向けにしてください。
@@ -1140,11 +1140,21 @@ def create_plan_for_date(
 ・おにぎり、味噌汁、サラダ、サラダチキン、ゆで卵など現実的な組み合わせ
 """
     elif lunch_style == "おすすめ定番":
-        lunch_style_rule = f"""
+        lunch_style_rule = """
 昼食はユーザーのおすすめ定番を優先してください。
-・タンパク質おにぎり: {favorite_protein_onigiri if favorite_protein_onigiri else "タンパク質おにぎり"}
-・味噌玉の味噌汁: {favorite_misodama_soup if favorite_misodama_soup else "味噌玉味噌汁"}
+・タンパク質おにぎり＆味噌玉味噌汁の流れを優先してよい
 ・必要に応じて、ゆで卵、サラダ、豆腐、サラダチキンなどを組み合わせる
+"""
+
+    meal_style_rule = ""
+    if meal_style == "タンパク質おにぎり＆味噌玉味噌汁":
+        meal_style_rule = """
+食事スタイルは「タンパク質おにぎり＆味噌玉味噌汁」を優先してください。
+・朝食または昼食に、タンパク質を意識したおにぎりを提案する
+・味噌玉味噌汁を合わせやすい献立にする
+・忙しい主婦でも続けやすい、手軽で現実的な内容にする
+・必要に応じて、ゆで卵、豆腐、サラダ、サラダチキンなどを組み合わせる
+・毎日まったく同じではなく、少し変化をつけて飽きにくくする
 """
 
     real_mode_rule = ""
@@ -1205,6 +1215,7 @@ def create_plan_for_date(
 - {fridge_rule}
 - {avoid_rule}
 - {favorite_rule}
+- {meal_style_rule}
 - {plan_type_rule}
 - {lunch_style_rule}
 - {real_mode_rule}
@@ -1710,7 +1721,7 @@ mode = st.sidebar.radio("機能を選んでください", [
     "スケジュール",
     "教育費・人生設計",
     "お得情報",
-    "設定"
+    "初期設定"
 ])
 
 if mode == "今日のおすすめ":
@@ -1855,7 +1866,7 @@ elif mode == "献立・運動プラン":
 
     gender, age, height_cm, weight, target_weight, body_fat, target_body_fat = render_common_body_inputs()
 
-    st.radio("食事スタイル", ["和食中心", "バランス", "おしゃれカフェ風"], horizontal=True, key="meal_style")
+    st.radio("食事スタイル",["和食中心", "バランス", "おしゃれカフェ風", "タンパク質おにぎり＆味噌玉味噌汁"],horizontal=True,key="meal_style")
     st.radio("調理レベル", ["超かんたん", "普通", "しっかり"], horizontal=True, key="ease_level")
     st.radio("主食の好み", ["ごはん派", "パン派", "どちらも"], horizontal=True, key="staple_preference")
     st.text_area(
@@ -2926,10 +2937,10 @@ elif mode == "お得情報":
     st.header("📢 お得情報")
     st.info("ここは今後拡張できます。")
 
-elif mode == "設定":
-    st.header("⚙️ 設定")
+elif mode == "初期設定":
+    st.header("⚙️ 初期設定")
 
-    st.subheader("📌 初期設定")
+    st.subheader("📌 基本の設定")
     st.selectbox("性別（任意）", ["未選択", "女性", "男性", "その他", "回答しない"], key="common_gender")
     st.number_input("年齢", min_value=20, max_value=100, step=1, key="common_age")
     st.number_input("身長（cm）", min_value=145.0, max_value=200.0, step=0.5, format="%.1f", key="common_height")
@@ -2939,7 +2950,12 @@ elif mode == "設定":
     st.number_input("目標体脂肪率（%）", min_value=5.0, max_value=60.0, step=0.1, format="%.1f", key="common_target_body_fat")
 
     st.subheader("🍽 献立の初期値")
-    st.radio("食事スタイル", ["和食中心", "バランス", "おしゃれカフェ風"], horizontal=True, key="meal_style")
+    st.radio(
+        "食事スタイル",
+        ["和食中心", "バランス", "おしゃれカフェ風", "タンパク質おにぎり＆味噌玉味噌汁"],
+        horizontal=True,
+        key="meal_style"
+    )
     st.radio("調理レベル", ["超かんたん", "普通", "しっかり"], horizontal=True, key="ease_level")
     st.radio("主食の好み", ["ごはん派", "パン派", "どちらも"], horizontal=True, key="staple_preference")
     st.text_area("よくある冷蔵庫の食材", key="fridge_items")
@@ -2953,19 +2969,7 @@ elif mode == "設定":
     st.text_area(
         "わたしの定番・好きな食事",
         key="favorite_meals",
-        placeholder="例：納豆、豆乳、ブルーベリー、タンパク質おにぎり"
-    )
-
-    st.text_input(
-        "おすすめタンパク質おにぎり",
-        key="favorite_protein_onigiri",
-        placeholder="例：鮭枝豆おにぎり"
-    )
-
-    st.text_input(
-        "味噌玉味噌汁",
-        key="favorite_misodama_soup",
-        placeholder="例：わかめ・豆腐・ねぎの味噌玉"
+        placeholder="例：納豆、豆乳、ブルーベリー"
     )
 
     st.radio("プランタイプ初期値", ["通常", "外食", "コンビニ"], horizontal=True, key="plan_type")
@@ -2974,28 +2978,6 @@ elif mode == "設定":
     st.selectbox("食事の流れ初期値", ["普通", "朝しっかり・昼軽め", "食べすぎた", "あまり食べてない"], key="daily_flow")
     st.checkbox("運動あり初期値", key="workout_today")
     st.selectbox("目的初期値", ["バランス", "脚やせ", "脂肪燃焼", "むくみ改善"], key="body_goal")
-
-    st.subheader("🪞 理想イメージの作り方")
-    st.caption("年齢に寄せすぎず、若々しく上品で美しい雰囲気を優先したい場合の設定です。")
-
-    st.checkbox("理想イメージは若々しく美しく生成する", key="ideal_image_youthful")
-    st.checkbox("年齢感を強く出しすぎない", key="ideal_image_soft_age")
-    st.checkbox("上品で清潔感のある雰囲気を優先する", key="ideal_image_elegant")
-    st.checkbox("本人の雰囲気を少し残したい", key="ideal_image_keep_mood")
-
-    st.text_area(
-        "理想イメージでなりたい雰囲気",
-        key="ideal_image_style_note",
-        placeholder="例：若々しい、透明感、姿勢がよい、すっきりした印象、上品できれい"
-    )
-
-    st.subheader("📷 写真機能について")
-    st.caption("今後追加したい機能メモとして保存用に使えます。")
-
-    st.checkbox("ズーム機能がほしい", key="need_photo_zoom")
-    st.checkbox("トリミング機能がほしい", key="need_photo_crop")
-    st.checkbox("顔が映った時に上だけ切り取りたい", key="need_face_cut")
-    st.checkbox("明るさなどの簡易編集がほしい", key="need_photo_edit")
 
     c1, c2 = st.columns(2)
 
