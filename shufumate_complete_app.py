@@ -201,6 +201,8 @@ def load_user_settings():
                 "daily_flow": row_dict.get("daily_flow", "普通") or "普通",
                 "workout_today": str(row_dict.get("workout_today", "False")).lower() == "true",
                 "body_goal": row_dict.get("body_goal", "バランス") or "バランス",
+                "home_prefecture": row_dict.get("home_prefecture", "") or "",
+                "home_area": row_dict.get("home_area", "") or "",
             }
 
     return None
@@ -233,6 +235,8 @@ def save_user_settings():
         st.session_state["daily_flow"],
         str(st.session_state["workout_today"]),
         st.session_state["body_goal"],
+        st.session_state.get("home_prefecture", ""),
+        st.session_state.get("home_area", ""),
     ]
 
     row_index = None
@@ -242,7 +246,7 @@ def save_user_settings():
             break
 
     if row_index:
-        ws.update(f"A{row_index}:V{row_index}", [row_values])
+        ws.update(f"A{row_index}:X{row_index}", [row_values])
     else:
         ws.append_row(row_values)
 
@@ -271,6 +275,8 @@ def reset_user_settings():
     st.session_state["daily_flow"] = "普通"
     st.session_state["workout_today"] = False
     st.session_state["body_goal"] = "バランス"
+    st.session_state["home_prefecture"] = ""
+    st.session_state["home_area"] = ""
 
 def load_settings_into_session():
     saved = load_user_settings()
@@ -1520,6 +1526,8 @@ defaults = {
     "workout_today": False,
     "body_goal": "バランス",
     "diet_logs": [],
+    "home_area": "",
+    "home_prefecture": "",
     "today_plan_text": "",
     "today_plan_date": "",
     "expenses": [],
@@ -1591,14 +1599,15 @@ def ensure_headers():
     expenses_ws = get_or_create_worksheet(sh, "Expenses")
 
     settings_header = [
-        "user_id", "gender", "age", "height_cm", "start_weight",
-        "target_weight", "start_body_fat", "target_body_fat",
-        "meal_style", "ease_level", "staple_preference",
-        "fridge_items", "avoid_foods", "favorite_meals",
-        "favorite_protein_onigiri", "favorite_misodama_soup",
-        "plan_type", "lunch_style",
-        "real_mode", "daily_flow", "workout_today", "body_goal"
-    ]
+    "user_id", "gender", "age", "height_cm", "start_weight",
+    "target_weight", "start_body_fat", "target_body_fat",
+    "meal_style", "ease_level", "staple_preference",
+    "fridge_items", "avoid_foods", "favorite_meals",
+    "favorite_protein_onigiri", "favorite_misodama_soup",
+    "plan_type", "lunch_style",
+    "real_mode", "daily_flow", "workout_today", "body_goal",
+    "home_prefecture", "home_area"
+]
     diet_header = [
         "user_id", "date", "gender", "age", "height_cm", "weight",
         "target_weight", "body_fat", "target_body_fat",
@@ -2909,8 +2918,21 @@ elif mode == "教育費・人生設計":
     st.metric("想定教育費合計", f"{total_cost} 万円")
 
 elif mode == "お得情報":
-    st.header("📢 お得情報")
-    st.info("ここは今後拡張できます。")
+    st.header("🎁 お得情報")
+
+    prefecture = st.session_state.get("home_prefecture", "")
+    area = st.session_state.get("home_area", "")
+
+    if prefecture or area:
+        st.info(f"現在の地域設定: {prefecture} {area}".strip())
+    else:
+        st.warning("まだ地域設定がありません。初期設定で地域を入れると、お得情報を地域向けに広げやすくなります。")
+
+    st.subheader("📌 これから追加予定のお得情報")
+    st.write("・地域のお得情報")
+    st.write("・スーパー、ドラッグストア、子育て支援情報")
+    st.write("・ポイ活、節約、旅行の格安情報")
+    st.write("・地域に合わせたおすすめ情報")
 
 elif mode == "初期設定":
     st.header("⚙️ 初期設定")
@@ -2953,6 +2975,9 @@ elif mode == "初期設定":
     st.selectbox("食事の流れ初期値", ["普通", "朝しっかり・昼軽め", "食べすぎた", "あまり食べてない"], key="daily_flow")
     st.checkbox("運動あり初期値", key="workout_today")
     st.selectbox("目的初期値", ["バランス", "脚やせ", "脂肪燃焼", "むくみ改善"], key="body_goal")
+    st.subheader("📍 地域設定")
+    st.text_input("都道府県", key="home_prefecture", placeholder="例：宮城県")
+    st.text_input("よく使う地域・最寄りエリア", key="home_area", placeholder="例：仙台市泉区、長命ヶ丘、仙台駅周辺")
 
     c1, c2 = st.columns(2)
 
