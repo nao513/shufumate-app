@@ -2553,7 +2553,6 @@ elif mode == "家計簿":
     st.caption("※ Take Photo＝その場で撮影、Upload＝保存済み写真を追加")
 
     st.subheader("📷 レシート読取")
-    st.caption("※ Take Photo＝その場で撮影、Upload＝保存済み写真を追加")
     st.caption("※ 複数枚入れて、いちばん見やすいレシートを選んで読み取れます。")
 
     receipt_camera = st.camera_input("レシートを撮る", key="receipt_camera")
