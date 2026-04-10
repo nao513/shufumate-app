@@ -927,6 +927,26 @@ def parse_receipt_date_to_dateobj(date_text: str):
 
     return None
 
+def get_local_deal_topics(prefecture: str, area: str):
+    topics = [
+        "スーパー、ドラッグストア、日用品のお得情報",
+        "子育て支援、地域の助成、家計に役立つ制度",
+        "ポイ活、節約、マイル、旅行情報",
+        "地域イベント、教育、習い事情報",
+    ]
+
+    text = f"{prefecture} {area}".strip()
+
+    if "仙台" in text or "宮城" in text:
+        topics.append("仙台周辺の買い物・外食・子育て向け情報")
+    if "駅" in text:
+        topics.append("駅周辺で使いやすいお得情報")
+    if "泉" in text or "長命ヶ丘" in text:
+        topics.append("泉区・住宅地エリア向けの暮らし情報")
+
+    return topics
+    
+
 # -----------------------------
 # Ayurveda / state check
 # -----------------------------
