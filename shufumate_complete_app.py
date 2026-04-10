@@ -2238,14 +2238,14 @@ elif mode == "写真で記録":
         col1, col2 = st.columns(2)
 
         with col1:
-            if fridge_camera is not None and st.button("➕ この写真を追加"):
+            if fridge_camera is not None and st.button("➕ この写真を追加", key="add_fridge_camera"):
                 resized = resize_image(fridge_camera, max_size=768)
                 st.session_state["fridge_scan_images"].append(resized)
                 st.success("冷蔵庫写真を追加しました。")
                 st.rerun()
 
         with col2:
-            if st.button("🧹 スキャン画像を全部クリア"):
+            if st.button("🧹 スキャン画像を全部クリア", key="clear_fridge_images"):
                 st.session_state["fridge_scan_images"] = []
                 st.rerun()
 
@@ -2267,13 +2267,13 @@ elif mode == "写真で記録":
             st.write(f"保存中の画像: {len(st.session_state['fridge_scan_images'])}枚")
 
             for i, img in enumerate(st.session_state["fridge_scan_images"]):
-                st.image(img, caption=f"冷蔵庫画像 {i+1}", use_container_width=True)
+                st.image(img, caption=f"冷蔵庫画像 {i + 1}", use_container_width=True)
 
-                if st.button(f"🗑 この画像を削除 {i+1}", key=f"delete_fridge_{i}", use_container_width=True):
+                if st.button(f"🗑 この画像を削除 {i + 1}", key=f"delete_fridge_{i}", use_container_width=True):
                     st.session_state["fridge_scan_images"].pop(i)
                     st.rerun()
 
-            if st.button("🥬 スキャン画像から食材抽出"):
+            if st.button("🥬 スキャン画像から食材抽出", key="extract_fridge_items"):
                 client = get_openai_client()
                 with st.spinner("AIが食材を読み取り中..."):
                     result = extract_foods_from_images(client, st.session_state["fridge_scan_images"])
@@ -2284,11 +2284,11 @@ elif mode == "写真で記録":
 
         st.text_area("読み取った食材候補", key="photo_fridge_items", height=180)
 
-        if st.button("🧹 読み取り結果をクリア", use_container_width=True):
+        if st.button("🧹 読み取り結果をクリア", use_container_width=True, key="clear_fridge_result"):
             st.session_state["photo_fridge_items"] = ""
             st.rerun()
 
-        if st.button("➡ 冷蔵庫食材に反映"):
+        if st.button("➡ 冷蔵庫食材に反映", key="apply_fridge_items"):
             text = st.session_state["photo_fridge_items"]
             if "食材候補:" in text:
                 text = text.split("食材候補:")[-1].strip()
@@ -2302,16 +2302,16 @@ elif mode == "写真で記録":
 
         scale_camera = st.camera_input("体重計を撮る", key="scale_camera_input")
 
-        col1, col2 = st.columns(2)
+        col3, col4 = st.columns(2)
 
-        with col1:
+        with col3:
             if scale_camera is not None and st.button("➕ 撮った写真を追加", key="add_scale_camera"):
                 resized = resize_image(scale_camera, max_size=768)
                 st.session_state["scale_scan_images"].append(resized)
                 st.success("体重計写真を追加しました。")
                 st.rerun()
 
-        with col2:
+        with col4:
             if st.button("🧹 体重計写真を全部クリア", key="clear_scale_images"):
                 st.session_state["scale_scan_images"] = []
                 st.rerun()
@@ -2341,9 +2341,9 @@ elif mode == "写真で記録":
             )
 
             for i, img in enumerate(st.session_state["scale_scan_images"]):
-                st.image(img, caption=f"体重計写真 {i+1}", use_container_width=True)
+                st.image(img, caption=f"体重計写真 {i + 1}", use_container_width=True)
 
-                if st.button(f"🗑 この写真を削除 {i+1}", key=f"delete_scale_{i}", use_container_width=True):
+                if st.button(f"🗑 この写真を削除 {i + 1}", key=f"delete_scale_{i}", use_container_width=True):
                     st.session_state["scale_scan_images"].pop(i)
                     st.rerun()
 
@@ -2371,9 +2371,9 @@ elif mode == "写真で記録":
 
         st.caption("内容を見ながら、ダイエット管理へ反映できます。")
 
-        col3, col4 = st.columns(2)
+        col5, col6 = st.columns(2)
 
-        with col3:
+        with col5:
             if st.button("➡ 体重だけ反映", key="apply_weight_only"):
                 text = st.session_state["photo_scale_result"]
                 m = re.search(r"体重[:：]\s*([0-9]+(?:\.[0-9]+)?)", text)
@@ -2383,7 +2383,7 @@ elif mode == "写真で記録":
                 else:
                     st.warning("体重が見つかりませんでした。")
 
-        with col4:
+        with col6:
             if st.button("➡ 体脂肪率だけ反映", key="apply_fat_only"):
                 text = st.session_state["photo_scale_result"]
                 m = re.search(r"体脂肪率[:：]\s*([0-9]+(?:\.[0-9]+)?)", text)
