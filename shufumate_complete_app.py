@@ -1509,6 +1509,8 @@ defaults = {
     "last_mode": "",
     "photo_fridge_items": "",
     "photo_scale_result": "",
+    "scale_scan_images": [],
+    "selected_scale_index": 0,
     "body_check_comment": "",
     "body_scan_comment": "",
     "body_goal_scan": "バランス",
@@ -2551,43 +2553,71 @@ elif mode == "家計簿":
     st.caption("※ Take Photo＝その場で撮影、Upload＝保存済み写真を追加")
 
     st.subheader("📷 レシート読取")
+    st.caption("※ Take Photo＝その場で撮影、Upload＝保存済み写真を追加")
+    st.caption("※ 複数枚入れて、いちばん見やすいレシートを選んで読み取れます。")
+
     receipt_camera = st.camera_input("レシートを撮る", key="receipt_camera")
-    receipt_upload = st.file_uploader(
-        "またはレシート画像をアップロード",
+
+    col_a, col_b = st.columns(2)
+
+    with col_a:
+        if receipt_camera is not None and st.button("➕ 撮ったレシートを追加", key="add_receipt_camera"):
+            resized = resize_image(receipt_camera, max_size=1200)
+            st.session_state["receipt_scan_images"].append(resized)
+            st.success("レシート画像を追加しました。")
+            st.rerun()
+
+    with col_b:
+        if st.button("🧹 レシート画像を全部クリア", key="clear_receipt_images"):
+            st.session_state["receipt_scan_images"] = []
+            st.rerun()
+
+    receipt_uploads = st.file_uploader(
+        "またはレシート画像をアップロード（複数OK）",
         type=["jpg", "jpeg", "png"],
-        key="receipt_upload"
+        accept_multiple_files=True,
+        key="receipt_upload_multi"
     )
 
-    receipt_source = receipt_camera if receipt_camera is not None else receipt_upload
-    resized_receipt = None
+    if receipt_uploads:
+        for photo in receipt_uploads:
+            resized = resize_image(photo, max_size=1200)
+            st.session_state["receipt_scan_images"].append(resized)
+        st.success("レシート画像を追加しました。")
+        st.rerun()
 
-    if receipt_source is not None:
-        resized_receipt = resize_image(receipt_source, max_size=1200)
-        st.image(resized_receipt, caption="レシート画像", use_container_width=True)
+    if st.session_state["receipt_scan_images"]:
+        st.write(f"保存中のレシート画像: {len(st.session_state['receipt_scan_images'])}枚")
 
-        col_a, col_b = st.columns(2)
+        selected_receipt_index = st.selectbox(
+            "読み取りに使うレシートを選んでください",
+            list(range(len(st.session_state["receipt_scan_images"]))),
+            format_func=lambda x: f"レシート画像 {x + 1}",
+            key="selected_receipt_index"
+        )
 
-        with col_a:
-            if st.button("🧾 レシートを読み取る"):
-                client = get_openai_client()
-                with st.spinner("レシートを読み取り中..."):
-                    result = extract_receipt_info(client, resized_receipt)
+        for i, img in enumerate(st.session_state["receipt_scan_images"]):
+            st.image(img, caption=f"レシート画像 {i+1}", use_container_width=True)
 
-                st.session_state["receipt_result"] = result
-                parsed = parse_receipt_result(result)
-                st.session_state["receipt_store"] = parsed["store"]
-                st.session_state["receipt_date_text"] = parsed["date"]
-                st.session_state["receipt_amount"] = parsed["amount"]
-                st.session_state["receipt_memo"] = parsed["memo"]
-                st.success("レシート内容を読み取りました。")
+            if st.button(f"🗑 このレシートを削除 {i+1}", key=f"delete_receipt_{i}", use_container_width=True):
+                st.session_state["receipt_scan_images"].pop(i)
+                st.rerun()
 
-        with col_b:
-            if st.button("🗑 レシート画像を削除"):
-                delete_uploaded_state(
-                    upload_keys=["receipt_camera", "receipt_upload"],
-                    stored_keys=["receipt_result"],
-                    success_message="レシート画像を削除しました。"
-                )
+        selected_receipt = st.session_state["receipt_scan_images"][selected_receipt_index]
+
+        if st.button("🧾 レシートを読み取る", key="read_receipt_multi"):
+            client = get_openai_client()
+            with st.spinner("レシートを読み取り中..."):
+                result = extract_receipt_info(client, selected_receipt)
+
+            st.session_state["receipt_result"] = result
+            parsed = parse_receipt_result(result)
+            st.session_state["receipt_store"] = parsed["store"]
+            st.session_state["receipt_date_text"] = parsed["date"]
+            st.session_state["receipt_amount"] = parsed["amount"]
+            st.session_state["receipt_memo"] = parsed["memo"]
+            st.success("レシート内容を読み取りました。")
+            st.rerun()
 
     st.text_area("読み取り結果", key="receipt_result", height=220)
 
