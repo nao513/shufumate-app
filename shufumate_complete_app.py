@@ -2295,7 +2295,7 @@ elif mode == "写真で記録":
             st.session_state["fridge_items"] = text
             st.success("冷蔵庫の食材に反映しました。")
 
-        with tab2:
+    with tab2:
         st.subheader("⚖ 体重計写真から記録候補を管理")
         st.caption("※ Take Photo＝その場で撮影、Upload＝保存済みの体重計写真を追加")
         st.caption("※ 複数枚入れて、いちばん見やすい写真を選んで使えます。")
