@@ -1099,14 +1099,23 @@ def create_plan_for_date(
         avoid_rule = f"次の食材・料理は献立に入れないでください: {avoid_foods}"
 
     favorite_rule = ""
-    if favorite_meals.strip() or favorite_protein_onigiri.strip() or favorite_misodama_soup.strip():
+    if favorite_meals.strip():
         favorite_rule = f"""
 ユーザーの定番・好きな食事:
-- 定番食: {favorite_meals if favorite_meals else "未入力"}
-- おすすめタンパク質おにぎり: {favorite_protein_onigiri if favorite_protein_onigiri else "未入力"}
-- 味噌玉味噌汁: {favorite_misodama_soup if favorite_misodama_soup else "未入力"}
+- 定番食: {favorite_meals}
 
 上記はできるだけ優先して提案に入れてください。
+"""
+
+    meal_style_rule = ""
+    if meal_style == "タンパク質おにぎり＆味噌玉味噌汁":
+        meal_style_rule = """
+食事スタイルは「タンパク質おにぎり＆味噌玉味噌汁」を優先してください。
+・朝食または昼食に、タンパク質を意識したおにぎりを提案する
+・味噌玉味噌汁を合わせやすい献立にする
+・忙しい主婦でも続けやすい、手軽で現実的な内容にする
+・必要に応じて、ゆで卵、豆腐、サラダ、サラダチキンなどを組み合わせる
+・毎日まったく同じではなく、少し変化をつけて飽きにくくする
 """
 
     plan_type_rule = ""
@@ -1125,7 +1134,7 @@ def create_plan_for_date(
 ・リアルに買いやすい内容にしてください
 """
 
-        lunch_style_rule = ""
+    lunch_style_rule = ""
     if lunch_style == "お弁当":
         lunch_style_rule = """
 昼食はお弁当向けにしてください。
@@ -1141,20 +1150,9 @@ def create_plan_for_date(
 """
     elif lunch_style == "おすすめ定番":
         lunch_style_rule = """
-昼食はユーザーのおすすめ定番を優先してください。
+昼食はおすすめ定番寄りにしてください。
 ・タンパク質おにぎり＆味噌玉味噌汁の流れを優先してよい
 ・必要に応じて、ゆで卵、サラダ、豆腐、サラダチキンなどを組み合わせる
-"""
-
-    meal_style_rule = ""
-    if meal_style == "タンパク質おにぎり＆味噌玉味噌汁":
-        meal_style_rule = """
-食事スタイルは「タンパク質おにぎり＆味噌玉味噌汁」を優先してください。
-・朝食または昼食に、タンパク質を意識したおにぎりを提案する
-・味噌玉味噌汁を合わせやすい献立にする
-・忙しい主婦でも続けやすい、手軽で現実的な内容にする
-・必要に応じて、ゆで卵、豆腐、サラダ、サラダチキンなどを組み合わせる
-・毎日まったく同じではなく、少し変化をつけて飽きにくくする
 """
 
     real_mode_rule = ""
@@ -1227,108 +1225,6 @@ def create_plan_for_date(
         input=prompt
     )
     return res.output_text
-
-
-def ask_shufumate_advice(
-    client,
-    question,
-    gender,
-    age,
-    height_cm,
-    weight,
-    body_fat,
-    target_weight,
-    target_body_fat,
-    dosha_type,
-    fridge_items,
-    avoid_foods,
-    favorite_meals,
-    favorite_protein_onigiri,
-    favorite_misodama_soup,
-    daily_flow,
-    workout_today,
-    body_goal,
-    lunch_style,
-    category,
-    area="",
-    site_hint=""
-):
-    area_rule = ""
-    if category == "外食相談" and area.strip():
-        area_rule = f"""
-【地域情報】
-- 相談エリア: {area}
-
-【外食相談ルール】
-- 実在店を断定しすぎず、「こういう店・こういう選び方がよい」で答える
-- エリアに合いそうな店のジャンルや選び方を優先する
-- 運動前後なら食べ方のポイントも入れる
-"""
-
-    site_rule = ""
-    if site_hint.strip():
-        site_rule = f"""
-【参考導線】
-- 必要に応じて、ユーザーのおすすめ記事導線として次のサイト活用も提案してよい
-- {site_hint}
-"""
-
-    prompt = f"""
-あなたは、主婦向けのやさしい生活・食事・運動アドバイザーです。
-質問者に寄り添って、日本語でわかりやすく答えてください。
-
-【相談カテゴリ】
-{category}
-
-【質問】
-{question}
-
-【利用者情報】
-- 性別: {gender}
-- 年齢: {age}
-- 身長: {height_cm} cm
-- 体重: {weight} kg
-- 体脂肪率: {body_fat} %
-- 目標体重: {target_weight} kg
-- 目標体脂肪率: {target_body_fat} %
-- 体質傾向: {dosha_type if dosha_type else "未設定"}
-- 冷蔵庫の食材: {fridge_items if fridge_items else "未入力"}
-- 避けたい食材: {avoid_foods if avoid_foods else "未入力"}
-- 定番食: {favorite_meals if favorite_meals else "未入力"}
-- おすすめタンパク質おにぎり: {favorite_protein_onigiri if favorite_protein_onigiri else "未入力"}
-- 味噌玉味噌汁: {favorite_misodama_soup if favorite_misodama_soup else "未入力"}
-- 今日の食事バランス: {daily_flow}
-- 今日の運動: {"あり" if workout_today else "なし"}
-- 目的: {body_goal}
-- 平日昼食スタイル: {lunch_style}
-
-{area_rule}
-{site_rule}
-
-【回答ルール】
-- 主婦がすぐ行動できる答えにする
-- 厳しすぎず、やさしく現実的に答える
-- 食事相談は、食べない方向だけでなく「どう調整するか」を含める
-- 避けたい食材は提案に含めない
-- 定番食やおすすめおにぎり・味噌汁は必要に応じて活用する
-- 運動前後の相談は、タイミングとおすすめ食品を具体的に入れる
-- 外食相談は、「こういう店・こういう選び方がよい」とわかる形にする
-- 店名を無理に断定しない
-- 医療判断はしない
-- 断定表現を避け、「〜の可能性があります」「〜がおすすめです」と表現する
-- 3〜6行程度で簡潔に
-- 最後に「ひとことアドバイス」を1つ入れる
-
-【出力形式】
-■回答:
-■ひとことアドバイス:
-"""
-    response = client.responses.create(
-        model="gpt-4.1-mini",
-        input=prompt
-    )
-    return response.output_text
-
 
 # -----------------------------
 # Helpers
