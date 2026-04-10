@@ -2052,6 +2052,12 @@ elif mode == "なんでも相談":
         key="advice_category"
     )
 
+        category = st.selectbox(
+        "相談カテゴリ",
+        ["食事相談", "運動相談", "外食相談", "体調・気分相談", "その他"],
+        key="advice_category"
+    )
+
     if category == "外食相談":
         prefecture = st.session_state.get("home_prefecture", "")
         default_area = st.session_state.get("home_area", "")
@@ -2059,7 +2065,7 @@ elif mode == "なんでも相談":
         if prefecture or default_area:
             st.caption(f"初期設定の地域: {prefecture} {default_area}".strip())
 
-            st.text_input(
+        st.text_input(
             "相談エリア",
             value=default_area,
             placeholder="例：長命ヶ丘、吉成、仙台駅周辺",
@@ -2072,6 +2078,7 @@ elif mode == "なんでも相談":
         key="quick_advice_question",
         height=140
     )
+
 
         if prefecture or default_area:
             st.caption(f"初期設定の地域: {prefecture} {default_area}".strip())
