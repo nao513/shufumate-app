@@ -212,33 +212,32 @@ def save_user_settings():
     values = ws.get_all_values()
     current_user_id = get_current_user_id()
 
-    row_values = [
-        current_user_id,
-        st.session_state["common_gender"],
-        st.session_state["common_age"],
-        st.session_state["common_height"],
-        st.session_state["common_weight"],
-        st.session_state["common_target_weight"],
-        st.session_state["common_body_fat"],
-        st.session_state["common_target_body_fat"],
-        st.session_state["meal_style"],
-        st.session_state["ease_level"],
-        st.session_state["staple_preference"],
-        st.session_state["fridge_items"],
-        st.session_state.get("avoid_foods", ""),
-        st.session_state.get("favorite_meals", ""),
-        st.session_state.get("favorite_protein_onigiri", ""),
-        st.session_state.get("favorite_misodama_soup", ""),
-        st.session_state["plan_type"],
-        st.session_state["lunch_style"],
-        str(st.session_state["real_mode"]),
-        st.session_state["daily_flow"],
-        str(st.session_state["workout_today"]),
-        st.session_state["body_goal"],
-        st.session_state.get("home_prefecture", ""),
-        st.session_state.get("home_area", ""),
-    ]
-
+row_values = [
+    current_user_id,
+    st.session_state["common_gender"],
+    st.session_state["common_age"],
+    st.session_state["common_height"],
+    st.session_state["common_weight"],
+    st.session_state["common_target_weight"],
+    st.session_state["common_body_fat"],
+    st.session_state["common_target_body_fat"],
+    st.session_state["meal_style"],
+    st.session_state["ease_level"],
+    st.session_state["staple_preference"],
+    st.session_state["fridge_items"],
+    st.session_state.get("avoid_foods", ""),
+    st.session_state.get("favorite_meals", ""),
+    st.session_state.get("favorite_protein_onigiri", ""),
+    st.session_state.get("favorite_misodama_soup", ""),
+    st.session_state["plan_type"],
+    st.session_state["lunch_style"],
+    str(st.session_state["real_mode"]),
+    st.session_state["daily_flow"],
+    str(st.session_state["workout_today"]),
+    st.session_state["body_goal"],
+    st.session_state.get("home_prefecture", ""),
+    st.session_state.get("home_area_custom", "").strip() or st.session_state.get("home_area", ""),
+]
     row_index = None
     for i, row in enumerate(values[1:], start=2):
         if row and row[0] == current_user_id:
@@ -266,8 +265,6 @@ def reset_user_settings():
     st.session_state["fridge_items"] = ""
     st.session_state["avoid_foods"] = ""
     st.session_state["favorite_meals"] = ""
-    st.session_state["favorite_protein_onigiri"] = ""
-    st.session_state["favorite_misodama_soup"] = ""
 
     st.session_state["plan_type"] = "通常"
     st.session_state["lunch_style"] = "指定なし"
@@ -275,8 +272,10 @@ def reset_user_settings():
     st.session_state["daily_flow"] = "普通"
     st.session_state["workout_today"] = False
     st.session_state["body_goal"] = "バランス"
+
     st.session_state["home_prefecture"] = ""
     st.session_state["home_area"] = ""
+    st.session_state["home_area_custom"] = ""
 
 def load_settings_into_session():
     saved = load_user_settings()
@@ -284,30 +283,33 @@ def load_settings_into_session():
         for k, v in saved.items():
             st.session_state[k] = v
 
-def get_settings_snapshot():
-    return {
-        "common_gender": st.session_state.get("common_gender", "未選択"),
-        "common_age": st.session_state.get("common_age", 40),
-        "common_height": st.session_state.get("common_height", 160.0),
-        "common_weight": st.session_state.get("common_weight", 50.0),
-        "common_target_weight": st.session_state.get("common_target_weight", 48.0),
-        "common_body_fat": st.session_state.get("common_body_fat", 28.0),
-        "common_target_body_fat": st.session_state.get("common_target_body_fat", 24.0),
-        "meal_style": st.session_state.get("meal_style", "和食中心"),
-        "ease_level": st.session_state.get("ease_level", "超かんたん"),
-        "staple_preference": st.session_state.get("staple_preference", "ごはん派"),
-        "fridge_items": st.session_state.get("fridge_items", ""),
-        "avoid_foods": st.session_state.get("avoid_foods", ""),
-        "favorite_meals": st.session_state.get("favorite_meals", ""),
-        "favorite_protein_onigiri": st.session_state.get("favorite_protein_onigiri", ""),
-        "favorite_misodama_soup": st.session_state.get("favorite_misodama_soup", ""),
-        "plan_type": st.session_state.get("plan_type", "通常"),
-        "lunch_style": st.session_state.get("lunch_style", "指定なし"),
-        "real_mode": st.session_state.get("real_mode", True),
-        "daily_flow": st.session_state.get("daily_flow", "普通"),
-        "workout_today": st.session_state.get("workout_today", False),
-        "body_goal": st.session_state.get("body_goal", "バランス"),
-    }
+        if row_dict.get("user_id") == current_user_id:
+            return {
+                "common_gender": row_dict.get("gender", "未選択") or "未選択",
+                "common_age": int(float(row_dict["age"])) if row_dict.get("age") else 40,
+                "common_height": float(row_dict["height_cm"]) if row_dict.get("height_cm") else 160.0,
+                "common_weight": float(row_dict["start_weight"]) if row_dict.get("start_weight") else 50.0,
+                "common_target_weight": float(row_dict["target_weight"]) if row_dict.get("target_weight") else 48.0,
+                "common_body_fat": float(row_dict["start_body_fat"]) if row_dict.get("start_body_fat") else 28.0,
+                "common_target_body_fat": float(row_dict["target_body_fat"]) if row_dict.get("target_body_fat") else 24.0,
+                "meal_style": row_dict.get("meal_style", "和食中心") or "和食中心",
+                "ease_level": row_dict.get("ease_level", "超かんたん") or "超かんたん",
+                "staple_preference": row_dict.get("staple_preference", "ごはん派") or "ごはん派",
+                "fridge_items": row_dict.get("fridge_items", "") or "",
+                "avoid_foods": row_dict.get("avoid_foods", "") or "",
+                "favorite_meals": row_dict.get("favorite_meals", "") or "",
+                "favorite_protein_onigiri": row_dict.get("favorite_protein_onigiri", "") or "",
+                "favorite_misodama_soup": row_dict.get("favorite_misodama_soup", "") or "",
+                "plan_type": row_dict.get("plan_type", "通常") or "通常",
+                "lunch_style": row_dict.get("lunch_style", "指定なし") or "指定なし",
+                "real_mode": str(row_dict.get("real_mode", "True")).lower() == "true",
+                "daily_flow": row_dict.get("daily_flow", "普通") or "普通",
+                "workout_today": str(row_dict.get("workout_today", "False")).lower() == "true",
+                "body_goal": row_dict.get("body_goal", "バランス") or "バランス",
+                "home_prefecture": row_dict.get("home_prefecture", "") or "",
+                "home_area": row_dict.get("home_area", "") or "",
+                "home_area_custom": "",
+            }
 
 
 def autosave_settings_if_changed():
@@ -1585,7 +1587,11 @@ defaults = {
     "receipt_date_text": "",
     "receipt_amount": 0,
     "receipt_memo": "",
+    "home_prefecture": "",
+    "home_area": "",
+    "home_area_custom": "",
 }
+
 for k, v in defaults.items():
     if k not in st.session_state:
         st.session_state[k] = v
@@ -3023,9 +3029,49 @@ elif mode == "初期設定":
     st.selectbox("食事の流れ初期値", ["普通", "朝しっかり・昼軽め", "食べすぎた", "あまり食べてない"], key="daily_flow")
     st.checkbox("運動あり初期値", key="workout_today")
     st.selectbox("目的初期値", ["バランス", "脚やせ", "脂肪燃焼", "むくみ改善"], key="body_goal")
+
     st.subheader("📍 地域設定")
-    st.text_input("都道府県", key="home_prefecture", placeholder="例：宮城県")
-    st.text_input("よく使う地域・最寄りエリア", key="home_area", placeholder="例：仙台市泉区、長命ヶ丘、仙台駅周辺")
+
+    prefectures = [
+        "北海道","青森県","岩手県","宮城県","秋田県","山形県","福島県",
+        "茨城県","栃木県","群馬県","埼玉県","千葉県","東京都","神奈川県",
+        "新潟県","富山県","石川県","福井県","山梨県","長野県",
+        "岐阜県","静岡県","愛知県","三重県",
+        "滋賀県","京都府","大阪府","兵庫県","奈良県","和歌山県",
+        "鳥取県","島根県","岡山県","広島県","山口県",
+        "徳島県","香川県","愛媛県","高知県",
+        "福岡県","佐賀県","長崎県","熊本県","大分県","宮崎県","鹿児島県","沖縄県"
+    ]
+
+    st.selectbox(
+        "都道府県",
+        [""] + prefectures,
+        key="home_prefecture"
+    )
+
+    area_candidates = [
+        "仙台駅周辺",
+        "長命ヶ丘",
+        "泉中央",
+        "八乙女",
+        "吉成",
+        "北山",
+        "石巻",
+        "利府",
+        "多賀城"
+    ]
+
+    st.selectbox(
+        "よく使う地域・最寄りエリア（候補から選ぶ）",
+        [""] + area_candidates,
+        key="home_area"
+    )
+
+    st.text_input(
+        "候補にない地域は自由入力",
+        key="home_area_custom",
+        placeholder="例：仙台市泉区南光台"
+    )
 
     c1, c2 = st.columns(2)
 
