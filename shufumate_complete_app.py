@@ -956,6 +956,7 @@ def parse_receipt_date_to_dateobj(date_text: str):
 
     return None
 
+
 def get_local_deal_topics(prefecture: str, area: str):
     topics = [
         "スーパー、ドラッグストア、日用品のお得情報",
@@ -975,7 +976,8 @@ def get_local_deal_topics(prefecture: str, area: str):
 
     return topics
 
-def extract_frames_from_video(uploaded_video, interval_sec=0.5, max_frames=8, max_size=768):
+
+def extract_frames_from_video(uploaded_video, interval_sec=3.0, max_frames=8, max_size=768):
     frames = []
 
     suffix = ".mp4"
@@ -1085,10 +1087,53 @@ def save_today_log_from_scale_result():
 
     return True, "読み取った数値で今日の記録を保存しました。"
 
+
 def uploaded_file_signature(uploaded_file):
     data = uploaded_file.getvalue()
     return hashlib.md5(data).hexdigest()
-    
+
+
+def extract_scale_values_from_images(client, images):
+    content = [
+        {
+            "type": "input_text",
+            "text": """
+これらは体組成計または体重計の複数画像です。
+複数枚を見比べて、読み取りやすい数値を日本語で整理してください。
+
+ルール:
+- 複数枚のうち、最も読み取りやすい情報を優先する
+- 同じ項目が複数画像で一致する場合は、その値を優先する
+- 読み取れたものだけ書く
+- 推測しすぎない
+- 次の形式にできるだけ合わせる
+
+体重: xx.x
+体脂肪率: xx.x
+骨格筋率: xx.x
+内臓脂肪: xx.x
+皮下脂肪: xx.x
+基礎代謝: xxxx
+BMI: xx.x
+メモ: 読み取りにくい項目があれば書く
+"""
+        }
+    ]
+
+    for img in images:
+        content.append({
+            "type": "input_image",
+            "image_url": image_file_to_data_url(img)
+        })
+
+    response = client.responses.create(
+        model="gpt-4.1-mini",
+        input=[{
+            "role": "user",
+            "content": content
+        }]
+    )
+    return response.output_text    
 
 # -----------------------------
 # Ayurveda / state check
@@ -1664,9 +1709,6 @@ def get_recommended_daily_schedule(wake_time_str: str):
 # Session defaults
 # -----------------------------
 defaults = {
-    "user_name_input": "",
-    "last_loaded_user_id": "",
-    "settings_snapshot": {},
     "common_gender": "未選択",
     "common_age": 40,
     "common_height": 160.0,
@@ -1674,13 +1716,12 @@ defaults = {
     "common_target_weight": 48.0,
     "common_body_fat": 28.0,
     "common_target_body_fat": 24.0,
+
     "meal_style": "和食中心",
     "ease_level": "超かんたん",
     "staple_preference": "ごはん派",
     "fridge_items": "",
     "avoid_foods": "",
-    "scale_scan_images": [],
-    "selected_scale_index": 0,
     "favorite_meals": "",
     "favorite_protein_onigiri": "",
     "favorite_misodama_soup": "",
@@ -1690,22 +1731,38 @@ defaults = {
     "daily_flow": "普通",
     "workout_today": False,
     "body_goal": "バランス",
-    "diet_logs": [],
-    "home_area": "",
+
     "home_prefecture": "",
-    "today_plan_text": "",
-    "today_plan_date": "",
-    "expenses": [],
-    "schedules": [],
-    "selected_schedule_date": "",
-    "wake_time_str": "06:30",
+    "home_area": "",
+    "home_area_custom": "",
+
     "dosha_type": "",
-    "dosha_scores": {"ヴァータ": 0, "ピッタ": 0, "カパ": 0},
-    "last_mode": "",
+
+    "diet_logs": [],
+    "today_plan_date": "",
+    "today_plan_text": "",
+
+    "fridge_scan_images": [],
     "photo_fridge_items": "",
-    "photo_scale_result": "",
+
     "scale_scan_images": [],
     "selected_scale_index": 0,
+    "photo_scale_result": "",
+    "processed_scale_upload_hashes": [],
+    "scale_photo_uploader_version": 0,
+    "scale_video_uploader_version": 0,
+
+    "receipt_result": "",
+    "receipt_store": "",
+    "receipt_date_text": "",
+    "receipt_date_value": None,
+    "receipt_amount": 0,
+    "receipt_memo": "",
+    "receipt_scan_images": [],
+    "selected_receipt_index": 0,
+
+    "expenses": [],
+
     "body_check_comment": "",
     "body_scan_comment": "",
     "body_goal_scan": "バランス",
@@ -1715,24 +1772,17 @@ defaults = {
     "use_cropped_body": True,
     "ideal_face_mode": "顔は反映しない",
     "ideal_image_from_photo_result": "",
-    "fridge_scan_images": [],
-    "meal_eval_result": "",
-    "quick_advice_result": "",
+
     "quick_advice_question": "",
+    "quick_advice_result": "",
+    "advice_category": "食事相談",
     "advice_area": "",
     "site_hint": "syufuosusume.com",
-    "breakfast_img_bytes": None,
-    "lunch_img_bytes": None,
-    "dinner_img_bytes": None,
-    "body_photo_bytes": None,
-    "receipt_result": "",
-    "receipt_store": "",
-    "receipt_date_text": "",
-    "receipt_amount": 0,
-    "receipt_memo": "",
-    "home_prefecture": "",
-    "home_area": "",
-    "home_area_custom": "",
+
+    "meal_eval_result": "",
+
+    "settings_snapshot": {},
+    "last_loaded_user_id": "",
 }
 
 for k, v in defaults.items():
@@ -2481,14 +2531,13 @@ elif mode == "写真で記録":
             st.session_state["fridge_items"] = text
             st.success("冷蔵庫の食材に反映しました。")
 
-       with tab2:
+    with tab2:
         st.subheader("⚖ 体重計写真・動画から記録候補を管理")
         st.caption("※ 『体重計を写真で撮る』は静止画です。動画撮影ではありません。")
         st.caption("※ 動画を使う場合は、スマホのカメラで撮影した動画を下からアップロードしてください。")
-        st.caption("※ 写真は複数追加できます。動画は自動で数枚切り出して使います。")
+        st.caption("※ 写真は複数追加できます。動画は3秒ごとに1枚、最大8枚まで切り出します。")
         st.caption("※ 数値を読み取ったあと、自動反映や今日の記録保存ができます。")
 
-        # 念のため初期化
         if "scale_scan_images" not in st.session_state:
             st.session_state["scale_scan_images"] = []
         if "selected_scale_index" not in st.session_state:
@@ -2497,70 +2546,84 @@ elif mode == "写真で記録":
             st.session_state["photo_scale_result"] = ""
         if "processed_scale_upload_hashes" not in st.session_state:
             st.session_state["processed_scale_upload_hashes"] = []
+        if "scale_photo_uploader_version" not in st.session_state:
+            st.session_state["scale_photo_uploader_version"] = 0
+        if "scale_video_uploader_version" not in st.session_state:
+            st.session_state["scale_video_uploader_version"] = 0
 
-        scale_camera = st.camera_input("体重計を写真で撮る", key="scale_camera_input_light")
+        scale_camera = st.camera_input("体重計を写真で撮る", key="scale_camera_input_final")
 
-        col3, col4 = st.columns(2)
+        col1, col2 = st.columns(2)
 
-        with col3:
-            if scale_camera is not None and st.button("➕ この写真を使う", key="add_scale_camera_light"):
+        with col1:
+            if scale_camera is not None and st.button("➕ この写真を使う", key="add_scale_camera_final"):
                 resized = resize_image(scale_camera, max_size=768)
                 st.session_state["scale_scan_images"].append(resized)
                 st.success("体重計写真を追加しました。")
                 st.rerun()
 
-        with col4:
-            if st.button("🧹 体重計画像を全部クリア", key="clear_scale_images_light"):
+        with col2:
+            if st.button("🧹 体重計画像を全部クリア", key="clear_scale_images_final"):
                 st.session_state["scale_scan_images"] = []
                 st.session_state["processed_scale_upload_hashes"] = []
                 st.session_state["photo_scale_result"] = ""
                 st.session_state["selected_scale_index"] = 0
+                st.session_state["scale_photo_uploader_version"] += 1
+                st.session_state["scale_video_uploader_version"] += 1
                 st.rerun()
 
         scale_photos = st.file_uploader(
             "体重計写真をアップロード（複数OK）",
             type=["jpg", "jpeg", "png"],
             accept_multiple_files=True,
-            key="scale_photo_upload_multi_light"
+            key=f"scale_photo_upload_multi_{st.session_state['scale_photo_uploader_version']}"
         )
 
         if scale_photos:
-            added_count = 0
-            for photo in scale_photos:
-                sig = uploaded_file_signature(photo)
-                if sig not in st.session_state["processed_scale_upload_hashes"]:
-                    resized = resize_image(photo, max_size=768)
-                    st.session_state["scale_scan_images"].append(resized)
-                    st.session_state["processed_scale_upload_hashes"].append(sig)
-                    added_count += 1
+            st.caption(f"アップロード済み写真: {len(scale_photos)}枚")
+            if st.button("📥 アップロードした写真を追加", key="add_uploaded_scale_photos_final"):
+                added_count = 0
+                for photo in scale_photos:
+                    sig = uploaded_file_signature(photo)
+                    if sig not in st.session_state["processed_scale_upload_hashes"]:
+                        resized = resize_image(photo, max_size=768)
+                        st.session_state["scale_scan_images"].append(resized)
+                        st.session_state["processed_scale_upload_hashes"].append(sig)
+                        added_count += 1
 
-            if added_count > 0:
-                st.success(f"体重計写真を {added_count} 枚追加しました。")
+                st.session_state["scale_photo_uploader_version"] += 1
+
+                if added_count > 0:
+                    st.success(f"体重計写真を {added_count} 枚追加しました。")
+                else:
+                    st.info("新しく追加された写真はありませんでした。")
                 st.rerun()
 
         scale_video = st.file_uploader(
             "体重計動画をアップロード（mp4 / mov / m4v）",
             type=["mp4", "mov", "m4v"],
-            key="scale_video_upload_light"
+            key=f"scale_video_upload_{st.session_state['scale_video_uploader_version']}"
         )
 
         if scale_video is not None:
             st.caption("動画を使う場合は、下の『🎞 動画から画像を取り込む』を押してください。")
             st.caption("現在の設定: 3秒ごとに1枚、最大8枚")
 
-        if scale_video is not None and st.button("🎞 動画から画像を取り込む", key="extract_scale_video_frames_light"):
-            frames = extract_frames_from_video(
-                scale_video,
-                interval_sec=3.0,
-                max_frames=8,
-                max_size=768
-            )
-            if frames:
-                st.session_state["scale_scan_images"].extend(frames)
-                st.success(f"動画から {len(frames)} 枚の画像を取り込みました。")
+            if st.button("🎞 動画から画像を取り込む", key="extract_scale_video_frames_final"):
+                frames = extract_frames_from_video(
+                    scale_video,
+                    interval_sec=3.0,
+                    max_frames=8,
+                    max_size=768
+                )
+                st.session_state["scale_video_uploader_version"] += 1
+
+                if frames:
+                    st.session_state["scale_scan_images"].extend(frames)
+                    st.success(f"動画から {len(frames)} 枚の画像を取り込みました。")
+                else:
+                    st.warning("動画から画像を取り込めませんでした。")
                 st.rerun()
-            else:
-                st.warning("動画から画像を取り込めませんでした。")
 
         image_count = len(st.session_state["scale_scan_images"])
 
@@ -2575,34 +2638,34 @@ elif mode == "写真で記録":
                 list(range(image_count)),
                 index=st.session_state["selected_scale_index"],
                 format_func=lambda x: f"体重計画像 {x + 1}",
-                key="selected_scale_index_light"
+                key="selected_scale_index_final"
             )
             st.session_state["selected_scale_index"] = selected_scale_index
 
-            # 表示は軽量化のため最大10枚まで
-            max_preview = 10
+            max_preview = 8
             preview_images = st.session_state["scale_scan_images"][:max_preview]
 
             if image_count > max_preview:
-                st.caption(f"表示は先頭 {max_preview} 枚までです。保存中画像は合計 {image_count} 枚あります。")
+                st.caption(f"表示は先頭 {max_preview} 枚までです。")
 
             for i, img in enumerate(preview_images):
                 st.image(img, caption=f"体重計画像 {i + 1}", use_container_width=True)
 
             selected_img = st.session_state["scale_scan_images"][selected_scale_index]
-            st.markdown("#### 選択中の画像")
-            st.image(selected_img, caption=f"現在選択中: 体重計画像 {selected_scale_index + 1}", use_container_width=True)
+            st.markdown("#### 現在選択中の画像")
+            st.image(selected_img, caption=f"体重計画像 {selected_scale_index + 1}", use_container_width=True)
 
-            col_del1, col_del2 = st.columns(2)
-            with col_del1:
-                if st.button("🗑 選択中の画像を削除", key="delete_selected_scale_image"):
+            col3, col4 = st.columns(2)
+
+            with col3:
+                if st.button("🗑 選択中の画像を削除", key="delete_selected_scale_image_final"):
                     st.session_state["scale_scan_images"].pop(selected_scale_index)
                     if st.session_state["selected_scale_index"] >= len(st.session_state["scale_scan_images"]):
                         st.session_state["selected_scale_index"] = max(0, len(st.session_state["scale_scan_images"]) - 1)
                     st.rerun()
 
-            with col_del2:
-                if st.button("⚖ 選択した1枚を読み取る", key="extract_scale_values_single_light"):
+            with col4:
+                if st.button("⚖ 選択した1枚を読み取る", key="extract_scale_values_single_final"):
                     client = get_openai_client()
                     with st.spinner("AIが選択画像を読み取り中..."):
                         result = extract_scale_values_from_image(client, selected_img)
@@ -2612,7 +2675,7 @@ elif mode == "写真で記録":
                     st.rerun()
 
             if image_count >= 2:
-                if st.button("⚖ 複数画像をまとめて読み取る", key="extract_scale_values_all_light"):
+                if st.button("⚖ 複数画像をまとめて読み取る", key="extract_scale_values_all_final"):
                     client = get_openai_client()
                     with st.spinner("AIが複数画像を見比べて読み取り中..."):
                         result = extract_scale_values_from_images(client, st.session_state["scale_scan_images"])
@@ -2628,16 +2691,15 @@ elif mode == "写真で記録":
             height=220
         )
 
-        if st.button("🧹 数値候補をクリア", use_container_width=True, key="clear_scale_result_light"):
-            st.session_state["photo_scale_result"] = ""
-            st.rerun()
-
-        st.caption("内容を見ながら、体重・体脂肪率を反映したり、そのまま今日の記録へ保存できます。")
-
         col5, col6 = st.columns(2)
 
         with col5:
-            if st.button("📌 読み取った数値を自動反映", key="apply_weight_and_fat_light"):
+            if st.button("🧹 数値候補をクリア", use_container_width=True, key="clear_scale_result_final"):
+                st.session_state["photo_scale_result"] = ""
+                st.rerun()
+
+        with col6:
+            if st.button("📌 読み取った数値を自動反映", key="apply_weight_and_fat_final"):
                 parsed = parse_scale_values(st.session_state.get("photo_scale_result", ""))
                 updated = False
 
@@ -2654,14 +2716,14 @@ elif mode == "写真で記録":
                 else:
                     st.warning("反映できる数値が見つかりませんでした。")
 
-        with col6:
-            if st.button("📝 読み取った数値で今日の記録を保存", key="save_today_from_scale_light"):
-                ok, message = save_today_log_from_scale_result()
-                if ok:
-                    st.success(message)
-                    st.rerun()
-                else:
-                    st.warning(message)
+        if st.button("📝 読み取った数値で今日の記録を保存", key="save_today_from_scale_final"):
+            ok, message = save_today_log_from_scale_result()
+            if ok:
+                st.success(message)
+                st.rerun()
+            else:
+                st.warning(message)
+
                     
 elif mode == "体型チェック":
     st.header("🪞 体型チェック")
