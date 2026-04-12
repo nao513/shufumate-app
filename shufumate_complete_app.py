@@ -305,39 +305,54 @@ def reset_user_settings():
     st.session_state["home_area_custom"] = ""
 
 def load_settings_into_session():
-    saved = load_user_settings()
-    if saved:
-        for k, v in saved.items():
-            st.session_state[k] = v
+    ws = get_sheet("Settings")
+    values = ws.get_all_values()
+    current_user_id = get_current_user_id()
+
+    if len(values) < 2:
+        return
+
+    header = values[0]
+    data_rows = values[1:]
+
+    for row in data_rows:
+        if not row:
+            continue
+
+        row = row + [""] * (len(header) - len(row))
+        row_dict = dict(zip(header, row))
 
         if row_dict.get("user_id") == current_user_id:
-            return {
-                "common_gender": row_dict.get("gender", "未選択") or "未選択",
-                "common_age": int(float(row_dict["age"])) if row_dict.get("age") else 40,
-                "common_height": float(row_dict["height_cm"]) if row_dict.get("height_cm") else 160.0,
-                "common_weight": float(row_dict["start_weight"]) if row_dict.get("start_weight") else 50.0,
-                "common_target_weight": float(row_dict["target_weight"]) if row_dict.get("target_weight") else 48.0,
-                "common_body_fat": float(row_dict["start_body_fat"]) if row_dict.get("start_body_fat") else 28.0,
-                "common_target_body_fat": float(row_dict["target_body_fat"]) if row_dict.get("target_body_fat") else 24.0,
-                "meal_style": row_dict.get("meal_style", "和食中心") or "和食中心",
-                "ease_level": row_dict.get("ease_level", "超かんたん") or "超かんたん",
-                "staple_preference": row_dict.get("staple_preference", "ごはん派") or "ごはん派",
-                "fridge_items": row_dict.get("fridge_items", "") or "",
-                "avoid_foods": row_dict.get("avoid_foods", "") or "",
-                "favorite_meals": row_dict.get("favorite_meals", "") or "",
-                "favorite_protein_onigiri": row_dict.get("favorite_protein_onigiri", "") or "",
-                "favorite_misodama_soup": row_dict.get("favorite_misodama_soup", "") or "",
-                "plan_type": row_dict.get("plan_type", "通常") or "通常",
-                "lunch_style": row_dict.get("lunch_style", "指定なし") or "指定なし",
-                "real_mode": str(row_dict.get("real_mode", "True")).lower() == "true",
-                "daily_flow": row_dict.get("daily_flow", "普通") or "普通",
-                "workout_today": str(row_dict.get("workout_today", "False")).lower() == "true",
-                "body_goal": row_dict.get("body_goal", "バランス") or "バランス",
-                "home_prefecture": row_dict.get("home_prefecture", "") or "",
-                "home_area": row_dict.get("home_area", "") or "",
-                "home_area_custom": "",
-            }
+            st.session_state["common_gender"] = row_dict.get("gender", "未選択") or "未選択"
+            st.session_state["common_age"] = int(float(row_dict["age"])) if row_dict.get("age") else 40
+            st.session_state["common_height"] = float(row_dict["height_cm"]) if row_dict.get("height_cm") else 160.0
+            st.session_state["common_weight"] = float(row_dict["start_weight"]) if row_dict.get("start_weight") else 50.0
+            st.session_state["common_target_weight"] = float(row_dict["target_weight"]) if row_dict.get("target_weight") else 48.0
+            st.session_state["common_body_fat"] = float(row_dict["start_body_fat"]) if row_dict.get("start_body_fat") else 28.0
+            st.session_state["common_target_body_fat"] = float(row_dict["target_body_fat"]) if row_dict.get("target_body_fat") else 24.0
 
+            st.session_state["meal_style"] = row_dict.get("meal_style", "和食中心") or "和食中心"
+            st.session_state["ease_level"] = row_dict.get("ease_level", "超かんたん") or "超かんたん"
+            st.session_state["staple_preference"] = row_dict.get("staple_preference", "ごはん派") or "ごはん派"
+            st.session_state["fridge_items"] = row_dict.get("fridge_items", "") or ""
+            st.session_state["avoid_foods"] = row_dict.get("avoid_foods", "") or ""
+            st.session_state["favorite_meals"] = row_dict.get("favorite_meals", "") or ""
+            st.session_state["favorite_protein_onigiri"] = row_dict.get("favorite_protein_onigiri", "") or ""
+            st.session_state["favorite_misodama_soup"] = row_dict.get("favorite_misodama_soup", "") or ""
+
+            st.session_state["plan_type"] = row_dict.get("plan_type", "通常") or "通常"
+            st.session_state["lunch_style"] = row_dict.get("lunch_style", "指定なし") or "指定なし"
+            st.session_state["real_mode"] = str(row_dict.get("real_mode", "True")).lower() == "true"
+            st.session_state["daily_flow"] = row_dict.get("daily_flow", "普通") or "普通"
+            st.session_state["workout_today"] = str(row_dict.get("workout_today", "False")).lower() == "true"
+            st.session_state["body_goal"] = row_dict.get("body_goal", "バランス") or "バランス"
+
+            st.session_state["home_prefecture"] = row_dict.get("home_prefecture", "") or ""
+            st.session_state["home_area"] = row_dict.get("home_area", "") or ""
+            st.session_state["home_area_custom"] = ""
+
+            return
+            
 
 def autosave_settings_if_changed():
     current_snapshot = get_settings_snapshot()
