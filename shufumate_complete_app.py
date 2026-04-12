@@ -2412,14 +2412,14 @@ elif mode == "写真で記録":
     with tab1:
         st.subheader("🥬 冷蔵庫スキャン")
         st.caption("スマホでは1枚ずつ撮って追加していく使い方がおすすめです。")
-        st.caption("※ Take Photo＝写真を撮る、Upload＝保存済み写真を追加")
+        st.caption("※ Take Photo＝静止画、Upload＝保存済み写真を追加")
 
-        fridge_camera = st.camera_input("冷蔵庫を撮る", key="fridge_camera_scan")
+        fridge_camera = st.camera_input("冷蔵庫を写真で撮る", key="fridge_camera_scan")
 
         col1, col2 = st.columns(2)
 
         with col1:
-            if fridge_camera is not None and st.button("➕ この写真を追加", key="add_fridge_camera"):
+            if fridge_camera is not None and st.button("➕ この写真を使う", key="add_fridge_camera"):
                 resized = resize_image(fridge_camera, max_size=768)
                 st.session_state["fridge_scan_images"].append(resized)
                 st.success("冷蔵庫写真を追加しました。")
@@ -2478,15 +2478,17 @@ elif mode == "写真で記録":
 
     with tab2:
         st.subheader("⚖ 体重計写真・動画から記録候補を管理")
+        st.caption("※ 『体重計を写真で撮る』は静止画です。動画撮影ではありません。")
+        st.caption("※ 動画を使う場合は、スマホのカメラで撮影した動画を下からアップロードしてください。")
         st.caption("※ 写真は複数追加できます。動画は自動で数枚切り出して使います。")
         st.caption("※ 数値を読み取ったあと、そのまま今日の記録へ保存できます。")
 
-        scale_camera = st.camera_input("体重計を撮る", key="scale_camera_input")
+        scale_camera = st.camera_input("体重計を写真で撮る", key="scale_camera_input")
 
         col3, col4 = st.columns(2)
 
         with col3:
-            if scale_camera is not None and st.button("➕ 撮った写真を追加", key="add_scale_camera"):
+            if scale_camera is not None and st.button("➕ この写真を使う", key="add_scale_camera"):
                 resized = resize_image(scale_camera, max_size=768)
                 st.session_state["scale_scan_images"].append(resized)
                 st.success("体重計写真を追加しました。")
@@ -2513,10 +2515,13 @@ elif mode == "写真で記録":
             st.rerun()
 
         scale_video = st.file_uploader(
-            "または体重計動画をアップロード（mp4 / mov / m4v）",
+            "体重計動画をアップロード（mp4 / mov / m4v）",
             type=["mp4", "mov", "m4v"],
             key="scale_video_upload"
         )
+
+        if scale_video is not None:
+            st.caption("動画を使う場合は、下の『🎞 動画から画像を取り込む』を押してください。")
 
         if scale_video is not None and st.button("🎞 動画から画像を取り込む", key="extract_scale_video_frames"):
             frames = extract_frames_from_video(
