@@ -215,32 +215,33 @@ def save_user_settings():
     values = ws.get_all_values()
     current_user_id = get_current_user_id()
 
-row_values = [
-    current_user_id,
-    st.session_state["common_gender"],
-    st.session_state["common_age"],
-    st.session_state["common_height"],
-    st.session_state["common_weight"],
-    st.session_state["common_target_weight"],
-    st.session_state["common_body_fat"],
-    st.session_state["common_target_body_fat"],
-    st.session_state["meal_style"],
-    st.session_state["ease_level"],
-    st.session_state["staple_preference"],
-    st.session_state["fridge_items"],
-    st.session_state.get("avoid_foods", ""),
-    st.session_state.get("favorite_meals", ""),
-    st.session_state.get("favorite_protein_onigiri", ""),
-    st.session_state.get("favorite_misodama_soup", ""),
-    st.session_state["plan_type"],
-    st.session_state["lunch_style"],
-    str(st.session_state["real_mode"]),
-    st.session_state["daily_flow"],
-    str(st.session_state["workout_today"]),
-    st.session_state["body_goal"],
-    st.session_state.get("home_prefecture", ""),
-    st.session_state.get("home_area_custom", "").strip() or st.session_state.get("home_area", ""),
-]
+    row_values = [
+        current_user_id,
+        st.session_state["common_gender"],
+        st.session_state["common_age"],
+        st.session_state["common_height"],
+        st.session_state["common_weight"],
+        st.session_state["common_target_weight"],
+        st.session_state["common_body_fat"],
+        st.session_state["common_target_body_fat"],
+        st.session_state["meal_style"],
+        st.session_state["ease_level"],
+        st.session_state["staple_preference"],
+        st.session_state["fridge_items"],
+        st.session_state.get("avoid_foods", ""),
+        st.session_state.get("favorite_meals", ""),
+        st.session_state.get("favorite_protein_onigiri", ""),
+        st.session_state.get("favorite_misodama_soup", ""),
+        st.session_state["plan_type"],
+        st.session_state["lunch_style"],
+        str(st.session_state["real_mode"]),
+        st.session_state["daily_flow"],
+        str(st.session_state["workout_today"]),
+        st.session_state["body_goal"],
+        st.session_state.get("home_prefecture", ""),
+        st.session_state.get("home_area_custom", "").strip() or st.session_state.get("home_area", ""),
+    ]
+
     row_index = None
     for i, row in enumerate(values[1:], start=2):
         if row and row[0] == current_user_id:
@@ -251,7 +252,6 @@ row_values = [
         ws.update(f"A{row_index}:X{row_index}", [row_values])
     else:
         ws.append_row(row_values)
-
 
 def reset_user_settings():
     st.session_state["common_gender"] = "未選択"
