@@ -5,6 +5,7 @@ import calendar
 import os
 import tempfile
 import cv2
+import hashlib
 from datetime import datetime, timedelta
 
 import gspread
