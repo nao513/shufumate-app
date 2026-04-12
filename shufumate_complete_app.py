@@ -123,9 +123,6 @@ def get_current_user_id():
 def reload_user_data_if_needed():
     current_user_id = get_current_user_id()
 
-    if not current_user_id:
-        return
-
     if st.session_state.get("last_loaded_user_id") != current_user_id:
         saved = load_user_settings()
         if saved:
@@ -141,9 +138,35 @@ def reload_user_data_if_needed():
             st.session_state["today_plan_date"] = saved_plan_date
             st.session_state["today_plan_text"] = saved_plan_text
 
-        st.session_state["last_loaded_user_id"] = current_user_id
         st.session_state["settings_snapshot"] = get_settings_snapshot()
+        st.session_state["last_loaded_user_id"] = current_user_id
         
+def get_settings_snapshot():
+    return {
+        "common_gender": st.session_state.get("common_gender", "未選択"),
+        "common_age": st.session_state.get("common_age", 40),
+        "common_height": st.session_state.get("common_height", 160.0),
+        "common_weight": st.session_state.get("common_weight", 50.0),
+        "common_target_weight": st.session_state.get("common_target_weight", 48.0),
+        "common_body_fat": st.session_state.get("common_body_fat", 28.0),
+        "common_target_body_fat": st.session_state.get("common_target_body_fat", 24.0),
+        "meal_style": st.session_state.get("meal_style", "和食中心"),
+        "ease_level": st.session_state.get("ease_level", "超かんたん"),
+        "staple_preference": st.session_state.get("staple_preference", "ごはん派"),
+        "fridge_items": st.session_state.get("fridge_items", ""),
+        "avoid_foods": st.session_state.get("avoid_foods", ""),
+        "favorite_meals": st.session_state.get("favorite_meals", ""),
+        "plan_type": st.session_state.get("plan_type", "通常"),
+        "lunch_style": st.session_state.get("lunch_style", "指定なし"),
+        "real_mode": st.session_state.get("real_mode", True),
+        "daily_flow": st.session_state.get("daily_flow", "普通"),
+        "workout_today": st.session_state.get("workout_today", False),
+        "body_goal": st.session_state.get("body_goal", "バランス"),
+        "home_prefecture": st.session_state.get("home_prefecture", ""),
+        "home_area": st.session_state.get("home_area", ""),
+        "home_area_custom": st.session_state.get("home_area_custom", ""),
+    }
+
 
 def load_user_settings():
     ws = get_sheet("Settings")
