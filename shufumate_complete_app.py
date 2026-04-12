@@ -1084,6 +1084,10 @@ def save_today_log_from_scale_result():
     sync_common_from_latest_diet_log()
 
     return True, "読み取った数値で今日の記録を保存しました。"
+
+def uploaded_file_signature(uploaded_file):
+    data = uploaded_file.getvalue()
+    return hashlib.md5(data).hexdigest()
     
 
 # -----------------------------
