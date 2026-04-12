@@ -1,6 +1,7 @@
 streamlit
 pandas
-openai
 gspread
-google-auth
+openai
 Pillow
+google-auth
+opencv-python-headless
