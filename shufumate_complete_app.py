@@ -2526,7 +2526,7 @@ elif mode == "写真で記録":
         if scale_video is not None and st.button("🎞 動画から画像を取り込む", key="extract_scale_video_frames"):
             frames = extract_frames_from_video(
                 scale_video,
-                interval_sec=0.5,
+                interval_sec=3.0,
                 max_frames=8,
                 max_size=768
             )
