@@ -2249,6 +2249,9 @@ elif mode == "食事写真評価":
         )
 
 elif mode == "なんでも相談":
+    load_settings_into_session()
+    sync_common_from_latest_diet_log()
+
     st.header("💬 なんでも相談")
     st.caption("食事・運動・外食・今日の困りごとを気軽に相談できます。")
 
