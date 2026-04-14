@@ -2482,7 +2482,7 @@ elif mode == "写真で記録":
 
     tab1, tab2 = st.tabs(["冷蔵庫写真", "体重計写真・動画"])
 
-        with tab1:
+    with tab1:
         st.subheader("🥬 冷蔵庫スキャン")
         st.caption("スマホでは1枚ずつ撮って追加していく使い方がおすすめです。")
         st.caption("※ Take Photo＝静止画、Upload＝保存済み写真を追加")
@@ -2586,7 +2586,7 @@ elif mode == "写真で記録":
                 st.session_state["fridge_items"] = text
                 st.success("冷蔵庫の食材に反映しました。")
                 
-        with tab2:
+    with tab2:
         st.subheader("⚖ 体重計写真・動画から記録候補を管理")
         st.caption("※ 『体重計を写真で撮る』は静止画です。動画撮影ではありません。")
         st.caption("※ 動画を使う場合は、スマホのカメラで撮影した動画を下からアップロードしてください。")
