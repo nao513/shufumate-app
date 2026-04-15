@@ -1336,10 +1336,45 @@ def get_current_state_advice(
 
     return "\n\n".join(results)
 
+        
+def get_current_state_advice(
+    sweet_craving,
+    salty_craving,
+    fatigue,
+    irritable,
+    sleepy_after_meal,
+    swelling,
+    coldness,
+    constipation_now,
+    dry_skin
+):
+    results = []
 
-# -----------------------------
-# Plan generation
-# -----------------------------
+    if sweet_craving:
+        results.append("甘いものが無性に食べたい時は、疲れ・ストレス・エネルギー不足、たんぱく質不足気味の可能性があります。まずは食事を抜かず、たんぱく質と温かい汁物を意識してみましょう。")
+    if salty_craving:
+        results.append("しょっぱいものが欲しい時は、疲労感やミネラル不足、水分バランスの乱れが関係していることがあります。")
+    if fatigue:
+        results.append("だるさが強い時は、カパの重さ、睡眠不足、栄養不足、動かなさすぎが重なっていることがあります。")
+    if irritable:
+        results.append("イライラしやすい時は、ピッタの乱れや空腹時間の長さが関係していることがあります。")
+    if sleepy_after_meal:
+        results.append("食後すぐ眠い時は、糖質に偏った食事や食べすぎ、血糖値変動の可能性があります。")
+    if swelling:
+        results.append("むくみやすい時は、水分代謝の低下やカパ寄りの乱れ、塩分過多が関係していることがあります。")
+    if coldness:
+        results.append("冷えやすい時は、ヴァータの乱れやエネルギー不足が関係していることがあります。")
+    if constipation_now:
+        results.append("便秘ぎみの時は、ヴァータの乱れ、水分不足、冷えが関係していることがあります。")
+    if dry_skin:
+        results.append("乾燥しやすい時は、ヴァータ寄りの乱れや水分・油分不足が関係していることがあります。")
+
+    if not results:
+        return "大きな乱れチェックは入っていません。今は比較的安定している可能性があります。"
+
+    return "\n\n".join(results)
+
+
 def ask_shufumate_advice(
     client,
     question,
@@ -1411,6 +1446,10 @@ def ask_shufumate_advice(
     )
     return response.output_text
 
+
+# -----------------------------
+# Plan generation
+# -----------------------------
 def create_plan_for_date(
     client,
     date_str,
