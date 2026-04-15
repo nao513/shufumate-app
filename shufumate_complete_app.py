@@ -2484,7 +2484,7 @@ elif mode == "写真で記録":
 
     tab1, tab2 = st.tabs(["冷蔵庫写真", "体重計写真・動画"])
 
-        with tab1:
+with tab1:
         st.subheader("🥬 冷蔵庫スキャン")
         st.caption("スマホでは1枚ずつ撮って追加していく使い方がおすすめです。")
         st.caption("※ Take Photo＝静止画、Upload＝保存済み写真を追加")
