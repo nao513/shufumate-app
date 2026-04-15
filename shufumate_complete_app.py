@@ -1724,7 +1724,7 @@ def sync_settings_on_mode_enter(current_mode: str):
 
         st.session_state["last_mode"] = current_mode
         scroll_to_top()
-
+        
 def build_month_calendar(year: int, month: int):
     cal = calendar.Calendar(firstweekday=6)
     return cal.monthdayscalendar(year, month)
