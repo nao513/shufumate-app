@@ -1707,11 +1707,14 @@ def extract_shopping_items(plan_texts):
 
 
 def sync_settings_on_mode_enter(current_mode: str):
-    if st.session_state.get("last_mode") != current_mode:
-        if current_mode in ["ダイエット管理", "献立・運動プラン", "設定"]:
-            load_settings_into_session()
-        st.session_state["last_mode"] = current_mode
+    previous_mode = st.session_state.get("last_mode")
 
+    if previous_mode != current_mode:
+        if current_mode in ["ダイエット管理", "献立・運動プラン", "初期設定", "なんでも相談", "写真で記録", "家計簿", "スケジュール"]:
+            load_settings_into_session()
+
+        st.session_state["last_mode"] = current_mode
+        scroll_to_top()
 
 def build_month_calendar(year: int, month: int):
     cal = calendar.Calendar(firstweekday=6)
