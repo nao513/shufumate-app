@@ -2476,19 +2476,44 @@ elif mode == "なんでも相談":
             st.success("回答を作成しました。")
 
     st.subheader("相談結果")
-    st.text_area(
-        "相談結果",
-        value=st.session_state.get("quick_advice_result", ""),
-        height=220,
-        disabled=True
-    )
+
+    result_text = st.session_state.get("quick_advice_result", "")
+
+    if result_text:
+        safe_result = (
+            result_text
+            .replace("&", "&amp;")
+            .replace("<", "&lt;")
+            .replace(">", "&gt;")
+            .replace("\n", "<br>")
+        )
+        st.markdown(
+            f"""
+            <div style="
+                background:#ffffff;
+                border:1px solid #d1d5db;
+                border-radius:14px;
+                padding:18px;
+                color:#111827;
+                font-size:16px;
+                line-height:1.9;
+                box-shadow:0 1px 2px rgba(0,0,0,0.04);
+                margin-bottom:8px;
+            ">
+            {safe_result}
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+    else:
+        st.caption("ここに回答が表示されます。")
 
     st.info("※回答は参考用です。最終判断は、その日の体調・予定・空腹具合に合わせて無理なく調整してください。")
 
     st.subheader("💡 相談例")
     st.write("・今日の夕飯どうしたらいい？")
     st.write("・運動前に何を食べたらいい？")
-    st.write("・運動後、長命ヶ丘でどういう店を選べばいい？")
+    st.write("・運動後、近くでどういう店を選べばいい？")
     st.write("・夕飯前にお腹が空きすぎた時どうする？")
 
     st.divider()
@@ -2499,13 +2524,60 @@ elif mode == "なんでも相談":
     if advice_logs:
         for log in advice_logs[:10]:
             area_label = log["地域"] if log["地域"] else "地域なし"
+
+            q_text = (
+                log["相談内容"]
+                .replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace("\n", "<br>")
+            )
+            a_text = (
+                log["回答"]
+                .replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace("\n", "<br>")
+            )
+
             with st.expander(f"{log['日時']}｜{log['カテゴリ']}｜{area_label}"):
                 st.markdown("**相談内容**")
-                st.write(log["相談内容"])
+                st.markdown(
+                    f"""
+                    <div style="
+                        background:#f9fafb;
+                        border:1px solid #e5e7eb;
+                        border-radius:12px;
+                        padding:14px;
+                        color:#111827;
+                        line-height:1.8;
+                        margin-bottom:12px;
+                    ">
+                    {q_text}
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
+
                 st.markdown("**回答**")
-                st.write(log["回答"])
+                st.markdown(
+                    f"""
+                    <div style="
+                        background:#ffffff;
+                        border:1px solid #d1d5db;
+                        border-radius:12px;
+                        padding:14px;
+                        color:#111827;
+                        line-height:1.9;
+                    ">
+                    {a_text}
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
     else:
         st.caption("まだ相談履歴はありません。")
+
         
 elif mode == "アーユルヴェーダ":
     st.header("🌿 アーユルヴェーダ体質チェック")
