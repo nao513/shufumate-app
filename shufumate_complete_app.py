@@ -1623,6 +1623,15 @@ def create_plan_for_date(
 # -----------------------------
 # Helpers
 # -----------------------------
+def scroll_to_top():
+    components.html(
+        """
+        <script>
+            window.parent.scrollTo(0, 0);
+        </script>
+        """,
+        height=0,
+    )
 def get_common_profile():
     return {
         "gender": st.session_state.get("common_gender", "未選択"),
