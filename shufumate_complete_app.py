@@ -94,6 +94,7 @@ def ensure_headers():
     diet_ws = get_or_create_worksheet(sh, "DietLogs")
     plans_ws = get_or_create_worksheet(sh, "TodayPlans")
     expenses_ws = get_or_create_worksheet(sh, "Expenses")
+    advice_ws = get_or_create_worksheet(sh, "AdviceLogs")
 
     settings_header = [
         "user_id", "gender", "age", "height_cm", "start_weight",
@@ -102,7 +103,8 @@ def ensure_headers():
         "fridge_items", "avoid_foods", "favorite_meals",
         "favorite_protein_onigiri", "favorite_misodama_soup",
         "plan_type", "lunch_style",
-        "real_mode", "daily_flow", "workout_today", "body_goal"
+        "real_mode", "daily_flow", "workout_today", "body_goal",
+        "home_prefecture", "home_area"
     ]
     diet_header = [
         "user_id", "date", "gender", "age", "height_cm", "weight",
@@ -111,12 +113,13 @@ def ensure_headers():
     ]
     plan_header = ["user_id", "date", "plan_text"]
     expenses_header = ["user_id", "date", "category", "store_name", "amount", "memo"]
+    advice_header = ["user_id", "datetime", "category", "area", "question", "answer"]
 
     rewrite_sheet_with_header(settings_ws, settings_header)
     rewrite_sheet_with_header(diet_ws, diet_header)
     rewrite_sheet_with_header(plans_ws, plan_header)
     rewrite_sheet_with_header(expenses_ws, expenses_header)
-    
+    rewrite_sheet_with_header(advice_ws, advice_header)    
 
 def get_current_user_id():
     return st.session_state.get("user_name_input", "").strip()
@@ -132,6 +135,7 @@ def reload_user_data_if_needed():
 
         st.session_state["diet_logs"] = load_diet_logs()
         st.session_state["expenses"] = load_expenses()
+        st.session_state["advice_logs"] = load_advice_logs()
         sync_common_from_latest_diet_log()
 
         saved_plan_date, saved_plan_text = load_today_plan()
@@ -167,25 +171,6 @@ def get_settings_snapshot():
         "home_area": st.session_state.get("home_area", ""),
         "home_area_custom": st.session_state.get("home_area_custom", ""),
     }
-
-
-def load_user_settings():
-    ws = get_sheet("Settings")
-    values = ws.get_all_values()
-    current_user_id = get_current_user_id()
-
-    if len(values) < 2:
-        return None
-
-    header = values[0]
-    data_rows = values[1:]
-
-    for row in data_rows:
-        if not row:
-            continue
-
-        row = row + [""] * (len(header) - len(row))
-        row_dict = dict(zip(header, row))
 
 def load_user_settings():
     ws = get_sheet("Settings")
@@ -230,10 +215,11 @@ def load_user_settings():
                 "body_goal": row_dict.get("body_goal", "バランス") or "バランス",
                 "home_prefecture": row_dict.get("home_prefecture", "") or "",
                 "home_area": row_dict.get("home_area", "") or "",
+                "home_area_custom": "",
             }
 
     return None
-
+    
 def save_user_settings():
     ws = get_sheet("Settings")
     values = ws.get_all_values()
@@ -551,6 +537,53 @@ def append_expense(expense_dict):
         st.success("Expenses シートへ保存しました")
     except Exception as e:
         st.error(f"家計簿保存エラー: {e}")
+
+def load_advice_logs():
+    ws = get_sheet("AdviceLogs")
+    values = ws.get_all_values()
+    current_user_id = get_current_user_id()
+
+    if len(values) < 2:
+        return []
+
+    header = values[0]
+    data_rows = values[1:]
+    logs = []
+
+    for row in data_rows:
+        if not row:
+            continue
+
+        row = row + [""] * (len(header) - len(row))
+        row_dict = dict(zip(header, row))
+
+        if row_dict.get("user_id") == current_user_id:
+            logs.append({
+                "日時": row_dict.get("datetime", ""),
+                "カテゴリ": row_dict.get("category", ""),
+                "地域": row_dict.get("area", ""),
+                "相談内容": row_dict.get("question", ""),
+                "回答": row_dict.get("answer", ""),
+            })
+
+    logs.sort(key=lambda x: x["日時"], reverse=True)
+    return logs
+
+def append_advice_log(category, area, question, answer):
+    ws = get_sheet("AdviceLogs")
+    current_user_id = get_current_user_id()
+
+    row_values = [
+        current_user_id,
+        datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        category,
+        area,
+        question,
+        answer,
+    ]
+
+    ws.append_row(row_values)
+
 
 def delete_expense(sheet_row: int):
     ws = get_sheet("Expenses")
@@ -1307,6 +1340,77 @@ def get_current_state_advice(
 # -----------------------------
 # Plan generation
 # -----------------------------
+def ask_shufumate_advice(
+    client,
+    question,
+    gender,
+    age,
+    height_cm,
+    weight,
+    body_fat,
+    target_weight,
+    target_body_fat,
+    dosha_type="",
+    fridge_items="",
+    avoid_foods="",
+    favorite_meals="",
+    favorite_protein_onigiri="",
+    favorite_misodama_soup="",
+    daily_flow="普通",
+    workout_today=False,
+    body_goal="バランス",
+    lunch_style="指定なし",
+    category="食事相談",
+    area="",
+    site_hint="syufuosusume.com"
+):
+    prompt = f"""
+あなたは主婦向けのやさしい生活アドバイザーです。
+食事・運動・外食・日常の困りごとに、日本語でわかりやすく答えてください。
+
+【利用者情報】
+- 性別: {gender}
+- 年齢: {age}
+- 身長: {height_cm}
+- 体重: {weight}
+- 体脂肪率: {body_fat}
+- 目標体重: {target_weight}
+- 目標体脂肪率: {target_body_fat}
+- 体質: {dosha_type if dosha_type else "未設定"}
+- 冷蔵庫の食材: {fridge_items}
+- 避けたい食べ物: {avoid_foods}
+- 定番・好きな食事: {favorite_meals}
+- 食事の流れ: {daily_flow}
+- 運動: {"あり" if workout_today else "なし"}
+- 目的: {body_goal}
+- 昼食スタイル: {lunch_style}
+- 相談カテゴリ: {category}
+- 相談エリア: {area if area else "未指定"}
+
+【回答ルール】
+- 主婦目線でやさしく、実用的に答える
+- 難しすぎる言い方はしない
+- すぐできる提案を優先する
+- 外食相談なら、地域があればその地域で探す前提のアドバイスにする
+- 必要なら選び方の基準も入れる
+- 最後にひとことで背中を押す
+- {site_hint} に合いそうな、暮らしに役立つ雰囲気で答える
+
+【相談内容】
+{question}
+
+【出力形式】
+■答え
+■理由
+■おすすめ行動
+■ひとこと
+"""
+    response = client.responses.create(
+        model="gpt-4.1-mini",
+        input=prompt
+    )
+    return response.output_text
+
 def create_plan_for_date(
     client,
     date_str,
@@ -1779,6 +1883,7 @@ defaults = {
     "selected_receipt_index": 0,
 
     "expenses": [],
+    "schedules": [],
 
     "body_check_comment": "",
     "body_scan_comment": "",
@@ -1794,6 +1899,7 @@ defaults = {
     "quick_advice_result": "",
     "advice_category": "食事相談",
     "advice_area": "",
+    "advice_logs": [],
     "site_hint": "syufuosusume.com",
 
     "meal_eval_result": "",
@@ -1805,7 +1911,6 @@ defaults = {
 for k, v in defaults.items():
     if k not in st.session_state:
         st.session_state[k] = v
-
 
 # -----------------------------
 # Initial load
@@ -2273,7 +2378,7 @@ elif mode == "なんでも相談":
 
     if category == "外食相談":
         prefecture = st.session_state.get("home_prefecture", "")
-        default_area = st.session_state.get("home_area", "")
+        default_area = st.session_state.get("home_area_custom", "").strip() or st.session_state.get("home_area", "")
 
         if prefecture or default_area:
             st.caption(f"初期設定の地域: {prefecture} {default_area}".strip())
@@ -2287,13 +2392,13 @@ elif mode == "なんでも相談":
 
     st.text_area(
         "相談内容",
-        placeholder="例：おにぎりを1個にした方がいい？\n例：運動前に何を食べたらいい？\n例：運動後、近所でどういう店を選べばいい？",
+        placeholder="例：今日の夕飯どうしたらいい？\n例：運動前に何を食べたらいい？\n例：運動後、近所でどういう店を選べばいい？",
         key="quick_advice_question",
         height=140
     )
 
-    if st.button("🪄 相談してみる"):
-        question = st.session_state["quick_advice_question"].strip()
+    if st.button("✨ 相談してみる"):
+        question = st.session_state.get("quick_advice_question", "").strip()
         area = st.session_state.get("advice_area", "").strip()
 
         if not question:
@@ -2311,37 +2416,58 @@ elif mode == "なんでも相談":
                     body_fat=body_fat,
                     target_weight=target_weight,
                     target_body_fat=target_body_fat,
-                    dosha_type=st.session_state["dosha_type"],
-                    fridge_items=st.session_state["fridge_items"],
-                    avoid_foods=st.session_state["avoid_foods"],
-                    favorite_meals=st.session_state["favorite_meals"],
-                    favorite_protein_onigiri=st.session_state["favorite_protein_onigiri"],
-                    favorite_misodama_soup=st.session_state["favorite_misodama_soup"],
-                    daily_flow=st.session_state["daily_flow"],
-                    workout_today=st.session_state["workout_today"],
-                    body_goal=st.session_state["body_goal"],
-                    lunch_style=st.session_state["lunch_style"],
+                    dosha_type=st.session_state.get("dosha_type", ""),
+                    fridge_items=st.session_state.get("fridge_items", ""),
+                    avoid_foods=st.session_state.get("avoid_foods", ""),
+                    favorite_meals=st.session_state.get("favorite_meals", ""),
+                    favorite_protein_onigiri=st.session_state.get("favorite_protein_onigiri", ""),
+                    favorite_misodama_soup=st.session_state.get("favorite_misodama_soup", ""),
+                    daily_flow=st.session_state.get("daily_flow", "普通"),
+                    workout_today=st.session_state.get("workout_today", False),
+                    body_goal=st.session_state.get("body_goal", "バランス"),
+                    lunch_style=st.session_state.get("lunch_style", "指定なし"),
                     category=category,
                     area=area,
                     site_hint=st.session_state.get("site_hint", "syufuosusume.com")
                 )
+
             st.session_state["quick_advice_result"] = result
+            append_advice_log(category=category, area=area, question=question, answer=result)
+            st.session_state["advice_logs"] = load_advice_logs()
             st.success("回答を作成しました。")
 
+    st.subheader("相談結果")
     st.text_area(
         "相談結果",
-        key="quick_advice_result",
-        height=220
+        value=st.session_state.get("quick_advice_result", ""),
+        height=220,
+        disabled=True
     )
 
     st.info("※回答は参考用です。最終判断は、その日の体調・予定・空腹具合に合わせて無理なく調整してください。")
 
     st.subheader("💡 相談例")
-    st.write("・おにぎりを1個にした方がいい？")
+    st.write("・今日の夕飯どうしたらいい？")
     st.write("・運動前に何を食べたらいい？")
     st.write("・運動後、長命ヶ丘でどういう店を選べばいい？")
     st.write("・夕飯前にお腹が空きすぎた時どうする？")
-    
+
+    st.divider()
+    st.subheader("🕘 相談履歴")
+
+    advice_logs = st.session_state.get("advice_logs", [])
+
+    if advice_logs:
+        for log in advice_logs[:10]:
+            area_label = log["地域"] if log["地域"] else "地域なし"
+            with st.expander(f"{log['日時']}｜{log['カテゴリ']}｜{area_label}"):
+                st.markdown("**相談内容**")
+                st.write(log["相談内容"])
+                st.markdown("**回答**")
+                st.write(log["回答"])
+    else:
+        st.caption("まだ相談履歴はありません。")
+        
 elif mode == "アーユルヴェーダ":
     st.header("🌿 アーユルヴェーダ体質チェック")
     st.write("8項目から体質傾向をチェックします。チェックが多い体質が今の自分に近い目です。")
