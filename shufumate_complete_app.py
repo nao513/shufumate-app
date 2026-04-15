@@ -2484,7 +2484,7 @@ elif mode == "写真で記録":
 
     tab1, tab2 = st.tabs(["冷蔵庫写真", "体重計写真・動画"])
 
-with tab1:
+    with tab1:
         st.subheader("🥬 冷蔵庫スキャン")
         st.caption("スマホでは1枚ずつ撮って追加していく使い方がおすすめです。")
         st.caption("※ Take Photo＝静止画、Upload＝保存済み写真を追加")
@@ -2587,7 +2587,7 @@ with tab1:
                     text = text.split("食材候補:")[-1].strip()
                 st.session_state["fridge_items"] = text
                 st.success("冷蔵庫の食材に反映しました。")
-                
+
     with tab2:
         st.subheader("⚖ 体重計写真・動画から記録候補を管理")
         st.caption("※ 『体重計を写真で撮る』は静止画です。動画撮影ではありません。")
@@ -2610,16 +2610,16 @@ with tab1:
 
         scale_camera = st.camera_input("体重計を写真で撮る", key="scale_camera_input_final2")
 
-        col1, col2 = st.columns(2)
+        col5, col6 = st.columns(2)
 
-        with col1:
+        with col5:
             if scale_camera is not None and st.button("➕ この写真を使う", key="add_scale_camera_final2"):
                 resized = resize_image(scale_camera, max_size=768)
                 st.session_state["scale_scan_images"].append(resized)
                 st.success("体重計写真を追加しました。")
                 st.rerun()
 
-        with col2:
+        with col6:
             if st.button("🧹 体重計画像を全部クリア", key="clear_scale_images_final2"):
                 st.session_state["scale_scan_images"] = []
                 st.session_state["processed_scale_upload_hashes"] = []
@@ -2718,9 +2718,9 @@ with tab1:
             st.markdown("#### 現在選択中の画像")
             st.image(selected_img, caption=f"体重計画像 {selected_scale_index + 1}", use_container_width=True)
 
-            col3, col4 = st.columns(2)
+            col7, col8 = st.columns(2)
 
-            with col3:
+            with col7:
                 if st.button("⚖ 選択した1枚を読み取る", key="extract_scale_values_single_final2"):
                     client = get_openai_client()
                     with st.spinner("AIが選択画像を読み取り中..."):
@@ -2730,7 +2730,7 @@ with tab1:
                     st.success("選択画像から数値候補を抽出しました。")
                     st.rerun()
 
-            with col4:
+            with col8:
                 if image_count >= 2 and st.button("⚖ 複数画像をまとめて読み取る", key="extract_scale_values_all_final2"):
                     client = get_openai_client()
                     with st.spinner("AIが複数画像を見比べて読み取り中..."):
@@ -2747,14 +2747,14 @@ with tab1:
             height=220
         )
 
-        col5, col6 = st.columns(2)
+        col9, col10 = st.columns(2)
 
-        with col5:
+        with col9:
             if st.button("🧹 数値候補をクリア", use_container_width=True, key="clear_scale_result_final2"):
                 st.session_state["photo_scale_result"] = ""
                 st.rerun()
 
-        with col6:
+        with col10:
             if st.button("📌 読み取った数値を自動反映", key="apply_weight_and_fat_final2"):
                 parsed = parse_scale_values(st.session_state.get("photo_scale_result", ""))
                 updated = False
