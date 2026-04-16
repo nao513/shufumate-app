@@ -186,7 +186,7 @@ with left:
                     体重・体脂肪率の記録や日々の変化チェック、目標に合わせた管理に。
                 </div>
             </div>
-            <div class="card-icon">⚖️</div>
+            st.image("assets/home_icons/diet.png", use_container_width=True)
         </div>
     </div>
     """, unsafe_allow_html=True)
