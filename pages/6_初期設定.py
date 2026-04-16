@@ -3,8 +3,11 @@ from app_core import *
 
 st.set_page_config(page_title="初期設定｜ShufuMate", layout="wide")
 
-ensure_headers()
-reload_user_data_if_needed()
+try:
+    ensure_headers()
+except Exception as e:
+    st.error(f"初期化エラー: {e}")
+    st.stop()
 
 st.header("⚙️ 初期設定")
 
