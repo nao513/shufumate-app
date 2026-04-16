@@ -3,8 +3,6 @@ from app_core import *
 
 st.set_page_config(page_title="なんでも相談｜ShufuMate", layout="wide")
 
-ensure_headers()
-reload_user_data_if_needed()
 load_settings_into_session()
 sync_common_from_latest_diet_log()
 
