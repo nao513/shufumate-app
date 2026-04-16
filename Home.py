@@ -24,22 +24,22 @@ section[data-testid="stSidebar"] {
 }
 
 .block-container {
-    max-width: 920px;
+    max-width: 930px;
     padding-top: 2rem;
     padding-bottom: 3rem;
 }
 
 .home-shell {
     background: #f8f3ec;
-    border: 1px solid #e6ddd3;
-    border-radius: 40px;
-    padding: 2.2rem 2rem 2rem 2rem;
+    border: 1px solid #e7ddd2;
+    border-radius: 42px;
+    padding: 2.3rem 2rem 2rem 2rem;
     box-shadow: 0 10px 28px rgba(91, 58, 41, 0.05);
 }
 
 .logo-wrap {
-    max-width: 300px;
-    margin: 0 auto 0.8rem auto;
+    max-width: 310px;
+    margin: 0 auto 0.9rem auto;
 }
 
 .main-copy {
@@ -53,7 +53,7 @@ section[data-testid="stSidebar"] {
 
 .sub-copy {
     text-align: center;
-    color: #7d6656;
+    color: #7a6454;
     font-size: 1rem;
     line-height: 1.9;
     margin-top: 0.8rem;
@@ -73,9 +73,9 @@ section[data-testid="stSidebar"] {
     border: 1px solid #eadfd3;
     border-radius: 18px;
     padding: 1rem 1rem 0.9rem 1rem;
-    min-height: 148px;
+    min-height: 150px;
     box-shadow: 0 4px 12px rgba(91, 58, 41, 0.04);
-    margin-bottom: 0.8rem;
+    margin-bottom: 0.55rem;
 }
 
 .card-row {
@@ -91,7 +91,7 @@ section[data-testid="stSidebar"] {
 
 .card-title {
     color: #5b3a29;
-    font-size: 1.08rem;
+    font-size: 1.1rem;
     font-weight: 700;
     margin-bottom: 0.45rem;
 }
@@ -103,11 +103,11 @@ section[data-testid="stSidebar"] {
 }
 
 .card-icon {
-    width: 74px;
-    height: 74px;
-    min-width: 74px;
-    border-radius: 18px;
-    background: linear-gradient(180deg, #f8eadb 0%, #f4e2cf 100%);
+    width: 82px;
+    height: 82px;
+    min-width: 82px;
+    border-radius: 20px;
+    background: linear-gradient(180deg, #f8eadb 0%, #f3dfca 100%);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -120,7 +120,7 @@ section[data-testid="stSidebar"] {
     border: 1px solid #e5d4c1;
     border-radius: 18px;
     padding: 1rem 1.1rem;
-    margin-top: 0.6rem;
+    margin-top: 0.8rem;
 }
 
 .bottom-title {
@@ -134,6 +134,21 @@ section[data-testid="stSidebar"] {
     color: #7a6556;
     font-size: 0.96rem;
     line-height: 1.8;
+}
+
+/* ボタンの雰囲気 */
+div.stButton > button {
+    background: #fbf6ef;
+    color: #6a4a39;
+    border: 1px solid #e2d2c1;
+    border-radius: 999px;
+    font-weight: 700;
+    min-height: 2.8rem;
+}
+div.stButton > button:hover {
+    background: #f1e5d7;
+    border-color: #d6b99c;
+    color: #5b3a29;
 }
 </style>
 """, unsafe_allow_html=True)
