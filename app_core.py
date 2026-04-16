@@ -112,20 +112,28 @@ for k, v in defaults.items():
 
 @st.cache_resource
 def get_gspread_client():
-    creds_dict = dict(st.secrets["gcp_service_account"])
-    scopes = [
-        "https://www.googleapis.com/auth/spreadsheets",
-        "https://www.googleapis.com/auth/drive",
-    ]
-    creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
-    return gspread.authorize(creds)
+    try:
+        creds_dict = dict(st.secrets["gcp_service_account"])
+        scopes = [
+            "https://www.googleapis.com/auth/spreadsheets",
+            "https://www.googleapis.com/auth/drive",
+        ]
+        creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
+        return gspread.authorize(creds)
+    except Exception as e:
+        st.error(f"gspread接続エラー: {e}")
+        raise
 
 
 @st.cache_resource
 def get_spreadsheet():
-    gc = get_gspread_client()
-    return gc.open_by_key(st.secrets["GOOGLE_SHEET_ID"])
-
+    try:
+        gc = get_gspread_client()
+        sheet_id = str(st.secrets["GOOGLE_SHEET_ID"]).strip()
+        return gc.open_by_key(sheet_id)
+    except Exception as e:
+        st.error(f"スプレッドシート接続エラー: {e}")
+        raise
 
 def get_sheet(tab_name: str):
     sh = get_spreadsheet()
@@ -137,7 +145,9 @@ def get_or_create_worksheet(sh, title, rows=1000, cols=30):
         return sh.worksheet(title)
     except gspread.exceptions.WorksheetNotFound:
         return sh.add_worksheet(title=title, rows=rows, cols=cols)
-
+    except Exception as e:
+        st.error(f"ワークシート取得エラー（{title}）: {e}")
+        raise
 
 def rewrite_sheet_with_header(ws, expected_header):
     values = ws.get_all_values()
