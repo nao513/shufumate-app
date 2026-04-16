@@ -16,7 +16,7 @@ html, body, [class*="css"]  {
 }
 
 .stApp {
-    background: linear-gradient(180deg, #f5f1ea 0%, #f8f4ee 100%);
+    background: linear-gradient(180deg, #f4efe8 0%, #f8f4ee 100%);
 }
 
 .block-container {
@@ -25,24 +25,28 @@ html, body, [class*="css"]  {
     padding-bottom: 3rem;
 }
 
+section[data-testid="stSidebar"] {
+    background: #f1ece6;
+}
+
 .hero-wrap {
     background: #f8f3ec;
-    border: 1px solid #e7ddd2;
-    border-radius: 36px;
+    border: 1px solid #e8ddd0;
+    border-radius: 38px;
     padding: 2.6rem 2rem 2.2rem 2rem;
-    box-shadow: 0 10px 30px rgba(90, 68, 52, 0.05);
+    box-shadow: 0 10px 28px rgba(91, 58, 41, 0.05);
     margin-bottom: 1.6rem;
 }
 
 .logo-wrap {
-    max-width: 420px;
-    margin: 0 auto 1rem auto;
+    max-width: 360px;
+    margin: 0 auto 0.8rem auto;
 }
 
 .main-copy {
     text-align: center;
-    color: #5c4032;
-    font-size: 2.3rem;
+    color: #5b3a29;
+    font-size: 2.25rem;
     font-weight: 700;
     line-height: 1.45;
     margin-top: 0.8rem;
@@ -50,54 +54,50 @@ html, body, [class*="css"]  {
 
 .sub-copy {
     text-align: center;
-    color: #7d6656;
+    color: #7a6454;
     font-size: 1rem;
     line-height: 1.9;
     margin-top: 0.9rem;
-    margin-bottom: 1.3rem;
+    margin-bottom: 1.2rem;
 }
 
 .divider-deco {
     text-align: center;
-    color: #caa27f;
+    color: #c7a17c;
     font-size: 1rem;
-    letter-spacing: 0.25rem;
-    margin: 0.6rem 0 1.6rem 0;
-}
-
-.card-grid {
-    margin-top: 0.6rem;
+    letter-spacing: 0.2rem;
+    margin: 0.3rem 0 1.5rem 0;
 }
 
 .feature-card {
-    background: #fcf8f2;
-    border: 1px solid #eadfd2;
+    background: #fcf8f3;
+    border: 1px solid #eadfd4;
     border-radius: 18px;
     padding: 1rem 1.1rem;
-    box-shadow: 0 4px 14px rgba(91, 58, 41, 0.04);
-    min-height: 138px;
+    box-shadow: 0 4px 12px rgba(91, 58, 41, 0.04);
+    min-height: 135px;
     margin-bottom: 1rem;
 }
 
 .feature-title {
-    font-size: 1.18rem;
+    font-size: 1.15rem;
     font-weight: 700;
     color: #5b3a29;
-    margin-bottom: 0.55rem;
+    margin-bottom: 0.5rem;
 }
 
 .feature-text {
-    color: #6f5a4d;
-    font-size: 0.96rem;
+    color: #6c5a4f;
+    font-size: 0.95rem;
     line-height: 1.75;
 }
 
 .start-card {
-    background: #f7efe6;
-    border: 1px solid #e9d7c2;
+    background: #f6eee5;
+    border: 1px solid #e6d6c6;
     border-radius: 18px;
     padding: 1rem 1.2rem;
-    margin-top: 0.6rem;
+    margin-top: 0.4rem;
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -106,31 +106,19 @@ html, body, [class*="css"]  {
 }
 
 .start-text {
-    color: #6a4a39;
+    color: #694b3a;
     font-size: 1rem;
     line-height: 1.8;
 }
 
 .start-btn {
-    background: #b68556;
-    color: white;
-    padding: 0.7rem 1.2rem;
+    background: #b38356;
+    color: #ffffff;
+    padding: 0.72rem 1.25rem;
     border-radius: 999px;
     font-weight: 700;
     font-size: 0.95rem;
     display: inline-block;
-}
-
-.small-note {
-    color: #8e7968;
-    font-size: 0.9rem;
-    margin-top: 0.8rem;
-    text-align: center;
-}
-
-/* sidebarを少しやわらかく */
-section[data-testid="stSidebar"] {
-    background: #f3efe9;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -181,7 +169,7 @@ with c1:
     <div class="feature-card">
         <div class="feature-title">家計簿</div>
         <div class="feature-text">
-            レシート撮影や手入力で、シンプルに記録して見返しやすく管理できます。
+            レシート撮影や手入力で、家計の記録をシンプルに見返しやすく管理できます。
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -191,7 +179,7 @@ with c2:
     <div class="feature-card">
         <div class="feature-title">献立・運動プラン</div>
         <div class="feature-text">
-            その日の状態や食材、目標に合わせて、無理なく続けやすい提案を作れます。
+            その日の状態や冷蔵庫の食材、目標に合わせて続けやすい提案を作れます。
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -209,7 +197,7 @@ with c2:
     <div class="feature-card">
         <div class="feature-title">初期設定</div>
         <div class="feature-text">
-            体型情報、食事スタイル、地域などを登録しておくと、他のページにも反映されます。
+            体型情報、食事スタイル、地域などを登録しておくと、他ページにも反映されます。
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -221,12 +209,6 @@ st.markdown("""
         左のメニューから、使いたい機能を選んでください。
     </div>
     <div class="start-btn">初期設定へ</div>
-</div>
-""", unsafe_allow_html=True)
-
-st.markdown("""
-<div class="small-note">
-やさしく、見やすく、毎日使いたくなる雰囲気を目指したホームデザインです。
 </div>
 """, unsafe_allow_html=True)
 
