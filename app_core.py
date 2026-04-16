@@ -472,3 +472,25 @@ def ask_shufumate_advice(
     )
     return response.output_text
 
+def parse_receipt_date_to_dateobj(date_text: str):
+    if not date_text:
+        return None
+
+    text = str(date_text).strip()
+
+    patterns = [
+        r"(\d{4})[/-](\d{1,2})[/-](\d{1,2})",
+        r"(\d{4})年(\d{1,2})月(\d{1,2})日",
+    ]
+
+    for pattern in patterns:
+        m = re.search(pattern, text)
+        if m:
+            try:
+                y, mth, d = map(int, m.groups())
+                return datetime(y, mth, d).date()
+            except Exception:
+                return None
+
+    return None
+
