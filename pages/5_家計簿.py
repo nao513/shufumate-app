@@ -5,8 +5,6 @@ from app_core import *
 
 st.set_page_config(page_title="家計簿｜ShufuMate", layout="wide")
 
-ensure_headers()
-reload_user_data_if_needed()
 
 st.header("💰 家計簿入力")
 st.caption("レシートを撮影またはアップロードして、家計簿に使う内容を自動で読み取れます。")
