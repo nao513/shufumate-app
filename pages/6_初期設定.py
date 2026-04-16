@@ -57,7 +57,6 @@ c1, c2 = st.columns(2)
 with c1:
     if st.button("💾 初期設定を保存", use_container_width=True):
         save_user_settings()
-        load_settings_into_session()
         st.success("初期設定を保存しました。")
         st.rerun()
 
@@ -65,6 +64,5 @@ with c2:
     if st.button("↺ 初期設定をリセット", use_container_width=True):
         reset_user_settings()
         save_user_settings()
-        load_settings_into_session()
         st.success("初期設定をリセットしました。")
         st.rerun()
