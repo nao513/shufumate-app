@@ -11,7 +11,7 @@ reload_user_data_if_needed()
 
 st.markdown("""
 <style>
-html, body, [class*="css"]  {
+html, body, [class*="css"] {
     font-family: "Hiragino Sans", "Yu Gothic", sans-serif;
 }
 
@@ -33,7 +33,7 @@ section[data-testid="stSidebar"] {
     background: #f8f3ec;
     border: 1px solid #e8ddd0;
     border-radius: 38px;
-    padding: 2.6rem 2rem 2.2rem 2rem;
+    padding: 2.4rem 2rem 2rem 2rem;
     box-shadow: 0 10px 28px rgba(91, 58, 41, 0.05);
     margin-bottom: 1.6rem;
 }
@@ -46,7 +46,7 @@ section[data-testid="stSidebar"] {
 .main-copy {
     text-align: center;
     color: #5b3a29;
-    font-size: 2.25rem;
+    font-size: 2.15rem;
     font-weight: 700;
     line-height: 1.45;
     margin-top: 0.8rem;
@@ -59,14 +59,6 @@ section[data-testid="stSidebar"] {
     line-height: 1.9;
     margin-top: 0.9rem;
     margin-bottom: 1.2rem;
-}
-
-.divider-deco {
-    text-align: center;
-    color: #c7a17c;
-    font-size: 1rem;
-    letter-spacing: 0.2rem;
-    margin: 0.3rem 0 1.5rem 0;
 }
 
 .feature-card {
@@ -92,42 +84,31 @@ section[data-testid="stSidebar"] {
     line-height: 1.75;
 }
 
-.start-card {
+.button-area {
     background: #f6eee5;
     border: 1px solid #e6d6c6;
-    border-radius: 18px;
-    padding: 1rem 1.2rem;
-    margin-top: 0.4rem;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 1rem;
-    flex-wrap: wrap;
+    border-radius: 20px;
+    padding: 1.2rem;
+    margin-top: 1rem;
 }
 
-.start-text {
-    color: #694b3a;
-    font-size: 1rem;
-    line-height: 1.8;
-}
-
-.start-btn {
-    background: #b38356;
-    color: #ffffff;
-    padding: 0.72rem 1.25rem;
-    border-radius: 999px;
-    font-weight: 700;
-    font-size: 0.95rem;
-    display: inline-block;
+.small-note {
+    color: #8e7968;
+    font-size: 0.92rem;
+    margin-top: 0.8rem;
+    text-align: center;
 }
 </style>
 """, unsafe_allow_html=True)
 
 st.markdown('<div class="hero-wrap">', unsafe_allow_html=True)
 
-st.markdown('<div class="logo-wrap">', unsafe_allow_html=True)
-st.image("ChatGPT Image 2025年5月17日 13_33_39.png", use_container_width=True)
-st.markdown('</div>', unsafe_allow_html=True)
+top1, top2, top3 = st.columns([1, 2.2, 1])
+
+with top2:
+    st.markdown('<div class="logo-wrap">', unsafe_allow_html=True)
+    st.image("ChatGPT Image 2025年5月17日 13_33_39.png", use_container_width=True)
+    st.markdown('</div>', unsafe_allow_html=True)
 
 st.markdown("""
 <div class="main-copy">
@@ -142,7 +123,7 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-st.markdown('<div class="divider-deco">·· ✦ ··</div>', unsafe_allow_html=True)
+st.markdown('</div>', unsafe_allow_html=True)
 
 c1, c2 = st.columns(2)
 
@@ -202,14 +183,35 @@ with c2:
     </div>
     """, unsafe_allow_html=True)
 
-st.markdown("""
-<div class="start-card">
-    <div class="start-text">
-        <strong>まずは、初期設定から始めるのがおすすめです。</strong><br>
-        左のメニューから、使いたい機能を選んでください。
-    </div>
-    <div class="start-btn">初期設定へ</div>
-</div>
-""", unsafe_allow_html=True)
+st.markdown('<div class="button-area">', unsafe_allow_html=True)
+st.subheader("よく使うページへ")
+
+b1, b2, b3 = st.columns(3)
+with b1:
+    if st.button("⚙️ 初期設定へ", use_container_width=True):
+        st.switch_page("pages/6_初期設定.py")
+with b2:
+    if st.button("💬 なんでも相談へ", use_container_width=True):
+        st.switch_page("pages/4_なんでも相談.py")
+with b3:
+    if st.button("📷 写真で記録へ", use_container_width=True):
+        st.switch_page("pages/3_写真で記録.py")
+
+b4, b5, b6 = st.columns(3)
+with b4:
+    if st.button("📘 ダイエット管理へ", use_container_width=True):
+        st.switch_page("pages/1_ダイエット管理.py")
+with b5:
+    if st.button("💰 家計簿へ", use_container_width=True):
+        st.switch_page("pages/5_家計簿.py")
+with b6:
+    if st.button("🍽 献立・運動プランへ", use_container_width=True):
+        st.switch_page("pages/2_献立・運動プラン.py")
 
 st.markdown('</div>', unsafe_allow_html=True)
+
+st.markdown("""
+<div class="small-note">
+まずは初期設定から始めると、他のページにも内容が反映されて使いやすくなります。
+</div>
+""", unsafe_allow_html=True)
