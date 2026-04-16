@@ -211,8 +211,8 @@ def ensure_headers():
 
 
 def get_current_user_id():
-    return st.session_state.get("user_name_input", "").strip()
-
+    return "default_user"
+    
 
 def load_user_settings():
     ws = get_sheet("Settings")
