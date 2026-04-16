@@ -378,6 +378,9 @@ def append_advice_log(category, area, question, answer):
 def reload_user_data_if_needed():
     current_user_id = get_current_user_id()
 
+    if not current_user_id:
+        return
+
     if st.session_state.get("last_loaded_user_id") != current_user_id:
         saved = load_user_settings()
         if saved:
@@ -385,11 +388,11 @@ def reload_user_data_if_needed():
                 st.session_state[k] = v
 
         st.session_state["diet_logs"] = load_diet_logs()
+        st.session_state["expenses"] = load_expenses()
         st.session_state["advice_logs"] = load_advice_logs()
         sync_common_from_latest_diet_log()
 
         st.session_state["last_loaded_user_id"] = current_user_id
-
 def get_openai_client():
     try:
         return OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
