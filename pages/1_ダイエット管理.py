@@ -5,6 +5,7 @@ from app_core import *
 
 st.set_page_config(page_title="ダイエット管理｜ShufuMate", layout="wide")
 
+reload_user_data_if_needed()
 load_settings_into_session()
 sync_common_from_latest_diet_log()
 
