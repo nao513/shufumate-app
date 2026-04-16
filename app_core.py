@@ -953,3 +953,173 @@ def ask_shufumate_advice(
         input=prompt
     )
     return response.output_text
+
+def create_plan_for_date(
+    client,
+    date_str,
+    gender,
+    age,
+    height_cm,
+    weight,
+    body_fat,
+    target_weight,
+    target_body_fat,
+    dosha_type="",
+    meal_style="和食中心",
+    ease_level="超かんたん",
+    staple_preference="ごはん派",
+    fridge_items="",
+    avoid_foods="",
+    favorite_meals="",
+    favorite_protein_onigiri="",
+    favorite_misodama_soup="",
+    plan_type="通常",
+    lunch_style="指定なし",
+    real_mode=False,
+    daily_flow="普通",
+    workout_today=False,
+    body_goal="バランス"
+):
+    dosha_rule = ""
+    if dosha_type == "ヴァータ":
+        dosha_rule = "温かい汁物、根菜、やわらかいごはん、消化にやさしい和食を優先してください。冷たいものや生野菜は控えめにしてください。"
+    elif dosha_type == "ピッタ":
+        dosha_rule = "刺激物や辛いものを控え、やさしい味付けの和食、野菜、豆腐、白身魚などを優先してください。"
+    elif dosha_type == "カパ":
+        dosha_rule = "脂っこいものや甘いものを控え、野菜多め、高たんぱく、温かく軽めの和食を優先してください。"
+
+    fridge_rule = ""
+    if fridge_items.strip():
+        fridge_rule = f"冷蔵庫にある食材をできるだけ優先して使ってください: {fridge_items}"
+
+    avoid_rule = ""
+    if avoid_foods.strip():
+        avoid_rule = f"次の食材・料理は献立に入れないでください: {avoid_foods}"
+
+    favorite_rule = ""
+    if favorite_meals.strip():
+        favorite_rule = f"""
+ユーザーの定番・好きな食事:
+- 定番食: {favorite_meals}
+
+上記はできるだけ優先して提案に入れてください。
+"""
+
+    meal_style_rule = ""
+    if meal_style == "タンパク質おにぎり＆味噌玉味噌汁":
+        meal_style_rule = """
+食事スタイルは「タンパク質おにぎり＆味噌玉味噌汁」を優先してください。
+・朝食または昼食に、タンパク質を意識したおにぎりを提案する
+・味噌玉味噌汁を合わせやすい献立にする
+・忙しい主婦でも続けやすい、手軽で現実的な内容にする
+・必要に応じて、ゆで卵、豆腐、サラダ、サラダチキンなどを組み合わせる
+・毎日まったく同じではなく、少し変化をつけて飽きにくくする
+"""
+
+    plan_type_rule = ""
+    if plan_type == "外食":
+        plan_type_rule = """
+外食を前提にしてください。
+・定食屋、和食屋、カフェなど現実的なお店を想定
+・ダイエット向きのメニュー選びを提案
+・揚げ物を避ける、タンパク質多めなど具体的に
+"""
+    elif plan_type == "コンビニ":
+        plan_type_rule = """
+コンビニ食（セブン・ファミマ・ローソン）で完結する内容にしてください。
+・サラダチキン、おにぎり、ゆで卵、味噌汁、豆腐バー、サラダなど
+・組み合わせで提案
+・リアルに買いやすい内容にしてください
+"""
+
+    lunch_style_rule = ""
+    if lunch_style == "お弁当":
+        lunch_style_rule = """
+昼食はお弁当向けにしてください。
+・冷めても食べやすい
+・汁気が少ない
+・詰めやすい
+・前日の夜や朝に準備しやすい
+"""
+    elif lunch_style == "コンビニ":
+        lunch_style_rule = """
+昼食はコンビニで買いやすい内容にしてください。
+・おにぎり、味噌汁、サラダ、サラダチキン、ゆで卵など現実的な組み合わせ
+"""
+    elif lunch_style == "おすすめ定番":
+        lunch_style_rule = """
+昼食はおすすめ定番寄りにしてください。
+・タンパク質おにぎり＆味噌玉味噌汁の流れを優先してよい
+・必要に応じて、ゆで卵、サラダ、豆腐、サラダチキンなどを組み合わせる
+"""
+
+    real_mode_rule = ""
+    if real_mode:
+        real_mode_rule = f"""
+あなたは「アラフィフ主婦の現実的な食事判断」をする専門家です。
+
+【今日の状況】
+- 食事の流れ: {daily_flow}
+- 運動: {"あり" if workout_today else "なし"}
+- 目的: {body_goal}
+
+以下を必ず守ってください：
+・今日の流れを評価してから献立を決める
+・「今日は90点前後」「今日は調整日」など評価をつける
+・冷蔵庫の食材を優先して使う
+・主婦がすぐ作れるレベルにする
+・メニューは多すぎない（2〜4品）
+・脚やせ、むくみ対策、回復など目的を理由に入れる
+
+【出力に必ず含める】
+①いちばんおすすめ
+②2番目におすすめ
+③3番目におすすめ
+④今日のベスト献立
+⑤今日1日の最終評価
+⑥ひとことで
+"""
+
+    prompt = f"""
+あなたは優秀な管理栄養士・時短料理アドバイザー・主婦向け献立アドバイザーです。
+
+【利用者情報】
+- 性別: {gender}
+- 年齢: {age}歳
+- 身長: {height_cm}cm
+- 体重: {weight}kg
+- 体脂肪率: {body_fat}%
+- 目標体重: {target_weight}kg
+- 目標体脂肪率: {target_body_fat}%
+- アーユルヴェーダ体質: {dosha_type if dosha_type else "未設定"}
+- 食事スタイル: {meal_style}
+- 調理レベル: {ease_level}
+- 主食の好み: {staple_preference}
+- プランタイプ: {plan_type}
+- 平日昼食スタイル: {lunch_style}
+
+【重要ルール】
+- 日本の一般家庭で作りやすいメニューにしてください
+- スーパーで買いやすい食材だけを使ってください
+- 主婦向けに、手軽・簡単・現実的な献立にしてください
+- 難しい横文字料理や、おしゃれすぎるカフェ料理は避けてください
+- 朝食は特に手軽にしてください
+- 節約・時短を意識してください
+- たんぱく質をしっかり取れるようにしてください
+- おにぎり、味噌汁、納豆、豆腐、卵、鶏むね肉、鮭、さば等も積極的に使ってよいです
+- {dosha_rule}
+- {fridge_rule}
+- {avoid_rule}
+- {favorite_rule}
+- {meal_style_rule}
+- {plan_type_rule}
+- {lunch_style_rule}
+- {real_mode_rule}
+
+{date_str}の1日の健康的なダイエットプランを作ってください。
+"""
+    res = client.responses.create(
+        model="gpt-4.1-mini",
+        input=prompt
+    )
+    return res.output_text
