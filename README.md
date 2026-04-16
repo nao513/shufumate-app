@@ -13,7 +13,7 @@
 
 ## 📱アプリを使う
 
-🔗 [アプリはこちらで公開中](https://shufumate-app-7xezdpnsmwfhnkbr7ezn7n.streamlit.app)
+🔗 [アプリはこちらで公開中](https://shufumate-app-yjcmfhhthwvahjmntqkb59.streamlit.app/)
 
 ---
 
