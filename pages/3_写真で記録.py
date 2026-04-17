@@ -301,8 +301,12 @@ with tab2:
                 st.session_state["common_body_fat"] = parsed["body_fat"]
                 updated = True
 
+            if parsed["muscle_mass"] is not None:
+                st.session_state["common_muscle_mass"] = parsed["muscle_mass"]
+                updated = True
+
             if updated:
-                st.success("体重・体脂肪率を自動反映しました。")
+                st.success("体重・体脂肪率・筋肉量を自動反映しました。")
             else:
                 st.warning("反映できる数値が見つかりませんでした。")
 
