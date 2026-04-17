@@ -16,7 +16,7 @@ st.info(
     "体調や状況には個人差があるため、ご自身の状態に合わせて無理のない範囲でご活用ください。"
 )
 
-gender, age, height_cm, weight, target_weight, body_fat, target_body_fat = render_common_body_inputs()
+gender, age, height_cm, weight, target_weight, body_fat, target_body_fat, muscle_mass, target_muscle_mass = render_common_body_inputs()
 
 category = st.selectbox(
     "相談カテゴリ",
@@ -39,6 +39,15 @@ if category == "外食相談":
     )
 else:
     st.session_state["advice_area"] = ""
+
+dosha_type = st.session_state.get("dosha_type", "")
+current_state_checks = st.session_state.get("current_state_checks", [])
+
+if dosha_type:
+    st.caption(f"体質設定: {dosha_type}")
+
+if current_state_checks:
+    st.caption(f"今の状態チェック: {', '.join(current_state_checks)}")
 
 st.text_area(
     "相談内容",
@@ -66,7 +75,7 @@ if st.button("✨ 相談してみる", use_container_width=True):
                 body_fat=body_fat,
                 target_weight=target_weight,
                 target_body_fat=target_body_fat,
-                dosha_type=st.session_state.get("dosha_type", ""),
+                dosha_type=dosha_type,
                 fridge_items=st.session_state.get("fridge_items", ""),
                 avoid_foods=st.session_state.get("avoid_foods", ""),
                 favorite_meals=st.session_state.get("favorite_meals", ""),
@@ -78,7 +87,8 @@ if st.button("✨ 相談してみる", use_container_width=True):
                 lunch_style=st.session_state.get("lunch_style", "指定なし"),
                 category=category,
                 area=area,
-                site_hint=st.session_state.get("site_hint", "syufuosusume.com")
+                site_hint=st.session_state.get("site_hint", "syufuosusume.com"),
+                current_state_checks=current_state_checks
             )
 
         st.session_state["quick_advice_result"] = result
@@ -126,65 +136,3 @@ st.write("・今日の夕飯どうしたらいい？")
 st.write("・運動前に何を食べたらいい？")
 st.write("・運動後、長命ヶ丘でどういう店を選べばいい？")
 st.write("・夕飯前にお腹が空きすぎた時どうする？")
-
-st.divider()
-st.subheader("🕘 相談履歴")
-
-advice_logs = st.session_state.get("advice_logs", [])
-
-if advice_logs:
-    for log in advice_logs[:10]:
-        area_label = log["地域"] if log["地域"] else "地域なし"
-
-        q_text = (
-            log["相談内容"]
-            .replace("&", "&amp;")
-            .replace("<", "&lt;")
-            .replace(">", "&gt;")
-            .replace("\n", "<br>")
-        )
-        a_text = (
-            log["回答"]
-            .replace("&", "&amp;")
-            .replace("<", "&lt;")
-            .replace(">", "&gt;")
-            .replace("\n", "<br>")
-        )
-
-        with st.expander(f"{log['日時']}｜{log['カテゴリ']}｜{area_label}"):
-            st.markdown("**相談内容**")
-            st.markdown(
-                f"""
-                <div style="
-                    background:#f9fafb;
-                    border:1px solid #e5e7eb;
-                    border-radius:12px;
-                    padding:14px;
-                    color:#111827;
-                    line-height:1.8;
-                    margin-bottom:12px;
-                ">
-                {q_text}
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
-
-            st.markdown("**回答**")
-            st.markdown(
-                f"""
-                <div style="
-                    background:#ffffff;
-                    border:1px solid #d1d5db;
-                    border-radius:12px;
-                    padding:14px;
-                    color:#111827;
-                    line-height:1.9;
-                ">
-                {a_text}
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
-else:
-    st.caption("まだ相談履歴はありません。")
