@@ -91,7 +91,15 @@ div.stButton > button:hover {
 """, unsafe_allow_html=True)
 
 
-def render_feature_card(title, desc, image_path, button_label, target_page, key_prefix):
+def render_feature_card(
+    title,
+    desc,
+    image_path,
+    button_label,
+    target_page,
+    key_prefix,
+    image_width=120
+):
     with st.container(border=True):
         c1, c2 = st.columns([2.4, 0.9])
 
@@ -99,7 +107,7 @@ def render_feature_card(title, desc, image_path, button_label, target_page, key_
             st.markdown(
                 f"""
                 <div style="
-                    min-height: 84px;
+                    min-height: 100px;
                     display: flex;
                     align-items: flex-start;
                 ">
@@ -132,10 +140,25 @@ def render_feature_card(title, desc, image_path, button_label, target_page, key_
             )
 
         with c2:
-            st.image(image_path, width=120)
+            st.markdown(
+                """
+                <div style="
+                    background:#efe7dc;
+                    border-radius:18px;
+                    padding:10px;
+                    display:flex;
+                    justify-content:center;
+                    align-items:center;
+                ">
+                """,
+                unsafe_allow_html=True
+            )
+            st.image(image_path, width=image_width)
+            st.markdown("</div>", unsafe_allow_html=True)
 
         if st.button(button_label, key=f"{key_prefix}_btn", use_container_width=True):
             st.switch_page(target_page)
+            
 
 st.markdown('<div class="home-shell">', unsafe_allow_html=True)
 
@@ -167,31 +190,38 @@ with left:
         "assets/home_icons/diet.png",
         "ダイエット管理へ",
         "pages/1_ダイエット管理.py",
-        "diet"
+        "diet",
+        image_width=120
     )
+
     render_feature_card(
         "写真で記録",
         "冷蔵庫や体重計の写真から、食材や数値を読み取って記録に活かせます。",
         "assets/home_icons/photo.png",
         "写真で記録へ",
         "pages/3_写真で記録.py",
-        "photo"
+        "photo",
+        image_width=120
     )
+
     render_feature_card(
         "家計簿",
         "レシート撮影や手入力で、シンプルに記録して見返しやすく管理できます。",
         "assets/home_icons/money.png",
         "家計簿へ",
         "pages/5_家計簿.py",
-        "money"
+        "money",
+        image_width=120
     )
+
     render_feature_card(
     "アーユルヴェーダ",
     "体質傾向と今の状態をチェックして、食事や過ごし方のヒントに活かせます。",
     "assets/home_icons/ayurveda.png",
     "アーユルヴェーダへ",
-    "pages/7_ayurveda.py",
-    "ayurveda"
+    "pages/7_アーユルヴェーダ.py",
+    "ayurveda",
+    image_width=135
 )
 
 with right:
@@ -201,23 +231,28 @@ with right:
         "assets/home_icons/plan.png",
         "献立・運動プランへ",
         "pages/2_献立・運動プラン.py",
-        "plan"
+        "plan",
+        image_width=120
     )
+
     render_feature_card(
         "なんでも相談",
         "夕飯どうする？運動前後は何を食べる？そんな日常の迷いを気軽に相談できます。",
         "assets/home_icons/advice.png",
         "なんでも相談へ",
         "pages/4_なんでも相談.py",
-        "advice"
+        "advice",
+        image_width=120
     )
+
     render_feature_card(
         "初期設定",
         "体型情報、食事スタイル、地域などを登録しておくと他ページにも反映されます。",
         "assets/home_icons/settings.png",
         "初期設定へ",
         "pages/6_初期設定.py",
-        "settings"
+        "settings",
+        image_width=120
     )
 
 st.markdown("### まずは、初期設定から始めるのがおすすめです。")
