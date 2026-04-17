@@ -190,7 +190,7 @@ with left:
         "体質傾向と今の状態をチェックして、食事や過ごし方のヒントに活かせます。",
         "assets/home_icons/ayurveda.png",
         "アーユルヴェーダへ",
-        "pages/7_ayurveda.py"
+        "pages/7_アーユルヴェーダ.py",
         "ayurveda"
     )
 
