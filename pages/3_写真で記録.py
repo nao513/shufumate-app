@@ -120,7 +120,8 @@ with tab1:
 with tab2:
     st.subheader("⚖ 体重計写真・動画から記録候補を管理")
     st.caption("写真や動画から数値を読み取り、記録に反映できます。")
-    st.caption("※ 現在の自動反映は体重・体脂肪率が中心です。筋肉量は必要に応じて手動で初期設定やダイエット管理で調整できます。")
+    st.caption("※ 自動反映は体重・体脂肪率・筋肉量に対応します。")
+    st.caption("※ 目標筋肉量は初期設定の値をそのまま使います。")
 
     if "scale_scan_images" not in st.session_state:
         st.session_state["scale_scan_images"] = []
@@ -269,16 +270,20 @@ with tab2:
 
     st.text_area(
         "読み取った数値候補メモ",
-        placeholder="例：体重: 51.2\n体脂肪率: 25.6\n骨格筋率: 27.2\n筋肉量: 35.4",
+        placeholder="例：体重: 51.2\n体脂肪率: 25.6\n筋肉量: 35.4\n骨格筋率: 27.2",
         key="photo_scale_result",
         height=220
     )
 
     st.subheader("📌 現在の体情報")
-    info1, info2 = st.columns(2)
+    info1, info2, info3, info4 = st.columns(4)
     with info1:
-        st.metric("現在の筋肉量", f"{st.session_state.get('common_muscle_mass', 35.0):.1f} kg")
+        st.metric("現在の体重", f"{st.session_state.get('common_weight', 50.0):.1f} kg")
     with info2:
+        st.metric("現在の体脂肪率", f"{st.session_state.get('common_body_fat', 28.0):.1f} %")
+    with info3:
+        st.metric("現在の筋肉量", f"{st.session_state.get('common_muscle_mass', 35.0):.1f} kg")
+    with info4:
         st.metric("目標筋肉量", f"{st.session_state.get('common_target_muscle_mass', 38.0):.1f} kg")
 
     col9, col10, col11 = st.columns(3)
