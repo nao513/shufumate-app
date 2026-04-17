@@ -21,31 +21,42 @@ st.number_input("スタート時の体重（kg）", min_value=39.0, max_value=20
 st.number_input("目標体重（kg）", min_value=39.0, max_value=150.0, step=0.1, format="%.1f", key="common_target_weight")
 st.number_input("スタート時の体脂肪率（%）", min_value=5.0, max_value=60.0, step=0.1, format="%.1f", key="common_body_fat")
 st.number_input("目標体脂肪率（%）", min_value=5.0, max_value=60.0, step=0.1, format="%.1f", key="common_target_body_fat")
+st.number_input("筋肉量（kg）", min_value=10.0, max_value=80.0, step=0.1, format="%.1f", key="common_muscle_mass")
 
-st.subheader("🍽 献立の初期値")
+st.subheader("🍽 食事・運動の初期値")
 st.radio("食事スタイル", ["和食中心", "バランス", "おしゃれカフェ風", "タンパク質おにぎり＆味噌玉味噌汁"], horizontal=True, key="meal_style")
 st.radio("調理レベル", ["超かんたん", "普通", "しっかり"], horizontal=True, key="ease_level")
 st.radio("主食の好み", ["ごはん派", "パン派", "どちらも"], horizontal=True, key="staple_preference")
 st.text_area("よくある冷蔵庫の食材", key="fridge_items")
-
-st.text_area(
-    "食べられないもの・避けたいもの",
-    key="avoid_foods",
-    placeholder="例：えび、かに、牡蠣、辛いもの、牛乳 など"
-)
-
-st.text_area(
-    "わたしの定番・好きな食事",
-    key="favorite_meals",
-    placeholder="例：納豆、豆乳、ブルーベリー"
-)
+st.text_area("食べられないもの・避けたいもの", key="avoid_foods", placeholder="例：えび、かに、牡蠣、辛いもの、牛乳 など")
+st.text_area("わたしの定番・好きな食事", key="favorite_meals", placeholder="例：納豆、豆乳、ブルーベリー")
 
 st.radio("プランタイプ初期値", ["通常", "外食", "コンビニ"], horizontal=True, key="plan_type")
 st.selectbox("平日のお昼スタイル", ["指定なし", "お弁当", "コンビニ", "おすすめ定番", "外食", "自宅"], key="lunch_style")
+st.selectbox("運動強度", ["ゆるめ", "普通", "しっかり"], key="exercise_intensity")
 st.checkbox("主婦リアル提案モード初期値", key="real_mode")
 st.selectbox("食事の流れ初期値", ["普通", "朝しっかり・昼軽め", "食べすぎた", "あまり食べてない"], key="daily_flow")
 st.checkbox("運動あり初期値", key="workout_today")
 st.selectbox("目的初期値", ["バランス", "脚やせ", "脂肪燃焼", "むくみ改善"], key="body_goal")
+
+st.subheader("🧘 体質・体型チェック")
+st.selectbox(
+    "アーユルヴェーダ体質",
+    ["", "ヴァータ", "ピッタ", "カパ", "未設定"],
+    key="dosha_type"
+)
+
+st.selectbox(
+    "体型チェック",
+    ["全体バランス", "下半身", "お腹まわり", "二の腕", "姿勢", "むくみ", "ヒップ", "太もも"],
+    key="body_shape_goal"
+)
+
+st.multiselect(
+    "今の状態チェック",
+    ["疲れやすい", "むくみやすい", "冷えやすい", "食欲が乱れやすい", "便秘気味", "寝不足気味", "ストレスが強い", "なんとなくだるい"],
+    key="current_state_checks"
+)
 
 st.subheader("📍 地域設定")
 
