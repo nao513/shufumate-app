@@ -6,6 +6,12 @@ st.set_page_config(page_title="初期設定｜ShufuMate", layout="wide")
 reload_user_data_if_needed()
 
 st.header("⚙️ 初期設定")
+st.caption("ShufuMateを使いやすくするための基本情報を登録できます。")
+
+st.info(
+    "体型情報や食事スタイル、地域などを登録しておくと、"
+    "他のページにも内容が反映され、毎日の記録や相談がより使いやすくなります。"
+)
 
 st.subheader("📌 基本の設定")
 st.selectbox("性別（任意）", ["未選択", "女性", "男性", "その他", "回答しない"], key="common_gender")
@@ -21,8 +27,18 @@ st.radio("食事スタイル", ["和食中心", "バランス", "おしゃれカ
 st.radio("調理レベル", ["超かんたん", "普通", "しっかり"], horizontal=True, key="ease_level")
 st.radio("主食の好み", ["ごはん派", "パン派", "どちらも"], horizontal=True, key="staple_preference")
 st.text_area("よくある冷蔵庫の食材", key="fridge_items")
-st.text_area("食べられないもの・避けたいもの", key="avoid_foods")
-st.text_area("わたしの定番・好きな食事", key="favorite_meals")
+
+st.text_area(
+    "食べられないもの・避けたいもの",
+    key="avoid_foods",
+    placeholder="例：えび、かに、牡蠣、辛いもの、牛乳 など"
+)
+
+st.text_area(
+    "わたしの定番・好きな食事",
+    key="favorite_meals",
+    placeholder="例：納豆、豆乳、ブルーベリー"
+)
 
 st.radio("プランタイプ初期値", ["通常", "外食", "コンビニ"], horizontal=True, key="plan_type")
 st.selectbox("平日のお昼スタイル", ["指定なし", "お弁当", "コンビニ", "おすすめ定番", "外食", "自宅"], key="lunch_style")
