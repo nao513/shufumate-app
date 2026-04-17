@@ -14,17 +14,21 @@ st.markdown("""
 html, body, [class*="css"] {
     font-family: "Hiragino Sans", "Yu Gothic", sans-serif;
 }
+
 .stApp {
     background: linear-gradient(180deg, #f4efe8 0%, #f8f4ee 100%);
 }
+
 section[data-testid="stSidebar"] {
     background: #f1ece6;
 }
+
 .block-container {
     max-width: 930px;
     padding-top: 2rem;
     padding-bottom: 3rem;
 }
+
 .home-shell {
     background: #f8f3ec;
     border: 1px solid #e7ddd2;
@@ -32,10 +36,12 @@ section[data-testid="stSidebar"] {
     padding: 2.3rem 2rem 2rem 2rem;
     box-shadow: 0 10px 28px rgba(91, 58, 41, 0.05);
 }
+
 .logo-wrap {
     max-width: 310px;
     margin: 0 auto 0.9rem auto;
 }
+
 .main-copy {
     text-align: center;
     color: #5b3a29;
@@ -44,6 +50,7 @@ section[data-testid="stSidebar"] {
     line-height: 1.5;
     margin-top: 0.8rem;
 }
+
 .sub-copy {
     text-align: center;
     color: #7a6454;
@@ -52,6 +59,7 @@ section[data-testid="stSidebar"] {
     margin-top: 0.8rem;
     margin-bottom: 1rem;
 }
+
 .deco {
     text-align: center;
     color: #c9a27f;
@@ -59,11 +67,13 @@ section[data-testid="stSidebar"] {
     letter-spacing: 0.2rem;
     margin-bottom: 1.2rem;
 }
+
 .small-note {
     color: #7a6556;
     font-size: 0.96rem;
     line-height: 1.8;
 }
+
 div.stButton > button {
     background: #fbf6ef;
     color: #6a4a39;
@@ -82,12 +92,15 @@ div.stButton > button:hover {
 
 def render_feature_card(title, desc, image_path, button_label, target_page, key_prefix):
     with st.container(border=True):
-        c1, c2 = st.columns([2.2, 1])
+        c1, c2 = st.columns([2.4, 0.9])
+
         with c1:
             st.markdown(f"### {title}")
             st.write(desc)
+
         with c2:
-            st.image(image_path, use_container_width=True)
+            st.image(image_path, width=120)
+
         if st.button(button_label, key=f"{key_prefix}_btn", use_container_width=True):
             st.switch_page(target_page)
 
