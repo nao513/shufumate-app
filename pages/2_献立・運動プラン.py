@@ -9,7 +9,12 @@ load_settings_into_session()
 sync_common_from_latest_diet_log()
 
 st.header("🍽 献立・運動プラン")
-st.caption("今日の状態や初期設定に合わせて、1日の献立と運動プランを作成します。")
+st.caption("その日の状態や目標に合わせて、1日のプランを作成できます。")
+
+st.info(
+    "食事スタイルや冷蔵庫の食材、日々の流れに合わせて、"
+    "続けやすい献立と運動のヒントを提案します。"
+)
 
 gender, age, height_cm, weight, target_weight, body_fat, target_body_fat = render_common_body_inputs()
 
