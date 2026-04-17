@@ -5,13 +5,19 @@ from app_core import *
 
 st.set_page_config(page_title="家計簿｜ShufuMate", layout="wide")
 
+reload_user_data_if_needed()
 
-st.header("💰 家計簿入力")
-st.caption("レシートを撮影またはアップロードして、家計簿に使う内容を自動で読み取れます。")
-st.caption("※ Take Photo＝その場で撮影、Upload＝保存済み写真を追加")
+st.header("💰 家計簿")
+st.caption("レシート読み取りや手入力で、家計の記録を管理できます。")
+
+st.info(
+    "毎日の支出を見返しやすく整理しながら、"
+    "無理のない家計管理に役立てていただけます。"
+)
 
 st.subheader("📷 レシート読取")
-st.caption("※ 複数枚入れて、いちばん見やすいレシートを選んで読み取れます。")
+st.caption("レシートを撮影またはアップロードして、家計簿に使う内容を自動で読み取れます。")
+st.caption("※ Take Photo＝その場で撮影、Upload＝保存済み写真を追加")
 
 if "receipt_scan_images" not in st.session_state:
     st.session_state["receipt_scan_images"] = []
@@ -143,7 +149,7 @@ if submitted:
     }
     append_expense(expense)
     st.session_state["expenses"] = load_expenses()
-    st.success("家計簿を記録しました。")
+    st.success("支出を保存しました。")
     st.rerun()
 
 if st.session_state.get("expenses"):
