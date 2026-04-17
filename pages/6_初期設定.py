@@ -22,14 +22,29 @@ st.number_input("目標体重（kg）", min_value=39.0, max_value=150.0, step=0.
 st.number_input("スタート時の体脂肪率（%）", min_value=5.0, max_value=60.0, step=0.1, format="%.1f", key="common_body_fat")
 st.number_input("目標体脂肪率（%）", min_value=5.0, max_value=60.0, step=0.1, format="%.1f", key="common_target_body_fat")
 st.number_input("筋肉量（kg）", min_value=10.0, max_value=80.0, step=0.1, format="%.1f", key="common_muscle_mass")
+st.number_input("目標筋肉量（kg）", min_value=10.0, max_value=80.0, step=0.1, format="%.1f", key="common_target_muscle_mass")
 
 st.subheader("🍽 食事・運動の初期値")
-st.radio("食事スタイル", ["和食中心", "バランス", "おしゃれカフェ風", "タンパク質おにぎり＆味噌玉味噌汁"], horizontal=True, key="meal_style")
+st.radio(
+    "食事スタイル",
+    ["和食中心", "バランス", "おしゃれカフェ風", "タンパク質おにぎり＆味噌玉味噌汁"],
+    horizontal=True,
+    key="meal_style"
+)
 st.radio("調理レベル", ["超かんたん", "普通", "しっかり"], horizontal=True, key="ease_level")
 st.radio("主食の好み", ["ごはん派", "パン派", "どちらも"], horizontal=True, key="staple_preference")
+
 st.text_area("よくある冷蔵庫の食材", key="fridge_items")
-st.text_area("食べられないもの・避けたいもの", key="avoid_foods", placeholder="例：えび、かに、牡蠣、辛いもの、牛乳 など")
-st.text_area("わたしの定番・好きな食事", key="favorite_meals", placeholder="例：納豆、豆乳、ブルーベリー")
+st.text_area(
+    "食べられないもの・避けたいもの",
+    key="avoid_foods",
+    placeholder="例：えび、かに、牡蠣、辛いもの、牛乳 など"
+)
+st.text_area(
+    "わたしの定番・好きな食事",
+    key="favorite_meals",
+    placeholder="例：納豆、豆乳、ブルーベリー"
+)
 
 st.radio("プランタイプ初期値", ["通常", "外食", "コンビニ"], horizontal=True, key="plan_type")
 st.selectbox("平日のお昼スタイル", ["指定なし", "お弁当", "コンビニ", "おすすめ定番", "外食", "自宅"], key="lunch_style")
