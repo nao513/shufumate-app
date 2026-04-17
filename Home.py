@@ -90,19 +90,53 @@ div.stButton > button:hover {
 </style>
 """, unsafe_allow_html=True)
 
+
 def render_feature_card(title, desc, image_path, button_label, target_page, key_prefix):
     with st.container(border=True):
         c1, c2 = st.columns([2.4, 0.9])
 
         with c1:
-            st.markdown(f"### {title}")
-            st.write(desc)
+            st.markdown(
+                f"""
+                <div style="
+                    min-height: 84px;
+                    display: flex;
+                    align-items: flex-start;
+                ">
+                    <h3 style="
+                        margin: 0;
+                        line-height: 1.25;
+                        color: #2f3446;
+                        font-size: 2.1rem;
+                        font-weight: 800;
+                    ">
+                        {title}
+                    </h3>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+
+            st.markdown(
+                f"""
+                <div style="
+                    color:#2f3446;
+                    font-size: 1rem;
+                    line-height: 1.8;
+                    min-height: 118px;
+                ">
+                    {desc}
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
 
         with c2:
             st.image(image_path, width=120)
 
         if st.button(button_label, key=f"{key_prefix}_btn", use_container_width=True):
             st.switch_page(target_page)
+
 
 st.markdown('<div class="home-shell">', unsafe_allow_html=True)
 
