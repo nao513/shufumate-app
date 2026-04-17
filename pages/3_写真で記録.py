@@ -120,9 +120,7 @@ with tab1:
 with tab2:
     st.subheader("⚖ 体重計写真・動画から記録候補を管理")
     st.caption("写真や動画から数値を読み取り、記録に反映できます。")
-    st.caption("※ 『体重計を写真で撮る』は静止画です。")
-    st.caption("※ 動画を使う場合は、スマホのカメラで撮影した動画を下からアップロードしてください。")
-    st.caption("※ 写真は複数追加できます。動画は3秒ごとに1枚、最大8枚まで切り出します。")
+    st.caption("※ 現在の自動反映は体重・体脂肪率が中心です。筋肉量は必要に応じて手動で初期設定やダイエット管理で調整できます。")
 
     if "scale_scan_images" not in st.session_state:
         st.session_state["scale_scan_images"] = []
@@ -271,12 +269,19 @@ with tab2:
 
     st.text_area(
         "読み取った数値候補メモ",
-        placeholder="例：体重: 51.2\n体脂肪率: 25.6\n骨格筋率: 27.2",
+        placeholder="例：体重: 51.2\n体脂肪率: 25.6\n骨格筋率: 27.2\n筋肉量: 35.4",
         key="photo_scale_result",
         height=220
     )
 
-    col9, col10 = st.columns(2)
+    st.subheader("📌 現在の体情報")
+    info1, info2 = st.columns(2)
+    with info1:
+        st.metric("現在の筋肉量", f"{st.session_state.get('common_muscle_mass', 35.0):.1f} kg")
+    with info2:
+        st.metric("目標筋肉量", f"{st.session_state.get('common_target_muscle_mass', 38.0):.1f} kg")
+
+    col9, col10, col11 = st.columns(3)
 
     with col9:
         if st.button("🧹 数値候補をクリア", use_container_width=True, key="clear_scale_result_final2"):
@@ -301,10 +306,11 @@ with tab2:
             else:
                 st.warning("反映できる数値が見つかりませんでした。")
 
-    if st.button("📝 読み取った数値で今日の記録を保存", key="save_today_from_scale_final2"):
-        ok, message = save_today_log_from_scale_result()
-        if ok:
-            st.success(message)
-            st.rerun()
-        else:
-            st.warning(message)
+    with col11:
+        if st.button("📝 読み取った数値で今日の記録を保存", key="save_today_from_scale_final2"):
+            ok, message = save_today_log_from_scale_result()
+            if ok:
+                st.success(message)
+                st.rerun()
+            else:
+                st.warning(message)
