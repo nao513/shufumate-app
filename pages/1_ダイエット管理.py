@@ -10,23 +10,27 @@ load_settings_into_session()
 sync_common_from_latest_diet_log()
 
 st.header("📘 ダイエット管理")
-st.caption("体重・体脂肪率などを記録して、日々の変化を見返せます。")
+st.caption("体重・体脂肪率・筋肉量などを記録して、日々の変化を見返せます。")
 
 st.info(
     "毎日の記録を積み重ねることで、変化の流れを見やすくなります。\n"
     "無理のない範囲で、続けやすい管理にお役立てください。"
 )
 
-gender, age, height_cm, weight, target_weight, body_fat, target_body_fat = render_common_body_inputs()
+gender, age, height_cm, weight, target_weight, body_fat, target_body_fat, muscle_mass, target_muscle_mass = render_common_body_inputs()
 
 bmi = round(weight / ((height_cm / 100) ** 2), 1) if height_cm > 0 else 0
 goal_calories = round(weight * 22 * 1.5, 0)
 
-col1, col2 = st.columns(2)
+col1, col2, col3, col4 = st.columns(4)
 with col1:
     st.metric("BMI", bmi)
 with col2:
     st.metric("目標摂取カロリー", f"{int(goal_calories)} kcal")
+with col3:
+    st.metric("筋肉量", f"{muscle_mass:.1f} kg")
+with col4:
+    st.metric("目標筋肉量", f"{target_muscle_mass:.1f} kg")
 
 st.subheader("✍ 今日の記録")
 
@@ -42,6 +46,8 @@ if st.button("💾 今日の記録を保存", use_container_width=True):
         "目標体重(kg)": target_weight,
         "体脂肪率(%)": body_fat,
         "目標体脂肪率(%)": target_body_fat,
+        "筋肉量(kg)": muscle_mass,
+        "目標筋肉量(kg)": target_muscle_mass,
         "BMI": bmi,
         "目標摂取カロリー": goal_calories,
     }
@@ -78,11 +84,19 @@ if diet_logs:
         st.markdown("#### 体脂肪率の推移")
         st.line_chart(chart_df["体脂肪率(%)"])
 
+    if "筋肉量(kg)" in chart_df.columns:
+        st.markdown("#### 筋肉量の推移")
+        st.line_chart(chart_df["筋肉量(kg)"])
+
     latest = df.iloc[0]
     st.subheader("📝 最新記録")
     st.write(f"日付: {latest['日付'].strftime('%Y-%m-%d') if pd.notnull(latest['日付']) else ''}")
     st.write(f"体重: {latest['体重(kg)']} kg")
     st.write(f"体脂肪率: {latest['体脂肪率(%)']} %")
+    if "筋肉量(kg)" in latest.index:
+        st.write(f"筋肉量: {latest['筋肉量(kg)']} kg")
+    if "目標筋肉量(kg)" in latest.index:
+        st.write(f"目標筋肉量: {latest['目標筋肉量(kg)']} kg")
     st.write(f"BMI: {latest['BMI']}")
 else:
     st.caption("まだ記録がありません。")
