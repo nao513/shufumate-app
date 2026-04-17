@@ -105,6 +105,12 @@ defaults = {
 
     "meal_eval_result": "",
 
+    "common_muscle_mass": 35.0,
+    "exercise_intensity": "普通",
+    "body_shape_goal": "全体バランス",
+    "dosha_type": "",
+    "current_state_checks": [],
+
     "settings_snapshot": {},
     "last_loaded_user_id": "",
 }
@@ -185,15 +191,17 @@ def ensure_headers():
     advice_ws = get_or_create_worksheet(sh, "AdviceLogs")
 
     settings_header = [
-        "user_id", "gender", "age", "height_cm", "start_weight",
-        "target_weight", "start_body_fat", "target_body_fat",
-        "meal_style", "ease_level", "staple_preference",
-        "fridge_items", "avoid_foods", "favorite_meals",
-        "favorite_protein_onigiri", "favorite_misodama_soup",
-        "plan_type", "lunch_style",
-        "real_mode", "daily_flow", "workout_today", "body_goal",
-        "home_prefecture", "home_area"
-    ]
+    "user_id", "gender", "age", "height_cm", "start_weight",
+    "target_weight", "start_body_fat", "target_body_fat",
+    "muscle_mass",
+    "meal_style", "ease_level", "staple_preference",
+    "fridge_items", "avoid_foods", "favorite_meals",
+    "favorite_protein_onigiri", "favorite_misodama_soup",
+    "plan_type", "lunch_style",
+    "real_mode", "daily_flow", "workout_today", "body_goal",
+    "exercise_intensity", "body_shape_goal", "dosha_type", "current_state_checks",
+    "home_prefecture", "home_area"
+]
     diet_header = [
         "user_id", "date", "gender", "age", "height_cm", "weight",
         "target_weight", "body_fat", "target_body_fat",
@@ -258,6 +266,11 @@ def load_user_settings():
                 "home_prefecture": row_dict.get("home_prefecture", "") or "",
                 "home_area": row_dict.get("home_area", "") or "",
                 "home_area_custom": "",
+                "common_muscle_mass": float(row_dict["muscle_mass"]) if row_dict.get("muscle_mass") else 35.0,
+                "exercise_intensity": row_dict.get("exercise_intensity", "普通") or "普通",
+                "body_shape_goal": row_dict.get("body_shape_goal", "全体バランス") or "全体バランス",
+                "dosha_type": row_dict.get("dosha_type", "") or "",
+                "current_state_checks": [x.strip() for x in row_dict.get("current_state_checks", "").split(",") if x.strip()],
             }
 
     return None
@@ -301,6 +314,11 @@ def save_user_settings():
         st.session_state["body_goal"],
         st.session_state.get("home_prefecture", ""),
         st.session_state.get("home_area_custom", "").strip() or st.session_state.get("home_area", ""),
+        st.session_state["common_muscle_mass"],
+        st.session_state["exercise_intensity"],
+        st.session_state["body_shape_goal"],
+        st.session_state["dosha_type"],
+        ",".join(st.session_state.get("current_state_checks", [])),
     ]
 
     row_index = None
@@ -310,7 +328,7 @@ def save_user_settings():
             break
 
     if row_index:
-        ws.update(f"A{row_index}:X{row_index}", [row_values])
+        ws.update(f"A{row_index}:AD{row_index}", [row_values])
     else:
         ws.append_row(row_values)
 
