@@ -16,7 +16,7 @@ st.info(
     "続けやすい献立と運動のヒントを提案します。"
 )
 
-gender, age, height_cm, weight, target_weight, body_fat, target_body_fat = render_common_body_inputs()
+gender, age, height_cm, weight, target_weight, body_fat, target_body_fat, muscle_mass, target_muscle_mass = render_common_body_inputs()
 
 plan_date = st.date_input("プラン日", value=datetime.today().date(), key="plan_date")
 
@@ -35,6 +35,18 @@ real_mode = st.checkbox("主婦リアル提案モード", key="real_mode")
 daily_flow = st.selectbox("今日の食事の流れ", ["普通", "朝しっかり・昼軽め", "食べすぎた", "あまり食べてない"], key="daily_flow")
 workout_today = st.checkbox("今日は運動した / する", key="workout_today")
 body_goal = st.selectbox("目的", ["バランス", "脚やせ", "脂肪燃焼", "むくみ改善"], key="body_goal")
+
+exercise_intensity = st.selectbox(
+    "運動強度",
+    ["ゆるめ", "普通", "しっかり"],
+    key="exercise_intensity"
+)
+
+body_shape_goal = st.selectbox(
+    "体型チェック",
+    ["全体バランス", "下半身", "お腹まわり", "二の腕", "姿勢", "むくみ", "ヒップ", "太もも"],
+    key="body_shape_goal"
+)
 
 st.text_area("冷蔵庫の食材", key="fridge_items")
 st.text_area("避けたい食べ物", key="avoid_foods")
@@ -67,7 +79,9 @@ if st.button("🪄 今日のプランを作る", use_container_width=True):
             real_mode=real_mode,
             daily_flow=daily_flow,
             workout_today=workout_today,
-            body_goal=body_goal
+            body_goal=body_goal,
+            exercise_intensity=exercise_intensity,
+            body_shape_goal=body_shape_goal
         )
 
     st.session_state["today_plan_text"] = result
