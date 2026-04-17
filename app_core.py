@@ -638,6 +638,7 @@ def extract_scale_values_from_image(client, resized_image):
 - 次の形式にできるだけ合わせる
 体重: xx.x
 体脂肪率: xx.x
+筋肉量: xx.x
 骨格筋率: xx.x
 内臓脂肪: xx.x
 皮下脂肪: xx.x
@@ -654,7 +655,7 @@ BMI: xx.x
         }]
     )
     return response.output_text
-
+    
 
 def extract_scale_values_from_images(client, images):
     content = [{
@@ -672,6 +673,7 @@ def extract_scale_values_from_images(client, images):
 
 体重: xx.x
 体脂肪率: xx.x
+筋肉量: xx.x
 骨格筋率: xx.x
 内臓脂肪: xx.x
 皮下脂肪: xx.x
@@ -842,10 +844,15 @@ def parse_scale_values(text: str):
 
     weight_match = re.search(r"体重\s*[:：]?\s*([0-9]+(?:\.[0-9]+)?)", text)
     body_fat_match = re.search(r"体脂肪率?\s*[:：]?\s*([0-9]+(?:\.[0-9]+)?)", text)
+    muscle_mass_match = re.search(r"筋肉量\s*[:：]?\s*([0-9]+(?:\.[0-9]+)?)", text)
+
+    if not muscle_mass_match:
+        muscle_mass_match = re.search(r"骨格筋量\s*[:：]?\s*([0-9]+(?:\.[0-9]+)?)", text)
 
     return {
         "weight": float(weight_match.group(1)) if weight_match else None,
         "body_fat": float(body_fat_match.group(1)) if body_fat_match else None,
+        "muscle_mass": float(muscle_mass_match.group(1)) if muscle_mass_match else None,
     }
 
 
@@ -853,8 +860,9 @@ def save_today_log_from_scale_result():
     parsed = parse_scale_values(st.session_state.get("photo_scale_result", ""))
     weight = parsed["weight"]
     body_fat = parsed["body_fat"]
+    muscle_mass = parsed["muscle_mass"]
 
-    if weight is None and body_fat is None:
+    if weight is None and body_fat is None and muscle_mass is None:
         return False, "保存できる数値が見つかりませんでした。"
 
     gender = st.session_state.get("common_gender", "未選択")
@@ -862,11 +870,11 @@ def save_today_log_from_scale_result():
     height_cm = st.session_state.get("common_height", 160.0)
     target_weight = st.session_state.get("common_target_weight", 48.0)
     target_body_fat = st.session_state.get("common_target_body_fat", 24.0)
-    current_muscle_mass = st.session_state.get("common_muscle_mass", 35.0)
     target_muscle_mass = st.session_state.get("common_target_muscle_mass", 38.0)
 
     current_weight = weight if weight is not None else st.session_state.get("common_weight", 50.0)
     current_body_fat = body_fat if body_fat is not None else st.session_state.get("common_body_fat", 28.0)
+    current_muscle_mass = muscle_mass if muscle_mass is not None else st.session_state.get("common_muscle_mass", 35.0)
 
     st.session_state["common_weight"] = current_weight
     st.session_state["common_body_fat"] = current_body_fat
@@ -896,7 +904,6 @@ def save_today_log_from_scale_result():
     sync_common_from_latest_diet_log()
 
     return True, "読み取った数値で今日の記録を保存しました。"
-
 
 # -----------------------------
 # Advice
