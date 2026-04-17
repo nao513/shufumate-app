@@ -8,11 +8,13 @@ load_settings_into_session()
 sync_common_from_latest_diet_log()
 
 st.header("📷 写真で記録")
+st.caption("冷蔵庫や体重計の写真を使って、日々の記録に活かせます。")
 
 tab1, tab2 = st.tabs(["冷蔵庫写真", "体重計写真・動画"])
 
 with tab1:
     st.subheader("🥬 冷蔵庫スキャン")
+    st.caption("写真から食材を整理して、献立づくりに役立てられます。")
     st.caption("スマホでは1枚ずつ撮って追加していく使い方がおすすめです。")
     st.caption("※ Take Photo＝静止画、Upload＝保存済み写真を追加")
 
@@ -117,10 +119,10 @@ with tab1:
 
 with tab2:
     st.subheader("⚖ 体重計写真・動画から記録候補を管理")
-    st.caption("※ 『体重計を写真で撮る』は静止画です。動画撮影ではありません。")
+    st.caption("写真や動画から数値を読み取り、記録に反映できます。")
+    st.caption("※ 『体重計を写真で撮る』は静止画です。")
     st.caption("※ 動画を使う場合は、スマホのカメラで撮影した動画を下からアップロードしてください。")
     st.caption("※ 写真は複数追加できます。動画は3秒ごとに1枚、最大8枚まで切り出します。")
-    st.caption("※ 数値を読み取ったあと、自動反映や今日の記録保存ができます。")
 
     if "scale_scan_images" not in st.session_state:
         st.session_state["scale_scan_images"] = []
