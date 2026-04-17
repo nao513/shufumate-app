@@ -12,6 +12,11 @@ sync_common_from_latest_diet_log()
 st.header("📘 ダイエット管理")
 st.caption("体重・体脂肪率などを記録して、日々の変化を見返せます。")
 
+st.info(
+    "毎日の記録を積み重ねることで、変化の流れを見やすくなります。\n"
+    "無理のない範囲で、続けやすい管理にお役立てください。"
+)
+
 gender, age, height_cm, weight, target_weight, body_fat, target_body_fat = render_common_body_inputs()
 
 bmi = round(weight / ((height_cm / 100) ** 2), 1) if height_cm > 0 else 0
