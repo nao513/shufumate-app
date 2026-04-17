@@ -186,6 +186,14 @@ with left:
         "pages/5_家計簿.py",
         "money"
     )
+    render_feature_card(
+        "アーユルヴェーダ",
+        "体質傾向と今の状態をチェックして、食事や過ごし方のヒントに活かせます。",
+        "assets/home_icons/settings.png",
+        "アーユルヴェーダへ",
+        "pages/7_アーユルヴェーダ.py",
+        "ayurveda"
+    )
 
 with right:
     render_feature_card(
