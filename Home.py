@@ -98,7 +98,8 @@ def render_feature_card(
     button_label,
     target_page,
     key_prefix,
-    image_width=120
+    image_width=120,
+    image_bg=True
 ):
     with st.container(border=True):
         c1, c2 = st.columns([2.4, 0.9])
@@ -140,25 +141,28 @@ def render_feature_card(
             )
 
         with c2:
-            st.markdown(
-                """
-                <div style="
-                    background:#efe7dc;
-                    border-radius:18px;
-                    padding:10px;
-                    display:flex;
-                    justify-content:center;
-                    align-items:center;
-                ">
-                """,
-                unsafe_allow_html=True
-            )
-            st.image(image_path, width=image_width)
-            st.markdown("</div>", unsafe_allow_html=True)
+            if image_bg:
+                st.markdown(
+                    """
+                    <div style="
+                        background:#efe7dc;
+                        border-radius:18px;
+                        padding:10px;
+                        display:flex;
+                        justify-content:center;
+                        align-items:center;
+                    ">
+                    """,
+                    unsafe_allow_html=True
+                )
+                st.image(image_path, width=image_width)
+                st.markdown("</div>", unsafe_allow_html=True)
+            else:
+                st.image(image_path, width=image_width)
 
         if st.button(button_label, key=f"{key_prefix}_btn", use_container_width=True):
             st.switch_page(target_page)
-            
+
 
 st.markdown('<div class="home-shell">', unsafe_allow_html=True)
 
@@ -191,7 +195,8 @@ with left:
         "ダイエット管理へ",
         "pages/1_ダイエット管理.py",
         "diet",
-        image_width=120
+        image_width=120,
+        image_bg=True
     )
 
     render_feature_card(
@@ -201,7 +206,8 @@ with left:
         "写真で記録へ",
         "pages/3_写真で記録.py",
         "photo",
-        image_width=120
+        image_width=120,
+        image_bg=True
     )
 
     render_feature_card(
@@ -211,18 +217,20 @@ with left:
         "家計簿へ",
         "pages/5_家計簿.py",
         "money",
-        image_width=120
+        image_width=120,
+        image_bg=True
     )
 
     render_feature_card(
-    "アーユルヴェーダ",
-    "体質傾向と今の状態をチェックして、食事や過ごし方のヒントに活かせます。",
-    "assets/home_icons/ayurveda.png",
-    "アーユルヴェーダへ",
-    "pages/7_アーユルヴェーダ.py",
-    "ayurveda",
-    image_width=135
-)
+        "アーユルヴェーダ",
+        "体質傾向と今の状態をチェックして、食事や過ごし方のヒントに活かせます。",
+        "assets/home_icons/ayurveda.png",
+        "アーユルヴェーダへ",
+        "pages/7_アーユルヴェーダ.py",
+        "ayurveda",
+        image_width=135,
+        image_bg=False
+    )
 
 with right:
     render_feature_card(
@@ -232,7 +240,8 @@ with right:
         "献立・運動プランへ",
         "pages/2_献立・運動プラン.py",
         "plan",
-        image_width=120
+        image_width=120,
+        image_bg=True
     )
 
     render_feature_card(
@@ -242,7 +251,8 @@ with right:
         "なんでも相談へ",
         "pages/4_なんでも相談.py",
         "advice",
-        image_width=120
+        image_width=120,
+        image_bg=True
     )
 
     render_feature_card(
@@ -252,7 +262,8 @@ with right:
         "初期設定へ",
         "pages/6_初期設定.py",
         "settings",
-        image_width=120
+        image_width=120,
+        image_bg=True
     )
 
 st.markdown("### まずは、初期設定から始めるのがおすすめです。")
