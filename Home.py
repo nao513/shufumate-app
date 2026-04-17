@@ -186,13 +186,13 @@ with left:
         "money"
     )
     render_feature_card(
-        "アーユルヴェーダ",
-        "体質傾向と今の状態をチェックして、食事や過ごし方のヒントに活かせます。",
-        "assets/home_icons/ayurveda.png",
-        "アーユルヴェーダへ",
-        "pages/7_アーユルヴェーダ.py",
-        "ayurveda"
-    )
+    "アーユルヴェーダ",
+    "体質傾向と今の状態をチェックして、食事や過ごし方のヒントに活かせます。",
+    "assets/home_icons/ayurveda.png",
+    "アーユルヴェーダへ",
+    "pages/7_ayurveda.py",
+    "ayurveda"
+)
 
 with right:
     render_feature_card(
