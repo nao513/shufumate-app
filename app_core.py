@@ -106,6 +106,7 @@ defaults = {
     "meal_eval_result": "",
 
     "common_muscle_mass": 35.0,
+    "common_target_muscle_mass": 38.0,
     "exercise_intensity": "普通",
     "body_shape_goal": "全体バランス",
     "dosha_type": "",
@@ -193,7 +194,7 @@ def ensure_headers():
     settings_header = [
     "user_id", "gender", "age", "height_cm", "start_weight",
     "target_weight", "start_body_fat", "target_body_fat",
-    "muscle_mass",
+    "muscle_mass", "target_muscle_mass",
     "meal_style", "ease_level", "staple_preference",
     "fridge_items", "avoid_foods", "favorite_meals",
     "favorite_protein_onigiri", "favorite_misodama_soup",
@@ -202,9 +203,10 @@ def ensure_headers():
     "exercise_intensity", "body_shape_goal", "dosha_type", "current_state_checks",
     "home_prefecture", "home_area"
 ]
-    diet_header = [
+        diet_header = [
         "user_id", "date", "gender", "age", "height_cm", "weight",
         "target_weight", "body_fat", "target_body_fat",
+        "muscle_mass", "target_muscle_mass",
         "bmi", "goal_calories"
     ]
     plan_header = ["user_id", "date", "plan_text"]
@@ -267,6 +269,7 @@ def load_user_settings():
                 "home_area": row_dict.get("home_area", "") or "",
                 "home_area_custom": "",
                 "common_muscle_mass": float(row_dict["muscle_mass"]) if row_dict.get("muscle_mass") else 35.0,
+                "common_target_muscle_mass": float(row_dict["target_muscle_mass"]) if row_dict.get("target_muscle_mass") else 38.0,
                 "exercise_intensity": row_dict.get("exercise_intensity", "普通") or "普通",
                 "body_shape_goal": row_dict.get("body_shape_goal", "全体バランス") or "全体バランス",
                 "dosha_type": row_dict.get("dosha_type", "") or "",
@@ -298,6 +301,8 @@ def save_user_settings():
         st.session_state["common_target_weight"],
         st.session_state["common_body_fat"],
         st.session_state["common_target_body_fat"],
+        st.session_state["common_muscle_mass"],
+        st.session_state["common_target_muscle_mass"],
         st.session_state["meal_style"],
         st.session_state["ease_level"],
         st.session_state["staple_preference"],
@@ -312,13 +317,12 @@ def save_user_settings():
         st.session_state["daily_flow"],
         str(st.session_state["workout_today"]),
         st.session_state["body_goal"],
-        st.session_state.get("home_prefecture", ""),
-        st.session_state.get("home_area_custom", "").strip() or st.session_state.get("home_area", ""),
-        st.session_state["common_muscle_mass"],
         st.session_state["exercise_intensity"],
         st.session_state["body_shape_goal"],
         st.session_state["dosha_type"],
         ",".join(st.session_state.get("current_state_checks", [])),
+        st.session_state.get("home_prefecture", ""),
+        st.session_state.get("home_area_custom", "").strip() or st.session_state.get("home_area", ""),
     ]
 
     row_index = None
@@ -331,7 +335,6 @@ def save_user_settings():
         ws.update(f"A{row_index}:AD{row_index}", [row_values])
     else:
         ws.append_row(row_values)
-
 
 def reset_user_settings():
     for k, v in defaults.items():
@@ -368,6 +371,8 @@ def load_diet_logs():
                 "目標体重(kg)": float(row_dict["target_weight"]) if row_dict.get("target_weight") else 0,
                 "体脂肪率(%)": float(row_dict["body_fat"]) if row_dict.get("body_fat") else 0,
                 "目標体脂肪率(%)": float(row_dict["target_body_fat"]) if row_dict.get("target_body_fat") else 0,
+                "筋肉量(kg)": float(row_dict["muscle_mass"]) if row_dict.get("muscle_mass") else 0,
+                "目標筋肉量(kg)": float(row_dict["target_muscle_mass"]) if row_dict.get("target_muscle_mass") else 0,
                 "BMI": float(row_dict["bmi"]) if row_dict.get("bmi") else 0,
                 "目標摂取カロリー": float(row_dict["goal_calories"]) if row_dict.get("goal_calories") else 0,
             })
@@ -395,6 +400,10 @@ def sync_common_from_latest_diet_log():
         st.session_state["common_body_fat"] = float(latest["体脂肪率(%)"])
     if latest.get("目標体脂肪率(%)") not in [None, ""]:
         st.session_state["common_target_body_fat"] = float(latest["目標体脂肪率(%)"])
+    if latest.get("筋肉量(kg)") not in [None, ""]:
+        st.session_state["common_muscle_mass"] = float(latest["筋肉量(kg)"])
+    if latest.get("目標筋肉量(kg)") not in [None, ""]:
+        st.session_state["common_target_muscle_mass"] = float(latest["目標筋肉量(kg)"])
 
 
 def upsert_diet_log(log_dict):
@@ -412,6 +421,8 @@ def upsert_diet_log(log_dict):
         log_dict["目標体重(kg)"],
         log_dict["体脂肪率(%)"],
         log_dict["目標体脂肪率(%)"],
+        log_dict.get("筋肉量(kg)", ""),
+        log_dict.get("目標筋肉量(kg)", ""),
         log_dict["BMI"],
         log_dict["目標摂取カロリー"],
     ]
@@ -423,10 +434,9 @@ def upsert_diet_log(log_dict):
             break
 
     if row_index:
-        ws.update(f"A{row_index}:K{row_index}", [row_values])
+        ws.update(f"A{row_index}:M{row_index}", [row_values])
     else:
         ws.append_row(row_values)
-
 
 def load_expenses():
     ws = get_sheet("Expenses")
@@ -852,12 +862,15 @@ def save_today_log_from_scale_result():
     height_cm = st.session_state.get("common_height", 160.0)
     target_weight = st.session_state.get("common_target_weight", 48.0)
     target_body_fat = st.session_state.get("common_target_body_fat", 24.0)
+    current_muscle_mass = st.session_state.get("common_muscle_mass", 35.0)
+    target_muscle_mass = st.session_state.get("common_target_muscle_mass", 38.0)
 
     current_weight = weight if weight is not None else st.session_state.get("common_weight", 50.0)
     current_body_fat = body_fat if body_fat is not None else st.session_state.get("common_body_fat", 28.0)
 
     st.session_state["common_weight"] = current_weight
     st.session_state["common_body_fat"] = current_body_fat
+    st.session_state["common_muscle_mass"] = current_muscle_mass
 
     bmi = current_weight / ((height_cm / 100) ** 2)
     bmr = current_weight * 22 * 1.5
@@ -872,6 +885,8 @@ def save_today_log_from_scale_result():
         "目標体重(kg)": target_weight,
         "体脂肪率(%)": current_body_fat,
         "目標体脂肪率(%)": target_body_fat,
+        "筋肉量(kg)": current_muscle_mass,
+        "目標筋肉量(kg)": target_muscle_mass,
         "BMI": round(bmi, 1),
         "目標摂取カロリー": goal_calories,
     }
@@ -898,8 +913,10 @@ def render_common_body_inputs():
     target_weight = st.number_input("目標体重（kg）", min_value=39.0, max_value=150.0, step=0.1, format="%.1f", key="common_target_weight")
     body_fat = st.number_input("体脂肪率（%）", min_value=5.0, max_value=60.0, step=0.1, format="%.1f", key="common_body_fat")
     target_body_fat = st.number_input("目標体脂肪率（%）", min_value=5.0, max_value=60.0, step=0.1, format="%.1f", key="common_target_body_fat")
-    return gender, age, height_cm, weight, target_weight, body_fat, target_body_fat
-
+    muscle_mass = st.number_input("筋肉量（kg）", min_value=10.0, max_value=80.0, step=0.1, format="%.1f", key="common_muscle_mass")
+    target_muscle_mass = st.number_input("目標筋肉量（kg）", min_value=10.0, max_value=80.0, step=0.1, format="%.1f", key="common_target_muscle_mass")
+    return gender, age, height_cm, weight, target_weight, body_fat, target_body_fat, muscle_mass, target_muscle_mass
+    
 
 def ask_shufumate_advice(
     client,
@@ -923,8 +940,12 @@ def ask_shufumate_advice(
     lunch_style="指定なし",
     category="食事相談",
     area="",
-    site_hint="syufuosusume.com"
+    site_hint="syufuosusume.com",
+    current_state_checks=None
 ):
+    if current_state_checks is None:
+        current_state_checks = []
+
     prompt = f"""
 あなたは主婦向けのやさしい生活アドバイザーです。
 食事・運動・外食・日常の困りごとに、日本語でわかりやすく答えてください。
@@ -938,6 +959,7 @@ def ask_shufumate_advice(
 - 目標体重: {target_weight}
 - 目標体脂肪率: {target_body_fat}
 - 体質: {dosha_type if dosha_type else "未設定"}
+- 今の状態チェック: {", ".join(current_state_checks) if current_state_checks else "なし"}
 - 冷蔵庫の食材: {fridge_items}
 - 避けたい食べ物: {avoid_foods}
 - 定番・好きな食事: {favorite_meals}
@@ -954,6 +976,7 @@ def ask_shufumate_advice(
 - すぐできる提案を優先する
 - 外食相談なら、地域があればその地域で探す前提のアドバイスにする
 - 必要なら選び方の基準も入れる
+- 体質や今の状態チェックがあれば、それもふまえて答える
 - 最後にひとことで背中を押す
 - {site_hint} に合いそうな、暮らしに役立つ雰囲気で答える
 
@@ -1129,7 +1152,9 @@ def create_plan_for_date(
     real_mode=False,
     daily_flow="普通",
     workout_today=False,
-    body_goal="バランス"
+    body_goal="バランス",
+    exercise_intensity="普通",
+    body_shape_goal="全体バランス"
 ):
     dosha_rule = ""
     if dosha_type == "ヴァータ":
@@ -1213,6 +1238,8 @@ def create_plan_for_date(
 - 食事の流れ: {daily_flow}
 - 運動: {"あり" if workout_today else "なし"}
 - 目的: {body_goal}
+- 運動強度: {exercise_intensity}
+- 体型チェック: {body_shape_goal}
 
 以下を必ず守ってください：
 ・今日の流れを評価してから献立を決める
@@ -1221,6 +1248,8 @@ def create_plan_for_date(
 ・主婦がすぐ作れるレベルにする
 ・メニューは多すぎない（2〜4品）
 ・脚やせ、むくみ対策、回復など目的を理由に入れる
+・運動強度に合わせて無理のない提案にする
+・体型チェックで気になる部位があれば、それに配慮した内容にする
 
 【出力に必ず含める】
 ①いちばんおすすめ
@@ -1248,6 +1277,8 @@ def create_plan_for_date(
 - 主食の好み: {staple_preference}
 - プランタイプ: {plan_type}
 - 平日昼食スタイル: {lunch_style}
+- 運動強度: {exercise_intensity}
+- 体型チェック: {body_shape_goal}
 
 【重要ルール】
 - 日本の一般家庭で作りやすいメニューにしてください
