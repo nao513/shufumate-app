@@ -137,7 +137,6 @@ def render_feature_card(title, desc, image_path, button_label, target_page, key_
         if st.button(button_label, key=f"{key_prefix}_btn", use_container_width=True):
             st.switch_page(target_page)
 
-
 st.markdown('<div class="home-shell">', unsafe_allow_html=True)
 
 st.markdown('<div class="logo-wrap">', unsafe_allow_html=True)
