@@ -64,7 +64,7 @@ section[data-testid="stSidebar"] {
     box-shadow: 0 10px 28px rgba(91, 58, 41, 0.05);
 }
 
-/* ---------- 上部画像 1枚 ---------- */
+/* ---------- 上部画像 ---------- */
 
 .top-visual-wrap {
     margin-bottom: 1.35rem;
@@ -325,11 +325,20 @@ with left:
 
     render_feature_card(
         "アーユルヴェーダ",
-        "体質傾向と今の状態をチェックして、食事や過ごし方のヒントに活かせます。",
+        "8項目から体質傾向をチェックします。チェックが多い体質が、今の自分に近いタイプです。",
         "assets/home_icons/ayurveda.png",
         "アーユルヴェーダへ",
         "pages/7_アーユルヴェーダ.py",
         "ayurveda"
+    )
+
+    render_feature_card(
+        "教育費・人生設計",
+        "子どもの人数や教育方針に合わせて、教育費の目安をざっくり確認できます。",
+        "assets/home_icons/education.png",
+        "教育費・人生設計へ",
+        "pages/9_教育費・人生設計.py",
+        "education"
     )
 
 with right:
@@ -358,6 +367,24 @@ with right:
         "初期設定へ",
         "pages/6_初期設定.py",
         "settings"
+    )
+
+    render_feature_card(
+        "スケジュール",
+        "予定管理や生活リズムの目安を見ながら、毎日の流れを整えやすくします。",
+        "assets/home_icons/schedule.png",
+        "スケジュールへ",
+        "pages/8_スケジュール.py",
+        "schedule"
+    )
+
+    render_feature_card(
+        "お得情報",
+        "地域設定に合わせて、暮らしや家計に役立つお得情報を見やすく広げていきます。",
+        "assets/home_icons/deals.png",
+        "お得情報へ",
+        "pages/10_お得情報.py",
+        "deals"
     )
 
 st.markdown("""
