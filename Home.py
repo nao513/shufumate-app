@@ -16,6 +16,18 @@ def img_to_base64(path: str) -> str:
     return base64.b64encode(Path(path).read_bytes()).decode()
 
 
+def show_top_image(path: str, wrap_class: str):
+    img_b64 = img_to_base64(path)
+    st.markdown(
+        f'''
+        <div class="{wrap_class}">
+            <img src="data:image/png;base64,{img_b64}">
+        </div>
+        ''',
+        unsafe_allow_html=True
+    )
+
+
 st.markdown("""
 <style>
 html, body, [class*="css"] {
@@ -44,20 +56,40 @@ section[data-testid="stSidebar"] {
     box-shadow: 0 10px 28px rgba(91, 58, 41, 0.05);
 }
 
+/* ---------- 上部画像 ---------- */
+
 .top-logo-wrap {
     background: #f7f1e8;
     border: 1px solid #eadfce;
     border-radius: 24px;
-    padding: 1rem 1.2rem 0.8rem 1.2rem;
-    margin-bottom: 1rem;
+    padding: 0.45rem 0.9rem 0.35rem 0.9rem;
+    margin-bottom: 0.95rem;
+    overflow: hidden;
+}
+
+.top-logo-wrap img {
+    display: block;
+    width: 100%;
+    height: auto;
+    border-radius: 14px;
 }
 
 .hero-wrap {
-    overflow: hidden;
-    border-radius: 26px;
-    margin-bottom: 1.4rem;
+    background: #f7f1e8;
     border: 1px solid #eadfce;
+    border-radius: 26px;
+    padding: 0;
+    margin-bottom: 1.35rem;
+    overflow: hidden;
 }
+
+.hero-wrap img {
+    display: block;
+    width: 100%;
+    height: auto;
+}
+
+/* ---------- メインコピー ---------- */
 
 .main-copy {
     text-align: center;
@@ -85,26 +117,7 @@ section[data-testid="stSidebar"] {
     margin-bottom: 1.2rem;
 }
 
-.small-note-wrap {
-    margin-top: 1.4rem;
-    background: #fbf6ef;
-    border: 1px solid #eadfce;
-    border-radius: 20px;
-    padding: 1rem 1.1rem;
-}
-
-.small-note-title {
-    color: #5b3a29;
-    font-size: 1.05rem;
-    font-weight: 700;
-    margin-bottom: 0.4rem;
-}
-
-.small-note {
-    color: #7a6556;
-    font-size: 0.96rem;
-    line-height: 1.8;
-}
+/* ---------- カード ---------- */
 
 .feature-title-wrap {
     min-height: 68px;
@@ -154,6 +167,8 @@ section[data-testid="stSidebar"] {
     object-fit: contain;
 }
 
+/* ---------- ボタン ---------- */
+
 div.stButton > button {
     background: #fbf6ef;
     color: #6a4a39;
@@ -168,6 +183,31 @@ div.stButton > button:hover {
     border-color: #d6b99c;
     color: #5b3a29;
 }
+
+/* ---------- 下部案内 ---------- */
+
+.small-note-wrap {
+    margin-top: 1.4rem;
+    background: #fbf6ef;
+    border: 1px solid #eadfce;
+    border-radius: 20px;
+    padding: 1rem 1.1rem;
+}
+
+.small-note-title {
+    color: #5b3a29;
+    font-size: 1.05rem;
+    font-weight: 700;
+    margin-bottom: 0.4rem;
+}
+
+.small-note {
+    color: #7a6556;
+    font-size: 0.96rem;
+    line-height: 1.8;
+}
+
+/* ---------- レスポンシブ ---------- */
 
 @media (max-width: 1200px) {
     .feature-title {
@@ -187,6 +227,10 @@ div.stButton > button:hover {
 
     .feature-desc {
         min-height: auto;
+    }
+
+    .top-logo-wrap {
+        padding: 0.35rem 0.65rem 0.3rem 0.65rem;
     }
 }
 </style>
@@ -247,13 +291,8 @@ def render_feature_card(
 
 st.markdown('<div class="home-shell">', unsafe_allow_html=True)
 
-st.markdown('<div class="top-logo-wrap">', unsafe_allow_html=True)
-st.image("assets/home_icons/top/logo.png", use_container_width=True)
-st.markdown('</div>', unsafe_allow_html=True)
-
-st.markdown('<div class="hero-wrap">', unsafe_allow_html=True)
-st.image("assets/home_icons/top/hero.png", use_container_width=True)
-st.markdown('</div>', unsafe_allow_html=True)
+show_top_image("assets/home_icons/top/logo.png", "top-logo-wrap")
+show_top_image("assets/home_icons/top/hero.png", "hero-wrap")
 
 st.markdown("""
 <div class="main-copy">
