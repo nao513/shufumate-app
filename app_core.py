@@ -36,6 +36,8 @@ defaults = {
     "common_target_weight": 48.0,
     "common_body_fat": 28.0,
     "common_target_body_fat": 24.0,
+    "common_muscle_mass": 35.0,
+    "common_target_muscle_mass": 38.0,
 
     "meal_style": "和食中心",
     "ease_level": "超かんたん",
@@ -51,12 +53,15 @@ defaults = {
     "daily_flow": "普通",
     "workout_today": False,
     "body_goal": "バランス",
+    "exercise_intensity": "普通",
+    "body_shape_goal": "全体バランス",
 
     "home_prefecture": "",
     "home_area": "",
     "home_area_custom": "",
 
     "dosha_type": "",
+    "current_state_checks": [],
 
     "diet_logs": [],
     "today_plan_date": "",
@@ -105,13 +110,6 @@ defaults = {
 
     "meal_eval_result": "",
 
-    "common_muscle_mass": 35.0,
-    "common_target_muscle_mass": 38.0,
-    "exercise_intensity": "普通",
-    "body_shape_goal": "全体バランス",
-    "dosha_type": "",
-    "current_state_checks": [],
-
     "settings_snapshot": {},
     "last_loaded_user_id": "",
 }
@@ -124,6 +122,63 @@ for k, v in defaults.items():
 # -----------------------------
 # Google Sheets
 # -----------------------------
+@st.cache_resource
+def get_gspread_client():
+    creds_dict = dict(st.secrets["gcp_service_account"])
+    scopes = [
+        "https://www.googleapis.com/auth/spreadsheets",
+        "https://www.googleapis.com/auth/drive",
+    ]
+    creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
+    return gspread.authorize(creds)
+
+
+@st.cache_resource
+def get_spreadsheet():
+    gc = get_gspread_client()
+    sheet_id = str(st.secrets["GOOGLE_SHEET_ID"]).strip()
+    return gc.open_by_key(sheet_id)
+
+
+@st.cache_resource
+def get_sheet(tab_name: str):
+    sh = get_spreadsheet()
+    return sh.worksheet(tab_name)
+
+
+def get_or_create_worksheet(sh, title, rows=1000, cols=30):
+    try:
+        return sh.worksheet(title)
+    except gspread.exceptions.WorksheetNotFound:
+        return sh.add_worksheet(title=title, rows=rows, cols=cols)
+
+
+def rewrite_sheet_with_header(ws, expected_header):
+    values = ws.get_all_values()
+
+    if not values:
+        ws.clear()
+        ws.append_row(expected_header)
+        return
+
+    current_header = values[0]
+    data_rows = values[1:]
+
+    if current_header == expected_header:
+        return
+
+    migrated_rows = []
+    for row in data_rows:
+        row = row + [""] * (len(current_header) - len(row))
+        row_dict = dict(zip(current_header, row))
+        migrated_rows.append([row_dict.get(col, "") for col in expected_header])
+
+    ws.clear()
+    ws.append_row(expected_header)
+    if migrated_rows:
+        ws.append_rows(migrated_rows)
+
+
 @st.cache_resource
 def ensure_headers():
     sh = get_spreadsheet()
@@ -164,9 +219,10 @@ def ensure_headers():
     rewrite_sheet_with_header(expenses_ws, expenses_header)
     rewrite_sheet_with_header(advice_ws, advice_header)
 
+
 def get_current_user_id():
     return "default_user"
-    
+
 
 def load_user_settings():
     ws = get_sheet("Settings")
@@ -195,6 +251,8 @@ def load_user_settings():
                 "common_target_weight": float(row_dict["target_weight"]) if row_dict.get("target_weight") else 48.0,
                 "common_body_fat": float(row_dict["start_body_fat"]) if row_dict.get("start_body_fat") else 28.0,
                 "common_target_body_fat": float(row_dict["target_body_fat"]) if row_dict.get("target_body_fat") else 24.0,
+                "common_muscle_mass": float(row_dict["muscle_mass"]) if row_dict.get("muscle_mass") else 35.0,
+                "common_target_muscle_mass": float(row_dict["target_muscle_mass"]) if row_dict.get("target_muscle_mass") else 38.0,
                 "meal_style": row_dict.get("meal_style", "和食中心") or "和食中心",
                 "ease_level": row_dict.get("ease_level", "超かんたん") or "超かんたん",
                 "staple_preference": row_dict.get("staple_preference", "ごはん派") or "ごはん派",
@@ -209,13 +267,11 @@ def load_user_settings():
                 "daily_flow": row_dict.get("daily_flow", "普通") or "普通",
                 "workout_today": str(row_dict.get("workout_today", "False")).lower() == "true",
                 "body_goal": row_dict.get("body_goal", "バランス") or "バランス",
+                "exercise_intensity": row_dict.get("exercise_intensity", "普通") or "普通",
+                "body_shape_goal": row_dict.get("body_shape_goal", "全体バランス") or "全体バランス",
                 "home_prefecture": row_dict.get("home_prefecture", "") or "",
                 "home_area": row_dict.get("home_area", "") or "",
                 "home_area_custom": "",
-                "common_muscle_mass": float(row_dict["muscle_mass"]) if row_dict.get("muscle_mass") else 35.0,
-                "common_target_muscle_mass": float(row_dict["target_muscle_mass"]) if row_dict.get("target_muscle_mass") else 38.0,
-                "exercise_intensity": row_dict.get("exercise_intensity", "普通") or "普通",
-                "body_shape_goal": row_dict.get("body_shape_goal", "全体バランス") or "全体バランス",
                 "dosha_type": row_dict.get("dosha_type", "") or "",
                 "current_state_checks": [x.strip() for x in row_dict.get("current_state_checks", "").split(",") if x.strip()],
             }
@@ -279,6 +335,7 @@ def save_user_settings():
         ws.update(f"A{row_index}:AD{row_index}", [row_values])
     else:
         ws.append_row(row_values)
+
 
 def reset_user_settings():
     for k, v in defaults.items():
@@ -381,6 +438,7 @@ def upsert_diet_log(log_dict):
         ws.update(f"A{row_index}:M{row_index}", [row_values])
     else:
         ws.append_row(row_values)
+
 
 def load_expenses():
     ws = get_sheet("Expenses")
@@ -599,7 +657,7 @@ BMI: xx.x
         }]
     )
     return response.output_text
-    
+
 
 def extract_scale_values_from_images(client, images):
     content = [{
@@ -849,6 +907,7 @@ def save_today_log_from_scale_result():
 
     return True, "読み取った数値で今日の記録を保存しました。"
 
+
 # -----------------------------
 # Advice
 # -----------------------------
@@ -867,7 +926,7 @@ def render_common_body_inputs():
     muscle_mass = st.number_input("筋肉量（kg）", min_value=10.0, max_value=80.0, step=0.1, format="%.1f", key="common_muscle_mass")
     target_muscle_mass = st.number_input("目標筋肉量（kg）", min_value=10.0, max_value=80.0, step=0.1, format="%.1f", key="common_target_muscle_mass")
     return gender, age, height_cm, weight, target_weight, body_fat, target_body_fat, muscle_mass, target_muscle_mass
-    
+
 
 def ask_shufumate_advice(
     client,
@@ -946,6 +1005,7 @@ def ask_shufumate_advice(
     )
     return response.output_text
 
+
 def diagnose_dosha_advanced(answers):
     scores = {"ヴァータ": 0, "ピッタ": 0, "カパ": 0}
 
@@ -1000,6 +1060,7 @@ def diagnose_dosha_advanced(answers):
     result_type = max(scores, key=scores.get)
     return result_type, scores
 
+
 def get_ayurveda_advice_advanced(dosha_type):
     advice_map = {
         "ヴァータ": {
@@ -1032,6 +1093,7 @@ def get_ayurveda_advice_advanced(dosha_type):
         "ダイエット": ""
     })
 
+
 def get_ayurveda_foods(dosha_type):
     foods_map = {
         "ヴァータ": ["ごはん", "味噌汁", "かぼちゃ", "にんじん", "さつまいも", "豆腐", "鮭", "鶏肉", "しょうが"],
@@ -1039,6 +1101,7 @@ def get_ayurveda_foods(dosha_type):
         "カパ": ["鶏むね肉", "きのこ", "ブロッコリー", "大根", "わかめ", "豆腐", "納豆", "しょうが", "味噌汁"],
     }
     return foods_map.get(dosha_type, [])
+
 
 def get_current_state_advice(
     sweet_craving,
@@ -1076,7 +1139,6 @@ def get_current_state_advice(
         return "大きな乱れは目立たなそうです。今の生活リズムをベースに、無理なく整えていきましょう。"
 
     return "\n\n".join(messages)
-
 
 
 def create_plan_for_date(
