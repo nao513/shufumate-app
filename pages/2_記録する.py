@@ -1,102 +1,286 @@
 import streamlit as st
+import gspread
 import pandas as pd
-from datetime import datetime
-from app_core import *
+from google.oauth2.service_account import Credentials
+from datetime import datetime, date
 
-st.set_page_config(page_title="ダイエット管理｜ShufuMate", layout="wide")
+# =========================
+# 基本設定
+# =========================
+DEFAULT_USER_ID = "default_user"
 
-reload_user_data_if_needed()
-load_settings_into_session()
-sync_common_from_latest_diet_log()
+DIETLOG_HEADERS = [
+    "user_id",
+    "log_date",
+    "weight",
+    "body_fat",
+    "meal_memo",
+    "exercise_memo",
+    "condition_note",
+    "mood_note",
+    "created_at",
+]
 
-st.header("📘 ダイエット管理")
-st.caption("体重・体脂肪率・筋肉量などを記録して、日々の変化を見返せます。")
+SETTINGS_HEADERS = [
+    "user_id",
+    "nickname",
+    "age",
+    "height_cm",
+    "current_weight",
+    "target_weight",
+    "current_body_fat",
+    "target_body_fat",
+    "activity_level",
+    "food_style",
+    "user_type",
+    "updated_at",
+]
 
-st.info(
-    "毎日の記録を積み重ねることで、変化の流れを見やすくなります。\n"
-    "無理のない範囲で、続けやすい管理にお役立てください。"
-)
 
-gender, age, height_cm, weight, target_weight, body_fat, target_body_fat, muscle_mass, target_muscle_mass = render_common_body_inputs()
+# =========================
+# 共通関数
+# =========================
+def get_user_id() -> str:
+    if "user_id" not in st.session_state:
+        st.session_state["user_id"] = DEFAULT_USER_ID
+    return st.session_state["user_id"]
 
-bmi = round(weight / ((height_cm / 100) ** 2), 1) if height_cm > 0 else 0
-goal_calories = round(weight * 22 * 1.5, 0)
 
-col1, col2, col3, col4 = st.columns(4)
-with col1:
-    st.metric("BMI", bmi)
-with col2:
-    st.metric("目標摂取カロリー", f"{int(goal_calories)} kcal")
-with col3:
-    st.metric("筋肉量", f"{muscle_mass:.1f} kg")
-with col4:
-    st.metric("目標筋肉量", f"{target_muscle_mass:.1f} kg")
+def to_str(v) -> str:
+    return "" if v is None else str(v)
 
-st.subheader("✍ 今日の記録")
 
-log_date = st.date_input("記録日", value=datetime.today().date(), key="diet_log_date")
+def to_float(v, default=0.0) -> float:
+    try:
+        if v in [None, ""]:
+            return default
+        return float(v)
+    except Exception:
+        return default
 
-if st.button("💾 今日の記録を保存", use_container_width=True):
-    log = {
-        "日付": str(log_date),
-        "性別": gender,
-        "年齢": age,
-        "身長(cm)": height_cm,
-        "体重(kg)": weight,
-        "目標体重(kg)": target_weight,
-        "体脂肪率(%)": body_fat,
-        "目標体脂肪率(%)": target_body_fat,
-        "筋肉量(kg)": muscle_mass,
-        "目標筋肉量(kg)": target_muscle_mass,
-        "BMI": bmi,
-        "目標摂取カロリー": goal_calories,
+
+@st.cache_resource
+def get_gspread_client():
+    scopes = [
+        "https://www.googleapis.com/auth/spreadsheets",
+        "https://www.googleapis.com/auth/drive",
+    ]
+    credentials = Credentials.from_service_account_info(
+        st.secrets["gcp_service_account"],
+        scopes=scopes,
+    )
+    return gspread.authorize(credentials)
+
+
+def get_spreadsheet():
+    client = get_gspread_client()
+    sheet_id = st.secrets["GOOGLE_SHEET_ID"]
+    return client.open_by_key(sheet_id)
+
+
+def ensure_headers(ws, headers):
+    current = ws.row_values(1)
+    if current != headers:
+        ws.update("A1", [headers])
+
+
+def get_or_create_sheet(title: str, headers: list[str]):
+    ss = get_spreadsheet()
+    try:
+        ws = ss.worksheet(title)
+    except gspread.exceptions.WorksheetNotFound:
+        ws = ss.add_worksheet(title=title, rows=200, cols=len(headers))
+        ws.append_row(headers)
+
+    ensure_headers(ws, headers)
+    return ws
+
+
+def get_or_create_logs_sheet():
+    return get_or_create_sheet("DietLogs", DIETLOG_HEADERS)
+
+
+def get_or_create_settings_sheet():
+    return get_or_create_sheet("Settings", SETTINGS_HEADERS)
+
+
+def load_settings_defaults(user_id: str) -> dict:
+    ws = get_or_create_settings_sheet()
+    records = ws.get_all_records()
+
+    for record in records:
+        if str(record.get("user_id", "")) == user_id:
+            return {
+                "current_weight": to_float(record.get("current_weight", 50.0), 50.0),
+                "current_body_fat": to_float(record.get("current_body_fat", 30.0), 30.0),
+            }
+
+    return {
+        "current_weight": 50.0,
+        "current_body_fat": 30.0,
     }
-    upsert_diet_log(log)
-    st.session_state["diet_logs"] = load_diet_logs()
-    sync_common_from_latest_diet_log()
-    st.success("今日の記録を保存しました。")
-    st.rerun()
+
+
+def load_latest_log(user_id: str) -> dict | None:
+    ws = get_or_create_logs_sheet()
+    records = ws.get_all_records()
+
+    user_logs = [r for r in records if str(r.get("user_id", "")) == user_id]
+    if not user_logs:
+        return None
+
+    def sort_key(x):
+        created_at = to_str(x.get("created_at", ""))
+        log_date = to_str(x.get("log_date", ""))
+        return (log_date, created_at)
+
+    user_logs.sort(key=sort_key, reverse=True)
+    return user_logs[0]
+
+
+def get_initial_values(user_id: str) -> dict:
+    latest = load_latest_log(user_id)
+    if latest:
+        return {
+            "weight": to_float(latest.get("weight", 50.0), 50.0),
+            "body_fat": to_float(latest.get("body_fat", 30.0), 30.0),
+        }
+
+    defaults = load_settings_defaults(user_id)
+    return {
+        "weight": defaults["current_weight"],
+        "body_fat": defaults["current_body_fat"],
+    }
+
+
+def save_diet_log(user_id: str, data: dict):
+    ws = get_or_create_logs_sheet()
+    row_data = [
+        user_id,
+        data["log_date"],
+        data["weight"],
+        data["body_fat"],
+        data["meal_memo"],
+        data["exercise_memo"],
+        data["condition_note"],
+        data["mood_note"],
+        datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+    ]
+    ws.append_row(row_data)
+
+
+def load_recent_logs(user_id: str, limit: int = 10) -> pd.DataFrame:
+    ws = get_or_create_logs_sheet()
+    records = ws.get_all_records()
+    user_logs = [r for r in records if str(r.get("user_id", "")) == user_id]
+
+    if not user_logs:
+        return pd.DataFrame()
+
+    df = pd.DataFrame(user_logs)
+
+    if "log_date" in df.columns:
+        df["log_date_sort"] = pd.to_datetime(df["log_date"], errors="coerce")
+    else:
+        df["log_date_sort"] = pd.NaT
+
+    if "created_at" in df.columns:
+        df["created_at_sort"] = pd.to_datetime(df["created_at"], errors="coerce")
+    else:
+        df["created_at_sort"] = pd.NaT
+
+    df = df.sort_values(
+        by=["log_date_sort", "created_at_sort"],
+        ascending=[False, False],
+        na_position="last",
+    )
+
+    df = df.rename(
+        columns={
+            "log_date": "日付",
+            "weight": "体重(kg)",
+            "body_fat": "体脂肪(%)",
+            "meal_memo": "食事メモ",
+            "exercise_memo": "運動メモ",
+            "condition_note": "体調メモ",
+            "mood_note": "気分メモ",
+        }
+    )
+
+    show_cols = ["日付", "体重(kg)", "体脂肪(%)", "食事メモ", "運動メモ", "体調メモ", "気分メモ"]
+    show_cols = [c for c in show_cols if c in df.columns]
+
+    return df[show_cols].head(limit)
+
+
+# =========================
+# 画面
+# =========================
+st.title("📝 記録する")
+st.caption("今日の体重・体脂肪・食事・運動を記録します")
+
+user_id = get_user_id()
+
+try:
+    initial = get_initial_values(user_id)
+except Exception as e:
+    st.error(f"初期値の読込に失敗しました: {e}")
+    st.stop()
+
+with st.form("diet_log_form"):
+    log_date = st.date_input("日付", value=date.today())
+
+    weight = st.number_input(
+        "体重(kg)",
+        min_value=20.0,
+        max_value=200.0,
+        value=float(initial["weight"]),
+        step=0.1,
+        format="%.1f",
+    )
+
+    body_fat = st.number_input(
+        "体脂肪(%)",
+        min_value=0.0,
+        max_value=70.0,
+        value=float(initial["body_fat"]),
+        step=0.1,
+        format="%.1f",
+    )
+
+    meal_memo = st.text_area("食事メモ", placeholder="例：朝 納豆ごはん、昼 パスタ、夜 鮭と味噌汁")
+    exercise_memo = st.text_area("運動メモ", placeholder="例：ヨガ30分、散歩20分")
+    condition_note = st.text_area("体調メモ", placeholder="例：少しむくみあり、よく眠れた")
+    mood_note = st.text_area("気分メモ", placeholder="例：疲れ気味、やる気あり")
+
+    submitted = st.form_submit_button("今日の記録を保存", use_container_width=True)
+
+if submitted:
+    save_data = {
+        "log_date": log_date.strftime("%Y-%m-%d"),
+        "weight": float(weight),
+        "body_fat": float(body_fat),
+        "meal_memo": meal_memo.strip(),
+        "exercise_memo": exercise_memo.strip(),
+        "condition_note": condition_note.strip(),
+        "mood_note": mood_note.strip(),
+    }
+
+    try:
+        save_diet_log(user_id, save_data)
+        st.success("今日の記録を保存しました")
+        st.rerun()
+    except Exception as e:
+        st.error(f"保存に失敗しました: {e}")
 
 st.divider()
-st.subheader("📈 記録一覧")
+st.subheader("最近の記録")
 
-diet_logs = st.session_state.get("diet_logs", [])
-
-if diet_logs:
-    df = pd.DataFrame(diet_logs).copy()
-    df["日付"] = pd.to_datetime(df["日付"], errors="coerce")
-    df = df.sort_values("日付", ascending=False)
-
-    display_df = df.copy()
-    display_df["日付"] = display_df["日付"].dt.strftime("%Y-%m-%d")
-
-    st.dataframe(display_df, use_container_width=True)
-
-    st.subheader("📊 推移")
-
-    chart_df = df.sort_values("日付").set_index("日付")
-
-    if "体重(kg)" in chart_df.columns:
-        st.markdown("#### 体重の推移")
-        st.line_chart(chart_df["体重(kg)"])
-
-    if "体脂肪率(%)" in chart_df.columns:
-        st.markdown("#### 体脂肪率の推移")
-        st.line_chart(chart_df["体脂肪率(%)"])
-
-    if "筋肉量(kg)" in chart_df.columns:
-        st.markdown("#### 筋肉量の推移")
-        st.line_chart(chart_df["筋肉量(kg)"])
-
-    latest = df.iloc[0]
-    st.subheader("📝 最新記録")
-    st.write(f"日付: {latest['日付'].strftime('%Y-%m-%d') if pd.notnull(latest['日付']) else ''}")
-    st.write(f"体重: {latest['体重(kg)']} kg")
-    st.write(f"体脂肪率: {latest['体脂肪率(%)']} %")
-    if "筋肉量(kg)" in latest.index:
-        st.write(f"筋肉量: {latest['筋肉量(kg)']} kg")
-    if "目標筋肉量(kg)" in latest.index:
-        st.write(f"目標筋肉量: {latest['目標筋肉量(kg)']} kg")
-    st.write(f"BMI: {latest['BMI']}")
-else:
-    st.caption("まだ記録がありません。")
+try:
+    recent_logs = load_recent_logs(user_id, limit=10)
+    if recent_logs.empty:
+        st.info("まだ記録がありません")
+    else:
+        st.dataframe(recent_logs, use_container_width=True, hide_index=True)
+except Exception as e:
+    st.error(f"記録一覧の読込に失敗しました: {e}")
