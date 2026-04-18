@@ -1,5 +1,4 @@
 import streamlit as st
-from datetime import datetime
 from pathlib import Path
 from app_core import (
     WEEKDAY_JP,
@@ -9,6 +8,7 @@ from app_core import (
     get_week_menu,
     get_today_exercise,
     get_home_progress_summary,
+    jst_now,
 )
 
 st.set_page_config(
@@ -17,9 +17,6 @@ st.set_page_config(
     layout="centered",
 )
 
-# =========================
-# CSS
-# =========================
 st.markdown(
     """
     <style>
@@ -126,9 +123,6 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# =========================
-# 表示用関数
-# =========================
 def show_logo():
     logo_candidates = [
         Path("assets/top/logo.png"),
@@ -138,7 +132,6 @@ def show_logo():
         if logo_path.exists():
             st.image(str(logo_path), use_container_width=True)
             return
-
 
 def render_today_advice_card(advice: dict):
     st.markdown(
@@ -157,7 +150,6 @@ def render_today_advice_card(advice: dict):
         """,
         unsafe_allow_html=True,
     )
-
 
 def render_progress_card(summary: dict):
     st.markdown(
@@ -182,9 +174,8 @@ def render_progress_card(summary: dict):
         unsafe_allow_html=True,
     )
 
-
-def render_week_menu_card(menu_list: list[dict]):
-    today_idx = datetime.now().weekday()
+def render_week_menu_card(menu_list: list[dict], now):
+    today_idx = now.weekday()
     rows = []
     for idx, item in enumerate(menu_list):
         mark = " ← 今日" if idx == today_idx else ""
@@ -202,7 +193,6 @@ def render_week_menu_card(menu_list: list[dict]):
         unsafe_allow_html=True,
     )
 
-
 def render_exercise_card(exercise: dict):
     st.markdown(
         f"""
@@ -217,10 +207,6 @@ def render_exercise_card(exercise: dict):
         unsafe_allow_html=True,
     )
 
-
-# =========================
-# データ読込
-# =========================
 user_id = get_user_id()
 
 try:
@@ -230,17 +216,15 @@ except Exception as e:
     st.error(f"設定の読込に失敗しました: {e}")
     st.stop()
 
+now = jst_now()
 nickname = settings["nickname"].strip()
-today_text = datetime.now().strftime("%Y年%m月%d日")
-weekday_text = WEEKDAY_JP[datetime.now().weekday()]
+today_text = now.strftime("%Y年%m月%d日")
+weekday_text = WEEKDAY_JP[now.weekday()]
 
 advice = get_today_advice(settings)
 week_menu = get_week_menu(settings)
 exercise = get_today_exercise(settings)
 
-# =========================
-# 画面
-# =========================
 show_logo()
 
 st.markdown(
@@ -269,7 +253,7 @@ st.markdown(
 
 render_today_advice_card(advice)
 render_progress_card(progress)
-render_week_menu_card(week_menu)
+render_week_menu_card(week_menu, now)
 render_exercise_card(exercise)
 
 st.markdown("### つかう")
