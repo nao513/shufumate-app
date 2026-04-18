@@ -19,7 +19,7 @@ def img_to_base64(path: str) -> str:
     return base64.b64encode(p.read_bytes()).decode()
 
 
-def show_top_image(path: str, wrap_class: str):
+def show_top_image(path: str):
     img_b64 = img_to_base64(path)
 
     if not img_b64:
@@ -28,7 +28,7 @@ def show_top_image(path: str, wrap_class: str):
 
     st.markdown(
         f'''
-        <div class="{wrap_class}">
+        <div class="top-visual-wrap">
             <img src="data:image/png;base64,{img_b64}">
         </div>
         ''',
@@ -67,12 +67,9 @@ section[data-testid="stSidebar"] {
 /* ---------- 上部画像 1枚 ---------- */
 
 .top-visual-wrap {
-    background: #f7f1e8;
-    border: 1px solid #eadfce;
-    border-radius: 26px;
-    padding: 0;
     margin-bottom: 1.35rem;
     overflow: hidden;
+    border-radius: 26px;
 }
 
 .top-visual-wrap img {
@@ -279,7 +276,7 @@ def render_feature_card(
 
 st.markdown('<div class="home-shell">', unsafe_allow_html=True)
 
-show_top_image("assets/home_icons/top/top_visual.png", "top-visual-wrap")
+show_top_image("assets/home_icons/top/top_visual.png")
 
 st.markdown("""
 <div class="main-copy">
@@ -305,9 +302,7 @@ with left:
         "assets/home_icons/diet.png",
         "ダイエット管理へ",
         "pages/1_ダイエット管理.py",
-        "diet",
-        image_width=135,
-        image_bg=False
+        "diet"
     )
 
     render_feature_card(
@@ -316,9 +311,7 @@ with left:
         "assets/home_icons/photo.png",
         "写真で記録へ",
         "pages/3_写真で記録.py",
-        "photo",
-        image_width=135,
-        image_bg=False
+        "photo"
     )
 
     render_feature_card(
@@ -327,9 +320,7 @@ with left:
         "assets/home_icons/money.png",
         "家計簿へ",
         "pages/5_家計簿.py",
-        "money",
-        image_width=135,
-        image_bg=False
+        "money"
     )
 
     render_feature_card(
@@ -338,9 +329,7 @@ with left:
         "assets/home_icons/ayurveda.png",
         "アーユルヴェーダへ",
         "pages/7_アーユルヴェーダ.py",
-        "ayurveda",
-        image_width=135,
-        image_bg=False
+        "ayurveda"
     )
 
 with right:
@@ -350,9 +339,7 @@ with right:
         "assets/home_icons/plan.png",
         "献立・運動プランへ",
         "pages/2_献立・運動プラン.py",
-        "plan",
-        image_width=135,
-        image_bg=False
+        "plan"
     )
 
     render_feature_card(
@@ -361,9 +348,7 @@ with right:
         "assets/home_icons/advice.png",
         "なんでも相談へ",
         "pages/4_なんでも相談.py",
-        "advice",
-        image_width=135,
-        image_bg=False
+        "advice"
     )
 
     render_feature_card(
@@ -372,9 +357,7 @@ with right:
         "assets/home_icons/settings.png",
         "初期設定へ",
         "pages/6_初期設定.py",
-        "settings",
-        image_width=135,
-        image_bg=False
+        "settings"
     )
 
 st.markdown("""
