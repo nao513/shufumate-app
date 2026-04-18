@@ -114,21 +114,10 @@ def to_int(v, default=0) -> int:
 # ユーザーID
 # =========================
 def get_user_id() -> str:
-    if "user_id" in st.session_state:
-        return st.session_state["user_id"]
+    FIXED_USER_ID = "naomi_user"
 
-    uid = st.query_params.get("uid", "")
-    if isinstance(uid, list):
-        uid = uid[0] if uid else ""
-
-    uid = str(uid).strip()
-
-    if not uid:
-        uid = uuid4().hex
-        st.query_params["uid"] = uid
-
-    st.session_state["user_id"] = uid
-    return uid
+    st.session_state["user_id"] = FIXED_USER_ID
+    return FIXED_USER_ID
 
 
 # =========================
