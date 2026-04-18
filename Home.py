@@ -16,13 +16,12 @@ def img_to_base64(path: str) -> str:
     return base64.b64encode(Path(path).read_bytes()).decode()
 
 
-def show_top_image(path: str, wrap_class: str, img_class: str = ""):
+def show_top_image(path: str, wrap_class: str):
     img_b64 = img_to_base64(path)
-    extra_class = f" {img_class}" if img_class else ""
     st.markdown(
         f'''
         <div class="{wrap_class}">
-            <img class="{extra_class.strip()}" src="data:image/png;base64,{img_b64}">
+            <img src="data:image/png;base64,{img_b64}">
         </div>
         ''',
         unsafe_allow_html=True
@@ -57,28 +56,9 @@ section[data-testid="stSidebar"] {
     box-shadow: 0 10px 28px rgba(91, 58, 41, 0.05);
 }
 
-/* ---------- 上部画像 ---------- */
+/* ---------- 上部画像 1枚 ---------- */
 
-.top-logo-wrap {
-    background: #f7f1e8;
-    border: 1px solid #eadfce;
-    border-radius: 24px;
-    padding: 0.12rem 0.7rem 0.08rem 0.7rem;
-    margin-bottom: 0.75rem;
-    overflow: hidden;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-}
-
-.top-logo-wrap img {
-    display: block;
-    width: 100%;
-    max-width: 720px;
-    height: auto;
-}
-
-.hero-wrap {
+.top-visual-wrap {
     background: #f7f1e8;
     border: 1px solid #eadfce;
     border-radius: 26px;
@@ -87,7 +67,7 @@ section[data-testid="stSidebar"] {
     overflow: hidden;
 }
 
-.hero-wrap img {
+.top-visual-wrap img {
     display: block;
     width: 100%;
     height: auto;
@@ -217,10 +197,6 @@ div.stButton > button:hover {
     .feature-title {
         font-size: 1.55rem;
     }
-
-    .top-logo-wrap img {
-        max-width: 680px;
-    }
 }
 
 @media (max-width: 860px) {
@@ -235,15 +211,6 @@ div.stButton > button:hover {
 
     .feature-desc {
         min-height: auto;
-    }
-
-    .top-logo-wrap {
-        padding: 0.08rem 0.45rem 0.05rem 0.45rem;
-        margin-bottom: 0.6rem;
-    }
-
-    .top-logo-wrap img {
-        max-width: 100%;
     }
 }
 </style>
@@ -304,8 +271,7 @@ def render_feature_card(
 
 st.markdown('<div class="home-shell">', unsafe_allow_html=True)
 
-show_top_image("assets/home_icons/top/logo.png", "top-logo-wrap")
-show_top_image("assets/home_icons/top/hero.png", "hero-wrap")
+show_top_image("assets/home_icons/top/top_visual.png", "top-visual-wrap")
 
 st.markdown("""
 <div class="main-copy">
