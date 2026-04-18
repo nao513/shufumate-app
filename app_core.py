@@ -125,63 +125,6 @@ for k, v in defaults.items():
 # Google Sheets
 # -----------------------------
 @st.cache_resource
-def get_gspread_client():
-    creds_dict = dict(st.secrets["gcp_service_account"])
-    scopes = [
-        "https://www.googleapis.com/auth/spreadsheets",
-        "https://www.googleapis.com/auth/drive",
-    ]
-    creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
-    return gspread.authorize(creds)
-
-
-@st.cache_resource
-def get_spreadsheet():
-    gc = get_gspread_client()
-    sheet_id = str(st.secrets["GOOGLE_SHEET_ID"]).strip()
-    return gc.open_by_key(sheet_id)
-
-
-@st.cache_resource
-def get_sheet(tab_name: str):
-    sh = get_spreadsheet()
-    return sh.worksheet(tab_name)
-
-
-def get_or_create_worksheet(sh, title, rows=1000, cols=30):
-    try:
-        return sh.worksheet(title)
-    except gspread.exceptions.WorksheetNotFound:
-        return sh.add_worksheet(title=title, rows=rows, cols=cols)
-
-
-def rewrite_sheet_with_header(ws, expected_header):
-    values = ws.get_all_values()
-
-    if not values:
-        ws.clear()
-        ws.append_row(expected_header)
-        return
-
-    current_header = values[0]
-    data_rows = values[1:]
-
-    if current_header == expected_header:
-        return
-
-    migrated_rows = []
-    for row in data_rows:
-        row = row + [""] * (len(current_header) - len(row))
-        row_dict = dict(zip(current_header, row))
-        migrated_rows.append([row_dict.get(col, "") for col in expected_header])
-
-    ws.clear()
-    ws.append_row(expected_header)
-    if migrated_rows:
-        ws.append_rows(migrated_rows)
-
-
-@st.cache_resource
 def ensure_headers():
     sh = get_spreadsheet()
 
@@ -192,23 +135,25 @@ def ensure_headers():
     advice_ws = get_or_create_worksheet(sh, "AdviceLogs")
 
     settings_header = [
-    "user_id", "gender", "age", "height_cm", "start_weight",
-    "target_weight", "start_body_fat", "target_body_fat",
-    "muscle_mass", "target_muscle_mass",
-    "meal_style", "ease_level", "staple_preference",
-    "fridge_items", "avoid_foods", "favorite_meals",
-    "favorite_protein_onigiri", "favorite_misodama_soup",
-    "plan_type", "lunch_style",
-    "real_mode", "daily_flow", "workout_today", "body_goal",
-    "exercise_intensity", "body_shape_goal", "dosha_type", "current_state_checks",
-    "home_prefecture", "home_area"
-]
-        diet_header = [
+        "user_id", "gender", "age", "height_cm", "start_weight",
+        "target_weight", "start_body_fat", "target_body_fat",
+        "muscle_mass", "target_muscle_mass",
+        "meal_style", "ease_level", "staple_preference",
+        "fridge_items", "avoid_foods", "favorite_meals",
+        "favorite_protein_onigiri", "favorite_misodama_soup",
+        "plan_type", "lunch_style",
+        "real_mode", "daily_flow", "workout_today", "body_goal",
+        "exercise_intensity", "body_shape_goal", "dosha_type", "current_state_checks",
+        "home_prefecture", "home_area"
+    ]
+
+    diet_header = [
         "user_id", "date", "gender", "age", "height_cm", "weight",
         "target_weight", "body_fat", "target_body_fat",
         "muscle_mass", "target_muscle_mass",
         "bmi", "goal_calories"
     ]
+
     plan_header = ["user_id", "date", "plan_text"]
     expenses_header = ["user_id", "date", "category", "store_name", "amount", "memo"]
     advice_header = ["user_id", "datetime", "category", "area", "question", "answer"]
@@ -218,7 +163,6 @@ def ensure_headers():
     rewrite_sheet_with_header(plans_ws, plan_header)
     rewrite_sheet_with_header(expenses_ws, expenses_header)
     rewrite_sheet_with_header(advice_ws, advice_header)
-
 
 def get_current_user_id():
     return "default_user"
