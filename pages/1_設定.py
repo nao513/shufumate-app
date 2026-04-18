@@ -1,110 +1,301 @@
 import streamlit as st
-from app_core import *
+import gspread
+from google.oauth2.service_account import Credentials
+from datetime import datetime
 
-st.set_page_config(page_title="初期設定｜ShufuMate", layout="wide")
-
-reload_user_data_if_needed()
-
-st.header("⚙️ 初期設定")
-st.caption("ShufuMateを使いやすくするための基本情報を登録できます。")
-
-st.info(
-    "体型情報や食事スタイル、地域などを登録しておくと、"
-    "他のページにも内容が反映され、毎日の記録や相談がより使いやすくなります。"
-)
-
-st.subheader("📌 基本の設定")
-st.selectbox("性別（任意）", ["未選択", "女性", "男性", "その他", "回答しない"], key="common_gender")
-st.number_input("年齢", min_value=20, max_value=100, step=1, key="common_age")
-st.number_input("身長（cm）", min_value=145.0, max_value=200.0, step=0.5, format="%.1f", key="common_height")
-st.number_input("スタート時の体重（kg）", min_value=39.0, max_value=200.0, step=0.1, format="%.1f", key="common_weight")
-st.number_input("目標体重（kg）", min_value=39.0, max_value=150.0, step=0.1, format="%.1f", key="common_target_weight")
-st.number_input("スタート時の体脂肪率（%）", min_value=5.0, max_value=60.0, step=0.1, format="%.1f", key="common_body_fat")
-st.number_input("目標体脂肪率（%）", min_value=5.0, max_value=60.0, step=0.1, format="%.1f", key="common_target_body_fat")
-st.number_input("筋肉量（kg）", min_value=10.0, max_value=80.0, step=0.1, format="%.1f", key="common_muscle_mass")
-st.number_input("目標筋肉量（kg）", min_value=10.0, max_value=80.0, step=0.1, format="%.1f", key="common_target_muscle_mass")
-
-st.subheader("🍽 食事・運動の初期値")
-st.radio(
-    "食事スタイル",
-    ["和食中心", "バランス", "おしゃれカフェ風", "タンパク質おにぎり＆味噌玉味噌汁"],
-    horizontal=True,
-    key="meal_style"
-)
-st.radio("調理レベル", ["超かんたん", "普通", "しっかり"], horizontal=True, key="ease_level")
-st.radio("主食の好み", ["ごはん派", "パン派", "どちらも"], horizontal=True, key="staple_preference")
-
-st.text_area("よくある冷蔵庫の食材", key="fridge_items")
-st.text_area(
-    "食べられないもの・避けたいもの",
-    key="avoid_foods",
-    placeholder="例：えび、かに、牡蠣、辛いもの、牛乳 など"
-)
-st.text_area(
-    "わたしの定番・好きな食事",
-    key="favorite_meals",
-    placeholder="例：納豆、豆乳、ブルーベリー"
-)
-
-st.radio("プランタイプ初期値", ["通常", "外食", "コンビニ"], horizontal=True, key="plan_type")
-st.selectbox("平日のお昼スタイル", ["指定なし", "お弁当", "コンビニ", "おすすめ定番", "外食", "自宅"], key="lunch_style")
-st.selectbox("運動強度", ["ゆるめ", "普通", "しっかり"], key="exercise_intensity")
-st.checkbox("主婦リアル提案モード初期値", key="real_mode")
-st.selectbox("食事の流れ初期値", ["普通", "朝しっかり・昼軽め", "食べすぎた", "あまり食べてない"], key="daily_flow")
-st.checkbox("運動あり初期値", key="workout_today")
-st.selectbox("目的初期値", ["バランス", "脚やせ", "脂肪燃焼", "むくみ改善"], key="body_goal")
-
-st.subheader("🧘 体質・体型チェック")
-st.selectbox(
-    "アーユルヴェーダ体質",
-    ["", "ヴァータ", "ピッタ", "カパ", "未設定"],
-    key="dosha_type"
-)
-
-st.selectbox(
-    "体型チェック",
-    ["全体バランス", "下半身", "お腹まわり", "二の腕", "姿勢", "むくみ", "ヒップ", "太もも"],
-    key="body_shape_goal"
-)
-
-st.multiselect(
-    "今の状態チェック",
-    ["疲れやすい", "むくみやすい", "冷えやすい", "食欲が乱れやすい", "便秘気味", "寝不足気味", "ストレスが強い", "なんとなくだるい"],
-    key="current_state_checks"
-)
-
-st.subheader("📍 地域設定")
-
-prefectures = [
-    "北海道","青森県","岩手県","宮城県","秋田県","山形県","福島県",
-    "茨城県","栃木県","群馬県","埼玉県","千葉県","東京都","神奈川県",
-    "新潟県","富山県","石川県","福井県","山梨県","長野県",
-    "岐阜県","静岡県","愛知県","三重県",
-    "滋賀県","京都府","大阪府","兵庫県","奈良県","和歌山県",
-    "鳥取県","島根県","岡山県","広島県","山口県",
-    "徳島県","香川県","愛媛県","高知県",
-    "福岡県","佐賀県","長崎県","熊本県","大分県","宮崎県","鹿児島県","沖縄県"
+# =========================
+# 基本設定
+# =========================
+SETTINGS_HEADERS = [
+    "user_id",
+    "nickname",
+    "age",
+    "height_cm",
+    "current_weight",
+    "target_weight",
+    "current_body_fat",
+    "target_body_fat",
+    "activity_level",
+    "food_style",
+    "user_type",
+    "updated_at",
 ]
 
-area_candidates = [
-    "仙台駅周辺", "長命ヶ丘", "泉中央", "八乙女", "吉成", "北山", "石巻", "利府", "多賀城"
+USER_TYPE_OPTIONS = [
+    "自分だけ向け",
+    "自分＋家族向け",
+    "節約重視",
+    "忙しい日向け",
 ]
 
-st.selectbox("都道府県", [""] + prefectures, key="home_prefecture")
-st.selectbox("よく使う地域・最寄りエリア（候補から選ぶ）", [""] + area_candidates, key="home_area")
-st.text_input("候補にない地域は自由入力", key="home_area_custom", placeholder="例：仙台市泉区南光台")
+ACTIVITY_LEVEL_OPTIONS = [
+    "低い",
+    "ふつう",
+    "高い",
+]
 
-c1, c2 = st.columns(2)
+FOOD_STYLE_OPTIONS = [
+    "バランス重視",
+    "和食中心",
+    "たんぱく質重視",
+    "節約重視",
+    "時短重視",
+]
 
-with c1:
-    if st.button("💾 初期設定を保存", use_container_width=True):
-        save_user_settings()
-        st.success("初期設定を保存しました。")
+DEFAULT_USER_ID = "default_user"
+
+
+# =========================
+# 共通関数
+# =========================
+def get_user_id() -> str:
+    if "user_id" not in st.session_state:
+        st.session_state["user_id"] = DEFAULT_USER_ID
+    return st.session_state["user_id"]
+
+
+def to_str(v) -> str:
+    return "" if v is None else str(v)
+
+
+def to_float(v, default=0.0) -> float:
+    try:
+        if v in [None, ""]:
+            return default
+        return float(v)
+    except Exception:
+        return default
+
+
+def to_int(v, default=0) -> int:
+    try:
+        if v in [None, ""]:
+            return default
+        return int(float(v))
+    except Exception:
+        return default
+
+
+@st.cache_resource
+def get_gspread_client():
+    scopes = [
+        "https://www.googleapis.com/auth/spreadsheets",
+        "https://www.googleapis.com/auth/drive",
+    ]
+    credentials = Credentials.from_service_account_info(
+        st.secrets["gcp_service_account"],
+        scopes=scopes,
+    )
+    return gspread.authorize(credentials)
+
+
+def get_spreadsheet():
+    client = get_gspread_client()
+    sheet_id = st.secrets["GOOGLE_SHEET_ID"]
+    return client.open_by_key(sheet_id)
+
+
+def get_or_create_settings_sheet():
+    ss = get_spreadsheet()
+    try:
+        ws = ss.worksheet("Settings")
+    except gspread.exceptions.WorksheetNotFound:
+        ws = ss.add_worksheet(title="Settings", rows=100, cols=len(SETTINGS_HEADERS))
+        ws.append_row(SETTINGS_HEADERS)
+
+    ensure_headers(ws, SETTINGS_HEADERS)
+    return ws
+
+
+def ensure_headers(ws, headers):
+    current = ws.row_values(1)
+    if current != headers:
+        ws.update("A1", [headers])
+
+
+def find_user_row(ws, user_id: str):
+    values = ws.get_all_values()
+    if len(values) <= 1:
+        return None
+
+    for row_idx, row in enumerate(values[1:], start=2):
+        if len(row) > 0 and row[0] == user_id:
+            return row_idx
+    return None
+
+
+def load_user_settings(user_id: str) -> dict:
+    ws = get_or_create_settings_sheet()
+    records = ws.get_all_records()
+
+    for record in records:
+        if str(record.get("user_id", "")) == user_id:
+            return {
+                "nickname": to_str(record.get("nickname", "")),
+                "age": to_int(record.get("age", 49), 49),
+                "height_cm": to_float(record.get("height_cm", 160.0), 160.0),
+                "current_weight": to_float(record.get("current_weight", 50.0), 50.0),
+                "target_weight": to_float(record.get("target_weight", 48.0), 48.0),
+                "current_body_fat": to_float(record.get("current_body_fat", 30.0), 30.0),
+                "target_body_fat": to_float(record.get("target_body_fat", 28.0), 28.0),
+                "activity_level": to_str(record.get("activity_level", "ふつう")) or "ふつう",
+                "food_style": to_str(record.get("food_style", "バランス重視")) or "バランス重視",
+                "user_type": to_str(record.get("user_type", "自分だけ向け")) or "自分だけ向け",
+            }
+
+    return {
+        "nickname": "",
+        "age": 49,
+        "height_cm": 160.0,
+        "current_weight": 50.0,
+        "target_weight": 48.0,
+        "current_body_fat": 30.0,
+        "target_body_fat": 28.0,
+        "activity_level": "ふつう",
+        "food_style": "バランス重視",
+        "user_type": "自分だけ向け",
+    }
+
+
+def save_user_settings(user_id: str, data: dict):
+    ws = get_or_create_settings_sheet()
+    row_data = [
+        user_id,
+        data["nickname"],
+        data["age"],
+        data["height_cm"],
+        data["current_weight"],
+        data["target_weight"],
+        data["current_body_fat"],
+        data["target_body_fat"],
+        data["activity_level"],
+        data["food_style"],
+        data["user_type"],
+        datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+    ]
+
+    row_index = find_user_row(ws, user_id)
+
+    if row_index:
+        end_col = chr(64 + len(SETTINGS_HEADERS))
+        ws.update(f"A{row_index}:{end_col}{row_index}", [row_data])
+    else:
+        ws.append_row(row_data)
+
+
+# =========================
+# 画面
+# =========================
+st.title("⚙️ 設定")
+st.caption("提案に使う基本情報を保存します")
+
+user_id = get_user_id()
+
+try:
+    settings = load_user_settings(user_id)
+except Exception as e:
+    st.error(f"設定の読込に失敗しました: {e}")
+    st.stop()
+
+with st.form("settings_form"):
+    nickname = st.text_input("ニックネーム", value=settings["nickname"])
+
+    age = st.number_input(
+        "年齢",
+        min_value=18,
+        max_value=100,
+        value=int(settings["age"]),
+        step=1,
+    )
+
+    height_cm = st.number_input(
+        "身長(cm)",
+        min_value=100.0,
+        max_value=220.0,
+        value=float(settings["height_cm"]),
+        step=0.5,
+        format="%.1f",
+    )
+
+    current_weight = st.number_input(
+        "現在体重(kg)",
+        min_value=20.0,
+        max_value=200.0,
+        value=float(settings["current_weight"]),
+        step=0.1,
+        format="%.1f",
+    )
+
+    target_weight = st.number_input(
+        "目標体重(kg)",
+        min_value=20.0,
+        max_value=200.0,
+        value=float(settings["target_weight"]),
+        step=0.1,
+        format="%.1f",
+    )
+
+    current_body_fat = st.number_input(
+        "現在体脂肪(%)",
+        min_value=0.0,
+        max_value=70.0,
+        value=float(settings["current_body_fat"]),
+        step=0.1,
+        format="%.1f",
+    )
+
+    target_body_fat = st.number_input(
+        "目標体脂肪(%)",
+        min_value=0.0,
+        max_value=70.0,
+        value=float(settings["target_body_fat"]),
+        step=0.1,
+        format="%.1f",
+    )
+
+    activity_level = st.selectbox(
+        "活動量",
+        ACTIVITY_LEVEL_OPTIONS,
+        index=ACTIVITY_LEVEL_OPTIONS.index(settings["activity_level"])
+        if settings["activity_level"] in ACTIVITY_LEVEL_OPTIONS
+        else 1,
+    )
+
+    food_style = st.selectbox(
+        "食事スタイル",
+        FOOD_STYLE_OPTIONS,
+        index=FOOD_STYLE_OPTIONS.index(settings["food_style"])
+        if settings["food_style"] in FOOD_STYLE_OPTIONS
+        else 0,
+    )
+
+    user_type = st.selectbox(
+        "利用タイプ",
+        USER_TYPE_OPTIONS,
+        index=USER_TYPE_OPTIONS.index(settings["user_type"])
+        if settings["user_type"] in USER_TYPE_OPTIONS
+        else 0,
+    )
+
+    submitted = st.form_submit_button("保存", use_container_width=True)
+
+if submitted:
+    save_data = {
+        "nickname": nickname.strip(),
+        "age": int(age),
+        "height_cm": float(height_cm),
+        "current_weight": float(current_weight),
+        "target_weight": float(target_weight),
+        "current_body_fat": float(current_body_fat),
+        "target_body_fat": float(target_body_fat),
+        "activity_level": activity_level,
+        "food_style": food_style,
+        "user_type": user_type,
+    }
+
+    try:
+        save_user_settings(user_id, save_data)
+        st.success("設定を保存しました")
         st.rerun()
-
-with c2:
-    if st.button("↺ 初期設定をリセット", use_container_width=True):
-        reset_user_settings()
-        save_user_settings()
-        st.success("初期設定をリセットしました。")
-        st.rerun()
+    except Exception as e:
+        st.error(f"保存に失敗しました: {e}")
