@@ -24,31 +24,41 @@ section[data-testid="stSidebar"] {
 }
 
 .block-container {
-    max-width: 960px;
-    padding-top: 2rem;
+    max-width: 980px;
+    padding-top: 1.6rem;
     padding-bottom: 3rem;
 }
 
 .home-shell {
     background: #f8f3ec;
     border: 1px solid #e7ddd2;
-    border-radius: 42px;
-    padding: 2.5rem 2.1rem 2.2rem 2.1rem;
+    border-radius: 38px;
+    padding: 1.8rem 1.8rem 2.2rem 1.8rem;
     box-shadow: 0 10px 28px rgba(91, 58, 41, 0.05);
 }
 
-.logo-wrap {
-    max-width: 310px;
-    margin: 0 auto 1rem auto;
+.top-logo-wrap {
+    background: #f7f1e8;
+    border: 1px solid #eadfce;
+    border-radius: 24px;
+    padding: 1rem 1.2rem 0.8rem 1.2rem;
+    margin-bottom: 1rem;
+}
+
+.hero-wrap {
+    overflow: hidden;
+    border-radius: 26px;
+    margin-bottom: 1.4rem;
+    border: 1px solid #eadfce;
 }
 
 .main-copy {
     text-align: center;
     color: #5b3a29;
-    font-size: 2.15rem;
+    font-size: 2rem;
     font-weight: 700;
     line-height: 1.55;
-    margin-top: 0.8rem;
+    margin-top: 0.2rem;
 }
 
 .sub-copy {
@@ -56,8 +66,8 @@ section[data-testid="stSidebar"] {
     color: #7a6454;
     font-size: 1rem;
     line-height: 1.9;
-    margin-top: 0.9rem;
-    margin-bottom: 1.1rem;
+    margin-top: 0.8rem;
+    margin-bottom: 1rem;
 }
 
 .deco {
@@ -65,7 +75,7 @@ section[data-testid="stSidebar"] {
     color: #c9a27f;
     font-size: 1rem;
     letter-spacing: 0.2rem;
-    margin-bottom: 1.4rem;
+    margin-bottom: 1.2rem;
 }
 
 .small-note-wrap {
@@ -194,8 +204,12 @@ def render_feature_card(
 
 st.markdown('<div class="home-shell">', unsafe_allow_html=True)
 
-st.markdown('<div class="logo-wrap">', unsafe_allow_html=True)
-st.image("ChatGPT Image 2025年5月17日 13_33_39.png", use_container_width=True)
+st.markdown('<div class="top-logo-wrap">', unsafe_allow_html=True)
+st.image("assets/top/logo.png", use_container_width=True)
+st.markdown('</div>', unsafe_allow_html=True)
+
+st.markdown('<div class="hero-wrap">', unsafe_allow_html=True)
+st.image("assets/top/hero.png", use_container_width=True)
 st.markdown('</div>', unsafe_allow_html=True)
 
 st.markdown("""
