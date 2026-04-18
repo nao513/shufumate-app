@@ -650,3 +650,52 @@ def render_exercise_card(exercise: dict):
         """,
         unsafe_allow_html=True,
     )
+
+# =========================
+# ホーム用サマリー
+# =========================
+def get_home_progress_summary(user_id: str) -> dict:
+    settings = load_user_settings(user_id)
+    latest = load_latest_log(user_id)
+
+    current_weight = settings["current_weight"]
+    target_weight = settings["target_weight"]
+    current_body_fat = settings["current_body_fat"]
+    target_body_fat = settings["target_body_fat"]
+
+    latest_date = "未記録"
+    latest_weight = None
+    latest_body_fat = None
+
+    if latest:
+        latest_date = to_str(latest.get("log_date", "未記録")) or "未記録"
+        latest_weight = to_float(latest.get("weight", current_weight), current_weight)
+        latest_body_fat = to_float(latest.get("body_fat", current_body_fat), current_body_fat)
+    else:
+        latest_weight = current_weight
+        latest_body_fat = current_body_fat
+
+    weight_diff = round(latest_weight - target_weight, 1)
+    body_fat_diff = round(latest_body_fat - target_body_fat, 1)
+
+    if weight_diff > 0:
+        weight_text = f"目標まであと {weight_diff:.1f}kg"
+    elif weight_diff < 0:
+        weight_text = f"目標を {abs(weight_diff):.1f}kg 下回っています"
+    else:
+        weight_text = "体重は目標ぴったりです"
+
+    if body_fat_diff > 0:
+        body_fat_text = f"目標まであと {body_fat_diff:.1f}%"
+    elif body_fat_diff < 0:
+        body_fat_text = f"目標を {abs(body_fat_diff):.1f}% 下回っています"
+    else:
+        body_fat_text = "体脂肪は目標ぴったりです"
+
+    return {
+        "latest_date": latest_date,
+        "latest_weight": latest_weight,
+        "latest_body_fat": latest_body_fat,
+        "weight_text": weight_text,
+        "body_fat_text": body_fat_text,
+    }
