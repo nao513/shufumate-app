@@ -16,12 +16,13 @@ def img_to_base64(path: str) -> str:
     return base64.b64encode(Path(path).read_bytes()).decode()
 
 
-def show_top_image(path: str, wrap_class: str):
+def show_top_image(path: str, wrap_class: str, img_class: str = ""):
     img_b64 = img_to_base64(path)
+    extra_class = f" {img_class}" if img_class else ""
     st.markdown(
         f'''
         <div class="{wrap_class}">
-            <img src="data:image/png;base64,{img_b64}">
+            <img class="{extra_class.strip()}" src="data:image/png;base64,{img_b64}">
         </div>
         ''',
         unsafe_allow_html=True
@@ -62,16 +63,19 @@ section[data-testid="stSidebar"] {
     background: #f7f1e8;
     border: 1px solid #eadfce;
     border-radius: 24px;
-    padding: 0.45rem 0.9rem 0.35rem 0.9rem;
-    margin-bottom: 0.95rem;
+    padding: 0.12rem 0.7rem 0.08rem 0.7rem;
+    margin-bottom: 0.75rem;
     overflow: hidden;
+    display: flex;
+    justify-content: center;
+    align-items: center;
 }
 
 .top-logo-wrap img {
     display: block;
     width: 100%;
+    max-width: 720px;
     height: auto;
-    border-radius: 14px;
 }
 
 .hero-wrap {
@@ -213,6 +217,10 @@ div.stButton > button:hover {
     .feature-title {
         font-size: 1.55rem;
     }
+
+    .top-logo-wrap img {
+        max-width: 680px;
+    }
 }
 
 @media (max-width: 860px) {
@@ -230,7 +238,12 @@ div.stButton > button:hover {
     }
 
     .top-logo-wrap {
-        padding: 0.35rem 0.65rem 0.3rem 0.65rem;
+        padding: 0.08rem 0.45rem 0.05rem 0.45rem;
+        margin-bottom: 0.6rem;
+    }
+
+    .top-logo-wrap img {
+        max-width: 100%;
     }
 }
 </style>
