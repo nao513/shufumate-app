@@ -726,7 +726,6 @@ def load_log_chart_df(user_id: str) -> pd.DataFrame:
         na_position="last",
     )
 
-    # 同じ日付に複数記録がある場合は最後の記録を採用
     df = df.drop_duplicates(subset=["log_date"], keep="last")
 
     chart_df = pd.DataFrame(
@@ -738,6 +737,3 @@ def load_log_chart_df(user_id: str) -> pd.DataFrame:
     ).set_index("日付")
 
     return chart_df
-
-    
-    )
