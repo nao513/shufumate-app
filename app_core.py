@@ -1,1320 +1,652 @@
-import base64
-import io
-import re
-import os
-import tempfile
-import cv2
-import hashlib
-from datetime import datetime
-
+import streamlit as st
 import gspread
 import pandas as pd
-import streamlit as st
-from openai import OpenAI
-from PIL import Image
 from google.oauth2.service_account import Credentials
+from datetime import datetime
+from uuid import uuid4
 
-UI_TEXT = {
-    "update": "更新する",
-    "save": "保存する",
-    "delete": "削除",
-    "upload": "写真を追加",
-    "settings": "設定",
-    "notice": "お知らせ",
-}
+# =========================
+# 定数
+# =========================
+SETTINGS_HEADERS = [
+    "user_id",
+    "nickname",
+    "age",
+    "height_cm",
+    "current_weight",
+    "target_weight",
+    "current_body_fat",
+    "target_body_fat",
+    "activity_level",
+    "food_style",
+    "user_type",
+    "updated_at",
+]
 
-# -----------------------------
-# Session defaults
-# -----------------------------
-defaults = {
-    "user_name_input": "",
+DIETLOG_HEADERS = [
+    "user_id",
+    "log_date",
+    "weight",
+    "body_fat",
+    "meal_memo",
+    "exercise_memo",
+    "condition_note",
+    "mood_note",
+    "created_at",
+]
 
-    "common_gender": "未選択",
-    "common_age": 40,
-    "common_height": 160.0,
-    "common_weight": 50.0,
-    "common_target_weight": 48.0,
-    "common_body_fat": 28.0,
-    "common_target_body_fat": 24.0,
-    "common_muscle_mass": 35.0,
-    "common_target_muscle_mass": 38.0,
+USER_TYPE_OPTIONS = [
+    "自分だけ向け",
+    "自分＋家族向け",
+    "節約重視",
+    "忙しい日向け",
+]
 
-    "meal_style": "和食中心",
-    "ease_level": "超かんたん",
-    "staple_preference": "ごはん派",
-    "fridge_items": "",
-    "avoid_foods": "",
-    "favorite_meals": "",
-    "favorite_protein_onigiri": "",
-    "favorite_misodama_soup": "",
-    "plan_type": "通常",
-    "lunch_style": "指定なし",
-    "real_mode": True,
-    "daily_flow": "普通",
-    "workout_today": False,
-    "body_goal": "バランス",
-    "exercise_intensity": "普通",
-    "body_shape_goal": "全体バランス",
+ACTIVITY_LEVEL_OPTIONS = [
+    "低い",
+    "ふつう",
+    "高い",
+]
 
-    "home_prefecture": "",
-    "home_area": "",
-    "home_area_custom": "",
+FOOD_STYLE_OPTIONS = [
+    "バランス重視",
+    "和食中心",
+    "たんぱく質重視",
+    "節約重視",
+    "時短重視",
+]
 
-    "dosha_type": "",
-    "current_state_checks": [],
+CATEGORY_OPTIONS = [
+    "食事",
+    "運動",
+    "体調",
+    "外食調整",
+]
 
-    "diet_logs": [],
-    "today_plan_date": "",
-    "today_plan_text": "",
-
-    "fridge_scan_images": [],
-    "photo_fridge_items": "",
-    "processed_fridge_upload_hashes": [],
-    "fridge_photo_uploader_version": 0,
-
-    "scale_scan_images": [],
-    "selected_scale_index": 0,
-    "photo_scale_result": "",
-    "processed_scale_upload_hashes": [],
-    "scale_photo_uploader_version": 0,
-    "scale_video_uploader_version": 0,
-
-    "receipt_result": "",
-    "receipt_store": "",
-    "receipt_date_text": "",
-    "receipt_date_value": None,
-    "receipt_amount": 0,
-    "receipt_memo": "",
-    "receipt_scan_images": [],
-    "selected_receipt_index": 0,
-
-    "expenses": [],
-    "schedules": [],
-
-    "body_check_comment": "",
-    "body_scan_comment": "",
-    "body_goal_scan": "バランス",
-    "ideal_body_prompt_result": "",
-    "ideal_body_image_bytes": None,
-    "body_crop_top_percent": 15,
-    "use_cropped_body": True,
-    "ideal_face_mode": "顔は反映しない",
-    "ideal_image_from_photo_result": "",
-
-    "quick_advice_question": "",
-    "quick_advice_result": "",
-    "advice_category": "食事相談",
-    "advice_area": "",
-    "advice_logs": [],
-    "site_hint": "syufuosusume.com",
-
-    "meal_eval_result": "",
-
-    "settings_snapshot": {},
-    "last_loaded_user_id": "",
-}
-
-for k, v in defaults.items():
-    if k not in st.session_state:
-        st.session_state[k] = v
+WEEKDAY_JP = ["月", "火", "水", "木", "金", "土", "日"]
 
 
-# -----------------------------
-# Google Sheets
-# -----------------------------
+# =========================
+# 共通変換
+# =========================
+def to_str(v) -> str:
+    return "" if v is None else str(v)
+
+
+def to_float(v, default=0.0) -> float:
+    try:
+        if v in [None, ""]:
+            return default
+        return float(v)
+    except Exception:
+        return default
+
+
+def to_int(v, default=0) -> int:
+    try:
+        if v in [None, ""]:
+            return default
+        return int(float(v))
+    except Exception:
+        return default
+
+
+# =========================
+# ユーザーID
+# =========================
+def get_user_id() -> str:
+    if "user_id" in st.session_state:
+        return st.session_state["user_id"]
+
+    uid = st.query_params.get("uid", "")
+    if isinstance(uid, list):
+        uid = uid[0] if uid else ""
+
+    uid = str(uid).strip()
+
+    if not uid:
+        uid = uuid4().hex
+        st.query_params["uid"] = uid
+
+    st.session_state["user_id"] = uid
+    return uid
+
+
+# =========================
+# Google Sheets接続
+# =========================
 @st.cache_resource
 def get_gspread_client():
-    creds_dict = dict(st.secrets["gcp_service_account"])
     scopes = [
         "https://www.googleapis.com/auth/spreadsheets",
         "https://www.googleapis.com/auth/drive",
     ]
-    creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
-    return gspread.authorize(creds)
+    credentials = Credentials.from_service_account_info(
+        st.secrets["gcp_service_account"],
+        scopes=scopes,
+    )
+    return gspread.authorize(credentials)
 
 
-@st.cache_resource
 def get_spreadsheet():
-    gc = get_gspread_client()
-    sheet_id = str(st.secrets["GOOGLE_SHEET_ID"]).strip()
-    return gc.open_by_key(sheet_id)
+    client = get_gspread_client()
+    sheet_id = st.secrets["GOOGLE_SHEET_ID"]
+    return client.open_by_key(sheet_id)
 
 
-@st.cache_resource
-def get_sheet(tab_name: str):
-    sh = get_spreadsheet()
-    return sh.worksheet(tab_name)
+def ensure_headers(ws, headers):
+    current = ws.row_values(1)
+    if current != headers:
+        ws.update("A1", [headers])
 
 
-def get_or_create_worksheet(sh, title, rows=1000, cols=30):
+def get_or_create_sheet(title: str, headers: list[str], rows: int = 200):
+    ss = get_spreadsheet()
     try:
-        return sh.worksheet(title)
+        ws = ss.worksheet(title)
     except gspread.exceptions.WorksheetNotFound:
-        return sh.add_worksheet(title=title, rows=rows, cols=cols)
+        ws = ss.add_worksheet(title=title, rows=rows, cols=len(headers))
+        ws.append_row(headers)
+
+    ensure_headers(ws, headers)
+    return ws
 
 
-def rewrite_sheet_with_header(ws, expected_header):
+def get_settings_sheet():
+    return get_or_create_sheet("Settings", SETTINGS_HEADERS, rows=200)
+
+
+def get_dietlogs_sheet():
+    return get_or_create_sheet("DietLogs", DIETLOG_HEADERS, rows=1000)
+
+
+# =========================
+# Settings保存・読込
+# =========================
+def find_user_row(ws, user_id: str):
     values = ws.get_all_values()
-
-    if not values:
-        ws.clear()
-        ws.append_row(expected_header)
-        return
-
-    current_header = values[0]
-    data_rows = values[1:]
-
-    if current_header == expected_header:
-        return
-
-    migrated_rows = []
-    for row in data_rows:
-        row = row + [""] * (len(current_header) - len(row))
-        row_dict = dict(zip(current_header, row))
-        migrated_rows.append([row_dict.get(col, "") for col in expected_header])
-
-    ws.clear()
-    ws.append_row(expected_header)
-    if migrated_rows:
-        ws.append_rows(migrated_rows)
-
-
-@st.cache_resource
-def ensure_headers():
-    sh = get_spreadsheet()
-
-    settings_ws = get_or_create_worksheet(sh, "Settings")
-    diet_ws = get_or_create_worksheet(sh, "DietLogs")
-    plans_ws = get_or_create_worksheet(sh, "TodayPlans")
-    expenses_ws = get_or_create_worksheet(sh, "Expenses")
-    advice_ws = get_or_create_worksheet(sh, "AdviceLogs")
-
-    settings_header = [
-        "user_id", "gender", "age", "height_cm", "start_weight",
-        "target_weight", "start_body_fat", "target_body_fat",
-        "muscle_mass", "target_muscle_mass",
-        "meal_style", "ease_level", "staple_preference",
-        "fridge_items", "avoid_foods", "favorite_meals",
-        "favorite_protein_onigiri", "favorite_misodama_soup",
-        "plan_type", "lunch_style",
-        "real_mode", "daily_flow", "workout_today", "body_goal",
-        "exercise_intensity", "body_shape_goal", "dosha_type", "current_state_checks",
-        "home_prefecture", "home_area"
-    ]
-
-    diet_header = [
-        "user_id", "date", "gender", "age", "height_cm", "weight",
-        "target_weight", "body_fat", "target_body_fat",
-        "muscle_mass", "target_muscle_mass",
-        "bmi", "goal_calories"
-    ]
-
-    plan_header = ["user_id", "date", "plan_text"]
-    expenses_header = ["user_id", "date", "category", "store_name", "amount", "memo"]
-    advice_header = ["user_id", "datetime", "category", "area", "question", "answer"]
-
-    rewrite_sheet_with_header(settings_ws, settings_header)
-    rewrite_sheet_with_header(diet_ws, diet_header)
-    rewrite_sheet_with_header(plans_ws, plan_header)
-    rewrite_sheet_with_header(expenses_ws, expenses_header)
-    rewrite_sheet_with_header(advice_ws, advice_header)
-
-
-def get_current_user_id():
-    return "default_user"
-
-
-def load_user_settings():
-    ws = get_sheet("Settings")
-    values = ws.get_all_values()
-    current_user_id = get_current_user_id()
-
-    if len(values) < 2 or not current_user_id:
+    if len(values) <= 1:
         return None
 
-    header = values[0]
-    data_rows = values[1:]
+    for row_idx, row in enumerate(values[1:], start=2):
+        if len(row) > 0 and row[0] == user_id:
+            return row_idx
+    return None
 
-    for row in data_rows:
-        if not row:
-            continue
 
-        row = row + [""] * (len(header) - len(row))
-        row_dict = dict(zip(header, row))
+def load_user_settings(user_id: str) -> dict:
+    ws = get_settings_sheet()
+    records = ws.get_all_records()
 
-        if row_dict.get("user_id") == current_user_id:
+    for record in records:
+        if str(record.get("user_id", "")) == user_id:
             return {
-                "common_gender": row_dict.get("gender", "未選択") or "未選択",
-                "common_age": int(float(row_dict["age"])) if row_dict.get("age") else 40,
-                "common_height": float(row_dict["height_cm"]) if row_dict.get("height_cm") else 160.0,
-                "common_weight": float(row_dict["start_weight"]) if row_dict.get("start_weight") else 50.0,
-                "common_target_weight": float(row_dict["target_weight"]) if row_dict.get("target_weight") else 48.0,
-                "common_body_fat": float(row_dict["start_body_fat"]) if row_dict.get("start_body_fat") else 28.0,
-                "common_target_body_fat": float(row_dict["target_body_fat"]) if row_dict.get("target_body_fat") else 24.0,
-                "common_muscle_mass": float(row_dict["muscle_mass"]) if row_dict.get("muscle_mass") else 35.0,
-                "common_target_muscle_mass": float(row_dict["target_muscle_mass"]) if row_dict.get("target_muscle_mass") else 38.0,
-                "meal_style": row_dict.get("meal_style", "和食中心") or "和食中心",
-                "ease_level": row_dict.get("ease_level", "超かんたん") or "超かんたん",
-                "staple_preference": row_dict.get("staple_preference", "ごはん派") or "ごはん派",
-                "fridge_items": row_dict.get("fridge_items", "") or "",
-                "avoid_foods": row_dict.get("avoid_foods", "") or "",
-                "favorite_meals": row_dict.get("favorite_meals", "") or "",
-                "favorite_protein_onigiri": row_dict.get("favorite_protein_onigiri", "") or "",
-                "favorite_misodama_soup": row_dict.get("favorite_misodama_soup", "") or "",
-                "plan_type": row_dict.get("plan_type", "通常") or "通常",
-                "lunch_style": row_dict.get("lunch_style", "指定なし") or "指定なし",
-                "real_mode": str(row_dict.get("real_mode", "True")).lower() == "true",
-                "daily_flow": row_dict.get("daily_flow", "普通") or "普通",
-                "workout_today": str(row_dict.get("workout_today", "False")).lower() == "true",
-                "body_goal": row_dict.get("body_goal", "バランス") or "バランス",
-                "exercise_intensity": row_dict.get("exercise_intensity", "普通") or "普通",
-                "body_shape_goal": row_dict.get("body_shape_goal", "全体バランス") or "全体バランス",
-                "home_prefecture": row_dict.get("home_prefecture", "") or "",
-                "home_area": row_dict.get("home_area", "") or "",
-                "home_area_custom": "",
-                "dosha_type": row_dict.get("dosha_type", "") or "",
-                "current_state_checks": [x.strip() for x in row_dict.get("current_state_checks", "").split(",") if x.strip()],
+                "nickname": to_str(record.get("nickname", "")),
+                "age": to_int(record.get("age", 49), 49),
+                "height_cm": to_float(record.get("height_cm", 160.0), 160.0),
+                "current_weight": to_float(record.get("current_weight", 50.0), 50.0),
+                "target_weight": to_float(record.get("target_weight", 48.0), 48.0),
+                "current_body_fat": to_float(record.get("current_body_fat", 30.0), 30.0),
+                "target_body_fat": to_float(record.get("target_body_fat", 28.0), 28.0),
+                "activity_level": to_str(record.get("activity_level", "ふつう")) or "ふつう",
+                "food_style": to_str(record.get("food_style", "バランス重視")) or "バランス重視",
+                "user_type": to_str(record.get("user_type", "自分だけ向け")) or "自分だけ向け",
             }
 
-    return None
-
-
-def load_settings_into_session():
-    saved = load_user_settings()
-    if not saved:
-        return
-    for k, v in saved.items():
-        st.session_state[k] = v
-
-
-def save_user_settings():
-    ws = get_sheet("Settings")
-    values = ws.get_all_values()
-    current_user_id = get_current_user_id()
-
-    row_values = [
-        current_user_id,
-        st.session_state["common_gender"],
-        st.session_state["common_age"],
-        st.session_state["common_height"],
-        st.session_state["common_weight"],
-        st.session_state["common_target_weight"],
-        st.session_state["common_body_fat"],
-        st.session_state["common_target_body_fat"],
-        st.session_state["common_muscle_mass"],
-        st.session_state["common_target_muscle_mass"],
-        st.session_state["meal_style"],
-        st.session_state["ease_level"],
-        st.session_state["staple_preference"],
-        st.session_state["fridge_items"],
-        st.session_state.get("avoid_foods", ""),
-        st.session_state.get("favorite_meals", ""),
-        st.session_state.get("favorite_protein_onigiri", ""),
-        st.session_state.get("favorite_misodama_soup", ""),
-        st.session_state["plan_type"],
-        st.session_state["lunch_style"],
-        str(st.session_state["real_mode"]),
-        st.session_state["daily_flow"],
-        str(st.session_state["workout_today"]),
-        st.session_state["body_goal"],
-        st.session_state["exercise_intensity"],
-        st.session_state["body_shape_goal"],
-        st.session_state["dosha_type"],
-        ",".join(st.session_state.get("current_state_checks", [])),
-        st.session_state.get("home_prefecture", ""),
-        st.session_state.get("home_area_custom", "").strip() or st.session_state.get("home_area", ""),
-    ]
-
-    row_index = None
-    for i, row in enumerate(values[1:], start=2):
-        if row and row[0] == current_user_id:
-            row_index = i
-            break
-
-    if row_index:
-        ws.update(f"A{row_index}:AD{row_index}", [row_values])
-    else:
-        ws.append_row(row_values)
-
-
-def reset_user_settings():
-    for k, v in defaults.items():
-        if k in st.session_state:
-            st.session_state[k] = v
-
-
-def load_diet_logs():
-    ws = get_sheet("DietLogs")
-    values = ws.get_all_values()
-    current_user_id = get_current_user_id()
-
-    if len(values) < 2 or not current_user_id:
-        return []
-
-    header = values[0]
-    data_rows = values[1:]
-    logs = []
-
-    for row in data_rows:
-        if not row:
-            continue
-
-        row = row + [""] * (len(header) - len(row))
-        row_dict = dict(zip(header, row))
-
-        if row_dict.get("user_id") == current_user_id:
-            logs.append({
-                "日付": row_dict.get("date", ""),
-                "性別": row_dict.get("gender", "未選択"),
-                "年齢": float(row_dict["age"]) if row_dict.get("age") else 0,
-                "身長(cm)": float(row_dict["height_cm"]) if row_dict.get("height_cm") else 0,
-                "体重(kg)": float(row_dict["weight"]) if row_dict.get("weight") else 0,
-                "目標体重(kg)": float(row_dict["target_weight"]) if row_dict.get("target_weight") else 0,
-                "体脂肪率(%)": float(row_dict["body_fat"]) if row_dict.get("body_fat") else 0,
-                "目標体脂肪率(%)": float(row_dict["target_body_fat"]) if row_dict.get("target_body_fat") else 0,
-                "筋肉量(kg)": float(row_dict["muscle_mass"]) if row_dict.get("muscle_mass") else 0,
-                "目標筋肉量(kg)": float(row_dict["target_muscle_mass"]) if row_dict.get("target_muscle_mass") else 0,
-                "BMI": float(row_dict["bmi"]) if row_dict.get("bmi") else 0,
-                "目標摂取カロリー": float(row_dict["goal_calories"]) if row_dict.get("goal_calories") else 0,
-            })
-
-    return logs
-
-
-def sync_common_from_latest_diet_log():
-    logs = st.session_state.get("diet_logs", [])
-    if not logs:
-        return
-
-    latest = logs[-1]
-    if latest.get("性別") not in [None, ""]:
-        st.session_state["common_gender"] = latest["性別"]
-    if latest.get("年齢") not in [None, ""]:
-        st.session_state["common_age"] = int(float(latest["年齢"]))
-    if latest.get("身長(cm)") not in [None, ""]:
-        st.session_state["common_height"] = float(latest["身長(cm)"])
-    if latest.get("体重(kg)") not in [None, ""]:
-        st.session_state["common_weight"] = float(latest["体重(kg)"])
-    if latest.get("目標体重(kg)") not in [None, ""]:
-        st.session_state["common_target_weight"] = float(latest["目標体重(kg)"])
-    if latest.get("体脂肪率(%)") not in [None, ""]:
-        st.session_state["common_body_fat"] = float(latest["体脂肪率(%)"])
-    if latest.get("目標体脂肪率(%)") not in [None, ""]:
-        st.session_state["common_target_body_fat"] = float(latest["目標体脂肪率(%)"])
-    if latest.get("筋肉量(kg)") not in [None, ""]:
-        st.session_state["common_muscle_mass"] = float(latest["筋肉量(kg)"])
-    if latest.get("目標筋肉量(kg)") not in [None, ""]:
-        st.session_state["common_target_muscle_mass"] = float(latest["目標筋肉量(kg)"])
-
-
-def upsert_diet_log(log_dict):
-    ws = get_sheet("DietLogs")
-    values = ws.get_all_values()
-    current_user_id = get_current_user_id()
-
-    row_values = [
-        current_user_id,
-        log_dict["日付"],
-        log_dict["性別"],
-        log_dict["年齢"],
-        log_dict["身長(cm)"],
-        log_dict["体重(kg)"],
-        log_dict["目標体重(kg)"],
-        log_dict["体脂肪率(%)"],
-        log_dict["目標体脂肪率(%)"],
-        log_dict.get("筋肉量(kg)", ""),
-        log_dict.get("目標筋肉量(kg)", ""),
-        log_dict["BMI"],
-        log_dict["目標摂取カロリー"],
-    ]
-
-    row_index = None
-    for i, row in enumerate(values[1:], start=2):
-        if len(row) >= 2 and row[0] == current_user_id and row[1] == log_dict["日付"]:
-            row_index = i
-            break
-
-    if row_index:
-        ws.update(f"A{row_index}:M{row_index}", [row_values])
-    else:
-        ws.append_row(row_values)
-
-
-def load_expenses():
-    ws = get_sheet("Expenses")
-    values = ws.get_all_values()
-    current_user_id = get_current_user_id()
-
-    if len(values) < 2 or not current_user_id:
-        return []
-
-    header = values[0]
-    data_rows = values[1:]
-    expenses = []
-
-    for idx, row in enumerate(data_rows, start=2):
-        if not row:
-            continue
-
-        row = row + [""] * (len(header) - len(row))
-        row_dict = dict(zip(header, row))
-
-        if row_dict.get("user_id") == current_user_id:
-            expenses.append({
-                "_sheet_row": idx,
-                "日付": row_dict.get("date", ""),
-                "カテゴリ": row_dict.get("category", ""),
-                "店名": row_dict.get("store_name", ""),
-                "金額": int(float(row_dict["amount"])) if row_dict.get("amount") else 0,
-                "メモ": row_dict.get("memo", ""),
-            })
-
-    return expenses
-
-
-def append_expense(expense_dict):
-    ws = get_sheet("Expenses")
-    current_user_id = get_current_user_id()
-
-    row_values = [
-        current_user_id,
-        expense_dict["日付"],
-        expense_dict["カテゴリ"],
-        expense_dict["店名"],
-        expense_dict["金額"],
-        expense_dict["メモ"],
-    ]
-    ws.append_row(row_values)
-
-
-def delete_expense(sheet_row: int):
-    ws = get_sheet("Expenses")
-    ws.delete_rows(sheet_row)
-
-
-def load_advice_logs():
-    ws = get_sheet("AdviceLogs")
-    values = ws.get_all_values()
-    current_user_id = get_current_user_id()
-
-    if len(values) < 2 or not current_user_id:
-        return []
-
-    header = values[0]
-    data_rows = values[1:]
-    logs = []
-
-    for row in data_rows:
-        if not row:
-            continue
-
-        row = row + [""] * (len(header) - len(row))
-        row_dict = dict(zip(header, row))
-
-        if row_dict.get("user_id") == current_user_id:
-            logs.append({
-                "日時": row_dict.get("datetime", ""),
-                "カテゴリ": row_dict.get("category", ""),
-                "地域": row_dict.get("area", ""),
-                "相談内容": row_dict.get("question", ""),
-                "回答": row_dict.get("answer", ""),
-            })
-
-    logs.sort(key=lambda x: x["日時"], reverse=True)
-    return logs
-
-
-def append_advice_log(category, area, question, answer):
-    ws = get_sheet("AdviceLogs")
-    current_user_id = get_current_user_id()
-
-    row_values = [
-        current_user_id,
-        datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        category,
-        area,
-        question,
-        answer,
-    ]
-    ws.append_row(row_values)
-
-
-def reload_user_data_if_needed():
-    current_user_id = get_current_user_id()
-    if not current_user_id:
-        return
-
-    if st.session_state.get("last_loaded_user_id") != current_user_id:
-        saved = load_user_settings()
-        if saved:
-            for k, v in saved.items():
-                st.session_state[k] = v
-
-        st.session_state["diet_logs"] = load_diet_logs()
-        st.session_state["expenses"] = load_expenses()
-        st.session_state["advice_logs"] = load_advice_logs()
-        sync_common_from_latest_diet_log()
-        st.session_state["last_loaded_user_id"] = current_user_id
-
-
-# -----------------------------
-# OpenAI
-# -----------------------------
-def get_openai_client():
-    try:
-        return OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
-    except Exception:
-        st.error("Streamlit Secrets に OPENAI_API_KEY が設定されていません。")
-        st.stop()
-
-
-# -----------------------------
-# Image helpers
-# -----------------------------
-def resize_image(file, max_size=768):
-    image = Image.open(file).convert("RGB")
-    w, h = image.size
-    if max(w, h) > max_size:
-        ratio = max_size / max(w, h)
-        image = image.resize((int(w * ratio), int(h * ratio)))
-
-    buffer = io.BytesIO()
-    image.save(buffer, format="JPEG", quality=85)
-    buffer.seek(0)
-    return buffer
-
-
-def image_file_to_data_url(file_like):
-    b64 = base64.b64encode(file_like.getvalue()).decode("utf-8")
-    return f"data:image/jpeg;base64,{b64}"
-
-
-def uploaded_file_signature(uploaded_file):
-    data = uploaded_file.getvalue()
-    return hashlib.md5(data).hexdigest()
-
-
-def extract_foods_from_images(client, images):
-    content = [{
-        "type": "input_text",
-        "text": """
-この画像は冷蔵庫の中です。
-見える食材を日本語でできるだけ具体的に列挙してください。
-
-ルール:
-- 一般的な食材名で出す
-- 重複はまとめる
-- 推測しすぎない
-- 最後に「食材候補:」のあとにカンマ区切りで一覧を出す
-"""
-    }]
-
-    for img in images:
-        content.append({
-            "type": "input_image",
-            "image_url": image_file_to_data_url(img)
-        })
-
-    response = client.responses.create(
-        model="gpt-4.1-mini",
-        input=[{"role": "user", "content": content}]
-    )
-    return response.output_text
-
-
-def extract_scale_values_from_image(client, resized_image):
-    response = client.responses.create(
-        model="gpt-4.1-mini",
-        input=[{
-            "role": "user",
-            "content": [
-                {
-                    "type": "input_text",
-                    "text": """
-この画像は体組成計または体重計の表示です。
-見えている数値を日本語で整理してください。
-
-ルール:
-- 読み取れたものだけ書く
-- 推測しすぎない
-- 次の形式にできるだけ合わせる
-体重: xx.x
-体脂肪率: xx.x
-筋肉量: xx.x
-骨格筋率: xx.x
-内臓脂肪: xx.x
-皮下脂肪: xx.x
-基礎代謝: xxxx
-BMI: xx.x
-メモ: 読み取りにくい項目があれば書く
-"""
-                },
-                {
-                    "type": "input_image",
-                    "image_url": image_file_to_data_url(resized_image)
-                }
-            ]
-        }]
-    )
-    return response.output_text
-
-
-def extract_scale_values_from_images(client, images):
-    content = [{
-        "type": "input_text",
-        "text": """
-これらは体組成計または体重計の複数画像です。
-複数枚を見比べて、読み取りやすい数値を日本語で整理してください。
-
-ルール:
-- 複数枚のうち、最も読み取りやすい情報を優先する
-- 同じ項目が複数画像で一致する場合は、その値を優先する
-- 読み取れたものだけ書く
-- 推測しすぎない
-- 次の形式にできるだけ合わせる
-
-体重: xx.x
-体脂肪率: xx.x
-筋肉量: xx.x
-骨格筋率: xx.x
-内臓脂肪: xx.x
-皮下脂肪: xx.x
-基礎代謝: xxxx
-BMI: xx.x
-メモ: 読み取りにくい項目があれば書く
-"""
-    }]
-
-    for img in images:
-        content.append({
-            "type": "input_image",
-            "image_url": image_file_to_data_url(img)
-        })
-
-    response = client.responses.create(
-        model="gpt-4.1-mini",
-        input=[{"role": "user", "content": content}]
-    )
-    return response.output_text
-
-
-def extract_receipt_info(client, resized_image):
-    response = client.responses.create(
-        model="gpt-4.1-mini",
-        input=[{
-            "role": "user",
-            "content": [
-                {
-                    "type": "input_text",
-                    "text": """
-この画像はレシートです。
-家計簿に使いやすいように、日本語で整理してください。
-
-ルール:
-- 読み取れた内容だけを書く
-- 推測しすぎない
-- 合計金額が分かれば最優先で書く
-- 店名、日付、合計金額、主な購入内容を整理する
-- 購入内容は3～10件くらいまででよい
-- 最後に家計簿登録しやすいように短くまとめる
-
-出力形式:
-■店名:
-■日付:
-■合計金額:
-■主な購入内容:
-- 〇〇
-- 〇〇
-- 〇〇
-■家計簿メモ:
-"""
-                },
-                {
-                    "type": "input_image",
-                    "image_url": image_file_to_data_url(resized_image)
-                }
-            ]
-        }]
-    )
-    return response.output_text
-
-
-def parse_receipt_result(text: str):
-    result = {
-        "store": "",
-        "date": "",
-        "amount": 0,
-        "memo": "",
+    return {
+        "nickname": "",
+        "age": 49,
+        "height_cm": 160.0,
+        "current_weight": 50.0,
+        "target_weight": 48.0,
+        "current_body_fat": 30.0,
+        "target_body_fat": 28.0,
+        "activity_level": "ふつう",
+        "food_style": "バランス重視",
+        "user_type": "自分だけ向け",
     }
 
-    store_match = re.search(r"■店名[:：]\s*(.*)", text)
-    date_match = re.search(r"■日付[:：]\s*(.*)", text)
-    amount_match = re.search(r"■合計金額[:：]\s*([0-9,]+)", text)
-    memo_match = re.search(r"■家計簿メモ[:：]\s*(.*)", text)
 
-    if store_match:
-        result["store"] = store_match.group(1).strip()
-    if date_match:
-        result["date"] = date_match.group(1).strip()
-    if amount_match:
-        result["amount"] = int(amount_match.group(1).replace(",", "").strip())
-    if memo_match:
-        result["memo"] = memo_match.group(1).strip()
+def save_user_settings(user_id: str, data: dict):
+    ws = get_settings_sheet()
+    row_data = [
+        user_id,
+        data["nickname"],
+        data["age"],
+        data["height_cm"],
+        data["current_weight"],
+        data["target_weight"],
+        data["current_body_fat"],
+        data["target_body_fat"],
+        data["activity_level"],
+        data["food_style"],
+        data["user_type"],
+        datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+    ]
 
-    return result
+    row_index = find_user_row(ws, user_id)
+
+    if row_index:
+        end_col = chr(64 + len(SETTINGS_HEADERS))
+        ws.update(f"A{row_index}:{end_col}{row_index}", [row_data])
+    else:
+        ws.append_row(row_data)
 
 
-def parse_receipt_date_to_dateobj(date_text: str):
-    if not date_text:
+# =========================
+# DietLogs保存・読込
+# =========================
+def save_diet_log(user_id: str, data: dict):
+    ws = get_dietlogs_sheet()
+    row_data = [
+        user_id,
+        data["log_date"],
+        data["weight"],
+        data["body_fat"],
+        data["meal_memo"],
+        data["exercise_memo"],
+        data["condition_note"],
+        data["mood_note"],
+        datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+    ]
+    ws.append_row(row_data)
+
+
+def load_latest_log(user_id: str) -> dict | None:
+    ws = get_dietlogs_sheet()
+    records = ws.get_all_records()
+
+    user_logs = [r for r in records if str(r.get("user_id", "")) == user_id]
+    if not user_logs:
         return None
 
-    text = str(date_text).strip()
+    def sort_key(x):
+        created_at = to_str(x.get("created_at", ""))
+        log_date = to_str(x.get("log_date", ""))
+        return (log_date, created_at)
 
-    patterns = [
-        r"(\d{4})[/-](\d{1,2})[/-](\d{1,2})",
-        r"(\d{4})年(\d{1,2})月(\d{1,2})日",
-    ]
-
-    for pattern in patterns:
-        m = re.search(pattern, text)
-        if m:
-            try:
-                y, mth, d = map(int, m.groups())
-                return datetime(y, mth, d).date()
-            except Exception:
-                return None
-
-    return None
+    user_logs.sort(key=sort_key, reverse=True)
+    return user_logs[0]
 
 
-def extract_frames_from_video(uploaded_video, interval_sec=3.0, max_frames=8, max_size=768):
-    frames = []
+def get_initial_log_values(user_id: str) -> dict:
+    latest = load_latest_log(user_id)
+    if latest:
+        return {
+            "weight": to_float(latest.get("weight", 50.0), 50.0),
+            "body_fat": to_float(latest.get("body_fat", 30.0), 30.0),
+        }
 
-    suffix = ".mp4"
-    if hasattr(uploaded_video, "name") and "." in uploaded_video.name:
-        suffix = os.path.splitext(uploaded_video.name)[1] or ".mp4"
-
-    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
-        tmp.write(uploaded_video.getbuffer())
-        temp_path = tmp.name
-
-    try:
-        cap = cv2.VideoCapture(temp_path)
-        fps = cap.get(cv2.CAP_PROP_FPS)
-        if not fps or fps <= 0:
-            fps = 30
-
-        frame_interval = max(1, int(fps * interval_sec))
-        frame_count = 0
-        saved_count = 0
-
-        while cap.isOpened():
-            ret, frame = cap.read()
-            if not ret:
-                break
-
-            if frame_count % frame_interval == 0:
-                frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                image = Image.fromarray(frame_rgb).convert("RGB")
-
-                w, h = image.size
-                if max(w, h) > max_size:
-                    ratio = max_size / max(w, h)
-                    image = image.resize((int(w * ratio), int(h * ratio)))
-
-                buffer = io.BytesIO()
-                image.save(buffer, format="JPEG", quality=85)
-                buffer.seek(0)
-                frames.append(buffer)
-
-                saved_count += 1
-                if saved_count >= max_frames:
-                    break
-
-            frame_count += 1
-
-        cap.release()
-    finally:
-        if os.path.exists(temp_path):
-            os.remove(temp_path)
-
-    return frames
+    settings = load_user_settings(user_id)
+    return {
+        "weight": settings["current_weight"],
+        "body_fat": settings["current_body_fat"],
+    }
 
 
-def parse_scale_values(text: str):
-    text = text or ""
+def load_recent_logs(user_id: str, limit: int = 10) -> pd.DataFrame:
+    ws = get_dietlogs_sheet()
+    records = ws.get_all_records()
+    user_logs = [r for r in records if str(r.get("user_id", "")) == user_id]
 
-    weight_match = re.search(r"体重\s*[:：]?\s*([0-9]+(?:\.[0-9]+)?)", text)
-    body_fat_match = re.search(r"体脂肪率?\s*[:：]?\s*([0-9]+(?:\.[0-9]+)?)", text)
-    muscle_mass_match = re.search(r"筋肉量\s*[:：]?\s*([0-9]+(?:\.[0-9]+)?)", text)
+    if not user_logs:
+        return pd.DataFrame()
 
-    if not muscle_mass_match:
-        muscle_mass_match = re.search(r"骨格筋量\s*[:：]?\s*([0-9]+(?:\.[0-9]+)?)", text)
+    df = pd.DataFrame(user_logs)
+
+    df["log_date_sort"] = pd.to_datetime(df.get("log_date"), errors="coerce")
+    df["created_at_sort"] = pd.to_datetime(df.get("created_at"), errors="coerce")
+
+    df = df.sort_values(
+        by=["log_date_sort", "created_at_sort"],
+        ascending=[False, False],
+        na_position="last",
+    )
+
+    df = df.rename(
+        columns={
+            "log_date": "日付",
+            "weight": "体重(kg)",
+            "body_fat": "体脂肪(%)",
+            "meal_memo": "食事メモ",
+            "exercise_memo": "運動メモ",
+            "condition_note": "体調メモ",
+            "mood_note": "気分メモ",
+        }
+    )
+
+    show_cols = ["日付", "体重(kg)", "体脂肪(%)", "食事メモ", "運動メモ", "体調メモ", "気分メモ"]
+    show_cols = [c for c in show_cols if c in df.columns]
+
+    return df[show_cols].head(limit)
+
+
+# =========================
+# ホーム提案
+# =========================
+def get_today_advice(settings: dict) -> dict:
+    user_type = settings["user_type"]
+    food_style = settings["food_style"]
+
+    if user_type == "自分＋家族向け":
+        return {
+            "食事": f"家族も満足しやすく、自分は重くなりすぎない組み立てがおすすめです。食事スタイルは「{food_style}」を軸に考えます。",
+            "運動": "すきま時間の軽い運動で十分です。家事の合間に5〜10分でもOKです。",
+            "ひとこと": "全部を完璧にしなくて大丈夫です。",
+        }
+    if user_type == "節約重視":
+        return {
+            "食事": f"使い回ししやすい食材で組み立てる日がおすすめです。食事スタイルは「{food_style}」を軸に考えます。",
+            "運動": "家でできる軽い運動を優先しましょう。お金をかけずに続ける形でOKです。",
+            "ひとこと": "無理なく続けられる形がいちばん強いです。",
+        }
+    if user_type == "忙しい日向け":
+        return {
+            "食事": f"時短・洗い物少なめの献立がおすすめです。食事スタイルは「{food_style}」を軸に考えます。",
+            "運動": "今日は5分だけでも十分です。ゼロにしないことを優先します。",
+            "ひとこと": "今日は回すこと優先で大丈夫です。",
+        }
 
     return {
-        "weight": float(weight_match.group(1)) if weight_match else None,
-        "body_fat": float(body_fat_match.group(1)) if body_fat_match else None,
-        "muscle_mass": float(muscle_mass_match.group(1)) if muscle_mass_match else None,
+        "食事": f"軽めに整えながら、無理のない食事がおすすめです。食事スタイルは「{food_style}」を軸に考えます。",
+        "運動": "短時間でも、自分のための運動時間を少し取りましょう。",
+        "ひとこと": "今日は自分優先で大丈夫です。",
     }
 
 
-def save_today_log_from_scale_result():
-    parsed = parse_scale_values(st.session_state.get("photo_scale_result", ""))
-    weight = parsed["weight"]
-    body_fat = parsed["body_fat"]
-    muscle_mass = parsed["muscle_mass"]
+def get_week_menu(settings: dict) -> list[dict]:
+    user_type = settings["user_type"]
 
-    if weight is None and body_fat is None and muscle_mass is None:
-        return False, "保存できる数値が見つかりませんでした。"
+    if user_type == "節約重視":
+        return [
+            {"day": "月", "menu": "豆腐そぼろ丼＋味噌汁"},
+            {"day": "火", "menu": "鶏むね肉とキャベツ炒め"},
+            {"day": "水", "menu": "卵と野菜のあんかけ丼"},
+            {"day": "木", "menu": "もやし入りハンバーグ"},
+            {"day": "金", "menu": "焼きそば＋スープ"},
+            {"day": "土", "menu": "カレーの残り活用"},
+            {"day": "日", "menu": "作り置きおかず活用"},
+        ]
 
-    gender = st.session_state.get("common_gender", "未選択")
-    age = st.session_state.get("common_age", 40)
-    height_cm = st.session_state.get("common_height", 160.0)
-    target_weight = st.session_state.get("common_target_weight", 48.0)
-    target_body_fat = st.session_state.get("common_target_body_fat", 24.0)
-    target_muscle_mass = st.session_state.get("common_target_muscle_mass", 38.0)
+    if user_type == "忙しい日向け":
+        return [
+            {"day": "月", "menu": "鶏むねレンジ蒸し＋サラダ"},
+            {"day": "火", "menu": "鮭＋即席味噌汁＋ごはん"},
+            {"day": "水", "menu": "丼もの＋カット野菜"},
+            {"day": "木", "menu": "豆腐ハンバーグ"},
+            {"day": "金", "menu": "パスタ＋スープ"},
+            {"day": "土", "menu": "外食調整日"},
+            {"day": "日", "menu": "冷蔵庫の残りで簡単ごはん"},
+        ]
 
-    current_weight = weight if weight is not None else st.session_state.get("common_weight", 50.0)
-    current_body_fat = body_fat if body_fat is not None else st.session_state.get("common_body_fat", 28.0)
-    current_muscle_mass = muscle_mass if muscle_mass is not None else st.session_state.get("common_muscle_mass", 35.0)
+    if user_type == "自分＋家族向け":
+        return [
+            {"day": "月", "menu": "鶏むね肉と野菜炒め"},
+            {"day": "火", "menu": "鮭と味噌汁"},
+            {"day": "水", "menu": "親子丼＋サラダ"},
+            {"day": "木", "menu": "豆腐ハンバーグ"},
+            {"day": "金", "menu": "パスタ＋スープ"},
+            {"day": "土", "menu": "外食調整日"},
+            {"day": "日", "menu": "作り置き活用"},
+        ]
 
-    st.session_state["common_weight"] = current_weight
-    st.session_state["common_body_fat"] = current_body_fat
-    st.session_state["common_muscle_mass"] = current_muscle_mass
+    return [
+        {"day": "月", "menu": "鶏むね肉と野菜炒め"},
+        {"day": "火", "menu": "鮭と味噌汁"},
+        {"day": "水", "menu": "丼もの＋サラダ"},
+        {"day": "木", "menu": "豆腐ハンバーグ"},
+        {"day": "金", "menu": "パスタ＋スープ"},
+        {"day": "土", "menu": "外食調整日"},
+        {"day": "日", "menu": "作り置き活用"},
+    ]
 
-    bmi = current_weight / ((height_cm / 100) ** 2)
-    bmr = current_weight * 22 * 1.5
-    goal_calories = round(bmr, 0)
 
-    log = {
-        "日付": datetime.today().strftime("%Y-%m-%d"),
-        "性別": gender,
-        "年齢": age,
-        "身長(cm)": height_cm,
-        "体重(kg)": current_weight,
-        "目標体重(kg)": target_weight,
-        "体脂肪率(%)": current_body_fat,
-        "目標体脂肪率(%)": target_body_fat,
-        "筋肉量(kg)": current_muscle_mass,
-        "目標筋肉量(kg)": target_muscle_mass,
-        "BMI": round(bmi, 1),
-        "目標摂取カロリー": goal_calories,
+def get_today_exercise(settings: dict) -> dict:
+    user_type = settings["user_type"]
+    activity_level = settings["activity_level"]
+
+    if user_type == "忙しい日向け":
+        title = "5分ストレッチ"
+        body = "肩回し、前もも伸ばし、股関節ほぐし、深呼吸でOKです。"
+    elif user_type == "節約重視":
+        title = "家トレ"
+        body = "スクワット、肩回し、かかと上げを少しずつ。家でできる範囲で十分です。"
+    elif user_type == "自分＋家族向け":
+        title = "散歩 or 軽い全身運動"
+        body = "10〜20分の散歩や、すきま時間の全身運動がおすすめです。"
+    else:
+        title = "ヨガ or ピラティス基礎"
+        body = "短時間でも自分の体を整える時間を取るのがおすすめです。"
+
+    if activity_level == "低い":
+        level_text = "活動量は低め設定なので、今日は軽めで十分です。"
+    elif activity_level == "高い":
+        level_text = "活動量は高め設定なので、余裕があれば少しだけ負荷を上げても大丈夫です。"
+    else:
+        level_text = "活動量はふつう設定なので、軽め〜中くらいで整えるのがおすすめです。"
+
+    return {
+        "title": title,
+        "body": body,
+        "level_text": level_text,
     }
 
-    upsert_diet_log(log)
-    st.session_state["diet_logs"] = load_diet_logs()
-    sync_common_from_latest_diet_log()
 
-    return True, "読み取った数値で今日の記録を保存しました。"
-
-
-# -----------------------------
-# Advice
-# -----------------------------
-def render_common_body_inputs():
-    gender = st.selectbox(
-        "性別（任意）",
-        ["未選択", "女性", "男性", "その他", "回答しない"],
-        key="common_gender"
-    )
-    age = st.number_input("年齢", min_value=20, max_value=100, step=1, key="common_age")
-    height_cm = st.number_input("身長（cm）", min_value=145.0, max_value=200.0, step=0.5, format="%.1f", key="common_height")
-    weight = st.number_input("現在の体重（kg）", min_value=39.0, max_value=200.0, step=0.1, format="%.1f", key="common_weight")
-    target_weight = st.number_input("目標体重（kg）", min_value=39.0, max_value=150.0, step=0.1, format="%.1f", key="common_target_weight")
-    body_fat = st.number_input("体脂肪率（%）", min_value=5.0, max_value=60.0, step=0.1, format="%.1f", key="common_body_fat")
-    target_body_fat = st.number_input("目標体脂肪率（%）", min_value=5.0, max_value=60.0, step=0.1, format="%.1f", key="common_target_body_fat")
-    muscle_mass = st.number_input("筋肉量（kg）", min_value=10.0, max_value=80.0, step=0.1, format="%.1f", key="common_muscle_mass")
-    target_muscle_mass = st.number_input("目標筋肉量（kg）", min_value=10.0, max_value=80.0, step=0.1, format="%.1f", key="common_target_muscle_mass")
-    return gender, age, height_cm, weight, target_weight, body_fat, target_body_fat, muscle_mass, target_muscle_mass
+# =========================
+# 相談ロジック
+# =========================
+def get_user_type_advice(user_type: str) -> str:
+    if user_type == "自分＋家族向け":
+        return "家族も満足しつつ、自分は食べすぎない組み立てを優先します。"
+    if user_type == "節約重視":
+        return "使い回ししやすい食材と家でできる工夫を優先します。"
+    if user_type == "忙しい日向け":
+        return "時短・手間少なめ・続けやすさ優先で考えます。"
+    return "まずは自分の体調を整えることを優先します。"
 
 
-def ask_shufumate_advice(
-    client,
-    question,
-    gender,
-    age,
-    height_cm,
-    weight,
-    body_fat,
-    target_weight,
-    target_body_fat,
-    dosha_type="",
-    fridge_items="",
-    avoid_foods="",
-    favorite_meals="",
-    favorite_protein_onigiri="",
-    favorite_misodama_soup="",
-    daily_flow="普通",
-    workout_today=False,
-    body_goal="バランス",
-    lunch_style="指定なし",
-    category="食事相談",
-    area="",
-    site_hint="syufuosusume.com",
-    current_state_checks=None
-):
-    if current_state_checks is None:
-        current_state_checks = []
+def build_food_answer(question: str, settings: dict) -> str:
+    q = question.lower()
+    base = get_user_type_advice(settings["user_type"])
 
-    prompt = f"""
-あなたは主婦向けのやさしい生活アドバイザーです。
-食事・運動・外食・日常の困りごとに、日本語でわかりやすく答えてください。
+    if any(k in q for k in ["朝", "あさ", "morning"]):
+        answer = "朝は、たんぱく質＋炭水化物を少し入れるのがおすすめです。例：納豆ごはん、ゆで卵とトースト、ヨーグルトとバナナ。"
+    elif any(k in q for k in ["昼", "ひる", "lunch"]):
+        answer = "昼は、主食を抜きすぎず、たんぱく質を入れると午後に崩れにくいです。例：おにぎり＋味噌汁＋サラダチキン。"
+    elif any(k in q for k in ["夜", "よる", "夕飯", "夕食", "dinner"]):
+        answer = "夜は、脂っこい物を重ねすぎず、主菜＋汁物＋野菜を意識すると整えやすいです。"
+    elif any(k in q for k in ["食べすぎ", "食べ過ぎ", "食べてしま", "食べた後"]):
+        answer = "食べすぎた日は、次の食事で極端に抜かず、汁物・たんぱく質・野菜で整えるのが安全です。翌日に軽く戻す意識で十分です。"
+    elif any(k in q for k in ["甘い", "おやつ", "間食", "スイーツ"]):
+        answer = "間食するなら、量を決めて早めの時間に。ヨーグルト、ナッツ少量、チーズ、ゆで卵などに置き換えると整えやすいです。"
+    else:
+        answer = "食事は、主食を極端に抜かず、たんぱく質を毎食少し入れると安定しやすいです。迷ったら『汁物＋たんぱく質＋主食少し＋野菜』で考えると組みやすいです。"
 
-【利用者情報】
-- 性別: {gender}
-- 年齢: {age}
-- 身長: {height_cm}
-- 体重: {weight}
-- 体脂肪率: {body_fat}
-- 目標体重: {target_weight}
-- 目標体脂肪率: {target_body_fat}
-- 体質: {dosha_type if dosha_type else "未設定"}
-- 今の状態チェック: {", ".join(current_state_checks) if current_state_checks else "なし"}
-- 冷蔵庫の食材: {fridge_items}
-- 避けたい食べ物: {avoid_foods}
-- 定番・好きな食事: {favorite_meals}
-- 食事の流れ: {daily_flow}
-- 運動: {"あり" if workout_today else "なし"}
-- 目的: {body_goal}
-- 昼食スタイル: {lunch_style}
-- 相談カテゴリ: {category}
-- 相談エリア: {area if area else "未指定"}
-
-【回答ルール】
-- 主婦目線でやさしく、実用的に答える
-- 難しすぎる言い方はしない
-- すぐできる提案を優先する
-- 外食相談なら、地域があればその地域で探す前提のアドバイスにする
-- 必要なら選び方の基準も入れる
-- 体質や今の状態チェックがあれば、それもふまえて答える
-- 最後にひとことで背中を押す
-- {site_hint} に合いそうな、暮らしに役立つ雰囲気で答える
-
-【相談内容】
-{question}
-
-【出力形式】
-■答え
-■理由
-■おすすめ行動
-■ひとこと
-"""
-    response = client.responses.create(
-        model="gpt-4.1-mini",
-        input=prompt
-    )
-    return response.output_text
+    style = f"食事スタイルは「{settings['food_style']}」で考えます。"
+    return f"{base}\n\n{style}\n\n{answer}"
 
 
-def diagnose_dosha_advanced(answers):
-    scores = {"ヴァータ": 0, "ピッタ": 0, "カパ": 0}
+def build_exercise_answer(question: str, settings: dict) -> str:
+    q = question.lower()
+    level = settings["activity_level"]
+    base = get_user_type_advice(settings["user_type"])
 
-    mapping = {
-        "体型": {
-            "痩せ型で食べても太らない": "ヴァータ",
-            "中肉中背で平均的": "ピッタ",
-            "子供の頃から太りやすい": "カパ",
-        },
-        "肌": {
-            "乾燥している": "ヴァータ",
-            "オイリーでシミやニキビができやすい": "ピッタ",
-            "色白でもっちりしてる": "カパ",
-        },
-        "髪": {
-            "硬く乾燥している": "ヴァータ",
-            "柔らかくて細い": "ピッタ",
-            "黒くて多い": "カパ",
-        },
-        "発汗": {
-            "あまりかかない": "ヴァータ",
-            "汗っかき": "ピッタ",
-            "普通": "カパ",
-        },
-        "体温": {
-            "手足が冷たい": "ヴァータ",
-            "体が熱い": "ピッタ",
-            "全体が冷たい": "カパ",
-        },
-        "食欲": {
-            "ムラがある・不規則": "ヴァータ",
-            "食欲旺盛・食事を抜くとイライラする": "ピッタ",
-            "安定していて食べるのが好き": "カパ",
-        },
-        "排便": {
-            "便秘気味・硬便": "ヴァータ",
-            "下痢気味・軟便": "ピッタ",
-            "中程度の硬さ・時間を要する": "カパ",
-        },
-        "睡眠": {
-            "眠りが浅い・途中で起きやすい": "ヴァータ",
-            "普通": "ピッタ",
-            "よく眠る・居眠りが多い": "カパ",
-        },
-    }
+    if any(k in q for k in ["5分", "短時間", "忙しい", "時間がない"]):
+        answer = "今日は5分で十分です。肩回し1分、前もも伸ばし1分、股関節まわし1分、軽いスクワット1分、深呼吸1分でOKです。"
+    elif any(k in q for k in ["朝", "あさ"]):
+        answer = "朝は、背伸び・肩回し・股関節ほぐしなど、起こす系の動きがおすすめです。"
+    elif any(k in q for k in ["夜", "よる"]):
+        answer = "夜は、がんばる運動より、ストレッチ・呼吸・やさしいヨガの方が整いやすいです。"
+    elif any(k in q for k in ["歩く", "ウォーキング", "散歩"]):
+        answer = "歩く日は、10〜20分でも十分です。少し腕を振って歩くと体が温まりやすいです。"
+    elif any(k in q for k in ["筋トレ", "筋肉", "引き締め"]):
+        answer = "引き締め目的なら、スクワット・壁腕立て・ヒップリフトなど、自宅でできる基本種目を少しずつ続けるのがおすすめです。"
+    else:
+        answer = "迷った日は『ストレッチ→軽い全身運動→深呼吸』の順で短く動くと続けやすいです。"
 
-    for key, value in answers.items():
-        dosha = mapping.get(key, {}).get(value)
-        if dosha:
-            scores[dosha] += 1
+    if level == "低い":
+        level_text = "活動量は低め設定なので、今日は無理せず軽めで十分です。"
+    elif level == "高い":
+        level_text = "活動量は高め設定なので、余裕があれば少し負荷を上げても大丈夫です。"
+    else:
+        level_text = "活動量はふつう設定なので、軽め〜中くらいで整えるのがおすすめです。"
 
-    result_type = max(scores, key=scores.get)
-    return result_type, scores
+    return f"{base}\n\n{level_text}\n\n{answer}"
 
 
-def get_ayurveda_advice_advanced(dosha_type):
-    advice_map = {
-        "ヴァータ": {
-            "特徴": "乾燥しやすく、冷えやすく、疲れやすい傾向があります。気分や食欲、睡眠にムラが出やすいタイプです。",
-            "食事": "温かい汁物、やわらかいごはん、根菜、煮物などを中心に。冷たいものや生野菜のとりすぎは控えめに。",
-            "生活": "冷やさない、無理しすぎない、リズムを整えることが大切です。早寝や湯船もおすすめです。",
-            "運動": "やさしいヨガ、ストレッチ、軽い散歩など、落ち着ける運動が向いています。",
-            "ダイエット": "食事を抜きすぎず、体を温めながら整えることが近道です。無理な制限は逆効果になりやすいです。"
-        },
-        "ピッタ": {
-            "特徴": "代謝がよく、熱がこもりやすく、がんばりすぎやすい傾向があります。イライラしやすい時もあります。",
-            "食事": "辛いもの・刺激物を控えめにして、野菜、豆腐、白身魚、やさしい味つけの和食がおすすめです。",
-            "生活": "がんばりすぎをゆるめて、クールダウンの時間を意識すると整いやすいです。",
-            "運動": "ほどよい強度のウォーキング、ピラティス、呼吸を意識した運動が向いています。",
-            "ダイエット": "厳しく管理しすぎず、体の熱やストレスをためないことが大切です。"
-        },
-        "カパ": {
-            "特徴": "安定感があり体力もありますが、ためこみやすく、むくみや重だるさが出やすい傾向があります。",
-            "食事": "脂っこいものや甘いものを控えめにし、野菜多め・高たんぱく・温かく軽めの食事がおすすめです。",
-            "生活": "動き出すまでが重くなりやすいので、朝の活動量を少し増やすと整いやすいです。",
-            "運動": "ウォーキング、筋トレ、テンポのある運動など、しっかり動く習慣が向いています。",
-            "ダイエット": "少し汗ばむくらいの運動と、軽めの食事を続けるのがポイントです。"
+def build_condition_answer(question: str, settings: dict) -> str:
+    q = question.lower()
+    base = get_user_type_advice(settings["user_type"])
+
+    if any(k in q for k in ["むくみ", "だるい", "重い"]):
+        answer = "むくみやだるさがある日は、冷たい物を重ねすぎず、水分をこまめに取り、足首を回したり軽く歩いたりすると整えやすいです。"
+    elif any(k in q for k in ["疲れ", "つかれ", "しんどい"]):
+        answer = "疲れが強い日は、無理に頑張る日ではなく回復優先でOKです。食事は抜かず、汁物・たんぱく質・炭水化物を少し入れてください。"
+    elif any(k in q for k in ["便秘", "お腹", "はら"]):
+        answer = "お腹の調子が気になる日は、水分、温かい汁物、発酵食品、歩行や体をねじる軽い動きが合いやすいです。"
+    elif any(k in q for k in ["眠い", "寝不足", "睡眠"]):
+        answer = "寝不足の日は、激しい運動より、日中に軽く体を動かして夜に整える方がおすすめです。カフェインや甘い物のとりすぎに注意してください。"
+    else:
+        answer = "体調が揺れている日は、食事を極端に減らさず、温かい物と軽い運動で整える考え方がおすすめです。"
+
+    return f"{base}\n\n{answer}"
+
+
+def build_eating_out_answer(question: str, settings: dict) -> str:
+    q = question.lower()
+    base = get_user_type_advice(settings["user_type"])
+
+    if any(k in q for k in ["焼肉", "肉"]):
+        answer = "焼肉なら、最初にサラダやスープを入れて、ごはんは食べすぎない量に。脂の多い肉ばかり重ねず、赤身や鶏も混ぜると整えやすいです。"
+    elif any(k in q for k in ["パスタ", "イタリアン"]):
+        answer = "パスタなら、クリーム系が続く日は避けて、サラダやスープを一緒に。取り分けできるなら量調整しやすいです。"
+    elif any(k in q for k in ["ラーメン"]):
+        answer = "ラーメンは、スープを全部飲まない、餃子やチャーハンを重ねすぎない、次の食事で野菜と汁物を意識、の3つで調整しやすいです。"
+    elif any(k in q for k in ["寿司"]):
+        answer = "寿司は比較的選びやすいです。揚げ物や甘い物を重ねすぎず、汁物を足すと整えやすいです。"
+    elif any(k in q for k in ["食べすぎ", "会食", "外食後"]):
+        answer = "外食後は、翌日に極端に抜かず、朝か昼で汁物・たんぱく質・野菜を意識してください。軽く歩く程度で十分です。"
+    else:
+        answer = "外食は『主菜を決める → 汁物かサラダを足す → 主食を食べすぎない』で考えると整えやすいです。"
+
+    return f"{base}\n\n{answer}"
+
+
+def generate_answer(category: str, question: str, settings: dict) -> str:
+    question = question.strip()
+
+    if not question:
+        return "相談内容を入力してください。短くても大丈夫です。"
+
+    if category == "食事":
+        return build_food_answer(question, settings)
+    if category == "運動":
+        return build_exercise_answer(question, settings)
+    if category == "体調":
+        return build_condition_answer(question, settings)
+    if category == "外食調整":
+        return build_eating_out_answer(question, settings)
+
+    return "カテゴリを選んで相談してください。"
+
+
+# =========================
+# UI
+# =========================
+def inject_home_css():
+    st.markdown(
+        """
+        <style>
+        .block-container {
+            padding-top: 1.2rem;
+            padding-bottom: 2rem;
+            max-width: 760px;
         }
-    }
-    return advice_map.get(dosha_type, {
-        "特徴": "",
-        "食事": "",
-        "生活": "",
-        "運動": "",
-        "ダイエット": ""
-    })
-
-
-def get_ayurveda_foods(dosha_type):
-    foods_map = {
-        "ヴァータ": ["ごはん", "味噌汁", "かぼちゃ", "にんじん", "さつまいも", "豆腐", "鮭", "鶏肉", "しょうが"],
-        "ピッタ": ["豆腐", "きゅうり", "小松菜", "大根", "白身魚", "納豆", "りんご", "豆乳", "キャベツ"],
-        "カパ": ["鶏むね肉", "きのこ", "ブロッコリー", "大根", "わかめ", "豆腐", "納豆", "しょうが", "味噌汁"],
-    }
-    return foods_map.get(dosha_type, [])
-
-
-def get_current_state_advice(
-    sweet_craving,
-    salty_craving,
-    fatigue,
-    irritable,
-    sleepy_after_meal,
-    swelling,
-    coldness,
-    constipation_now,
-    dry_skin
-):
-    messages = []
-
-    if sweet_craving:
-        messages.append("甘いものが欲しい時は、疲れやストレスがたまっていることがあります。まずは食事の抜けや睡眠不足がないか見直してみましょう。")
-    if salty_craving:
-        messages.append("しょっぱいものが欲しい時は、疲れや水分バランスの乱れが出ていることがあります。汁物や温かい食事で整えるのもおすすめです。")
-    if fatigue:
-        messages.append("だるさや疲れが続く時は、食事・睡眠・冷えの影響が重なっていることがあります。無理を減らして整える時間をとりましょう。")
-    if irritable:
-        messages.append("イライラしやすい時は、がんばりすぎや空腹、睡眠不足の影響が出ていることがあります。")
-    if sleepy_after_meal:
-        messages.append("食後すぐ眠くなる時は、食べ方や量、血糖の乱れが関係していることがあります。食べすぎや急いで食べる習慣を見直してみましょう。")
-    if swelling:
-        messages.append("むくみやすい時は、水分代謝の低下や冷え、塩分のとりすぎが関係していることがあります。")
-    if coldness:
-        messages.append("冷えやすい時は、体を温める食事や湯船、軽い運動を意識すると整いやすくなります。")
-    if constipation_now:
-        messages.append("便秘ぎみの時は、水分、温かい食事、リズムある生活を意識してみてください。")
-    if dry_skin:
-        messages.append("乾燥しやすい時は、体の内側の乾きや冷えも関係していることがあります。温かい汁物や油分を少し意識するとよいです。")
-
-    if not messages:
-        return "大きな乱れは目立たなそうです。今の生活リズムをベースに、無理なく整えていきましょう。"
-
-    return "\n\n".join(messages)
-
-
-def create_plan_for_date(
-    client,
-    date_str,
-    gender,
-    age,
-    height_cm,
-    weight,
-    body_fat,
-    target_weight,
-    target_body_fat,
-    dosha_type="",
-    meal_style="和食中心",
-    ease_level="超かんたん",
-    staple_preference="ごはん派",
-    fridge_items="",
-    avoid_foods="",
-    favorite_meals="",
-    favorite_protein_onigiri="",
-    favorite_misodama_soup="",
-    plan_type="通常",
-    lunch_style="指定なし",
-    real_mode=False,
-    daily_flow="普通",
-    workout_today=False,
-    body_goal="バランス",
-    exercise_intensity="普通",
-    body_shape_goal="全体バランス"
-):
-    dosha_rule = ""
-    if dosha_type == "ヴァータ":
-        dosha_rule = "温かい汁物、根菜、やわらかいごはん、消化にやさしい和食を優先してください。冷たいものや生野菜は控えめにしてください。"
-    elif dosha_type == "ピッタ":
-        dosha_rule = "刺激物や辛いものを控え、やさしい味付けの和食、野菜、豆腐、白身魚などを優先してください。"
-    elif dosha_type == "カパ":
-        dosha_rule = "脂っこいものや甘いものを控え、野菜多め、高たんぱく、温かく軽めの和食を優先してください。"
-
-    fridge_rule = ""
-    if fridge_items.strip():
-        fridge_rule = f"冷蔵庫にある食材をできるだけ優先して使ってください: {fridge_items}"
-
-    avoid_rule = ""
-    if avoid_foods.strip():
-        avoid_rule = f"次の食材・料理は献立に入れないでください: {avoid_foods}"
-
-    favorite_rule = ""
-    if favorite_meals.strip():
-        favorite_rule = f"""
-ユーザーの定番・好きな食事:
-- 定番食: {favorite_meals}
-
-上記はできるだけ優先して提案に入れてください。
-"""
-
-    meal_style_rule = ""
-    if meal_style == "タンパク質おにぎり＆味噌玉味噌汁":
-        meal_style_rule = """
-食事スタイルは「タンパク質おにぎり＆味噌玉味噌汁」を優先してください。
-・朝食または昼食に、タンパク質を意識したおにぎりを提案する
-・味噌玉味噌汁を合わせやすい献立にする
-・忙しい主婦でも続けやすい、手軽で現実的な内容にする
-・必要に応じて、ゆで卵、豆腐、サラダ、サラダチキンなどを組み合わせる
-・毎日まったく同じではなく、少し変化をつけて飽きにくくする
-"""
-
-    plan_type_rule = ""
-    if plan_type == "外食":
-        plan_type_rule = """
-外食を前提にしてください。
-・定食屋、和食屋、カフェなど現実的なお店を想定
-・ダイエット向きのメニュー選びを提案
-・揚げ物を避ける、タンパク質多めなど具体的に
-"""
-    elif plan_type == "コンビニ":
-        plan_type_rule = """
-コンビニ食（セブン・ファミマ・ローソン）で完結する内容にしてください。
-・サラダチキン、おにぎり、ゆで卵、味噌汁、豆腐バー、サラダなど
-・組み合わせで提案
-・リアルに買いやすい内容にしてください
-"""
-
-    lunch_style_rule = ""
-    if lunch_style == "お弁当":
-        lunch_style_rule = """
-昼食はお弁当向けにしてください。
-・冷めても食べやすい
-・汁気が少ない
-・詰めやすい
-・前日の夜や朝に準備しやすい
-"""
-    elif lunch_style == "コンビニ":
-        lunch_style_rule = """
-昼食はコンビニで買いやすい内容にしてください。
-・おにぎり、味噌汁、サラダ、サラダチキン、ゆで卵など現実的な組み合わせ
-"""
-    elif lunch_style == "おすすめ定番":
-        lunch_style_rule = """
-昼食はおすすめ定番寄りにしてください。
-・タンパク質おにぎり＆味噌玉味噌汁の流れを優先してよい
-・必要に応じて、ゆで卵、サラダ、豆腐、サラダチキンなどを組み合わせる
-"""
-
-    real_mode_rule = ""
-    if real_mode:
-        real_mode_rule = f"""
-あなたは「アラフィフ主婦の現実的な食事判断」をする専門家です。
-
-【今日の状況】
-- 食事の流れ: {daily_flow}
-- 運動: {"あり" if workout_today else "なし"}
-- 目的: {body_goal}
-- 運動強度: {exercise_intensity}
-- 体型チェック: {body_shape_goal}
-
-以下を必ず守ってください：
-・今日の流れを評価してから献立を決める
-・「今日は90点前後」「今日は調整日」など評価をつける
-・冷蔵庫の食材を優先して使う
-・主婦がすぐ作れるレベルにする
-・メニューは多すぎない（2〜4品）
-・脚やせ、むくみ対策、回復など目的を理由に入れる
-・運動強度に合わせて無理のない提案にする
-・体型チェックで気になる部位があれば、それに配慮した内容にする
-
-【出力に必ず含める】
-①いちばんおすすめ
-②2番目におすすめ
-③3番目におすすめ
-④今日のベスト献立
-⑤今日1日の最終評価
-⑥ひとことで
-"""
-
-    prompt = f"""
-あなたは優秀な管理栄養士・時短料理アドバイザー・主婦向け献立アドバイザーです。
-
-【利用者情報】
-- 性別: {gender}
-- 年齢: {age}歳
-- 身長: {height_cm}cm
-- 体重: {weight}kg
-- 体脂肪率: {body_fat}%
-- 目標体重: {target_weight}kg
-- 目標体脂肪率: {target_body_fat}%
-- アーユルヴェーダ体質: {dosha_type if dosha_type else "未設定"}
-- 食事スタイル: {meal_style}
-- 調理レベル: {ease_level}
-- 主食の好み: {staple_preference}
-- プランタイプ: {plan_type}
-- 平日昼食スタイル: {lunch_style}
-- 運動強度: {exercise_intensity}
-- 体型チェック: {body_shape_goal}
-
-【重要ルール】
-- 日本の一般家庭で作りやすいメニューにしてください
-- スーパーで買いやすい食材だけを使ってください
-- 主婦向けに、手軽・簡単・現実的な献立にしてください
-- 難しい横文字料理や、おしゃれすぎるカフェ料理は避けてください
-- 朝食は特に手軽にしてください
-- 節約・時短を意識してください
-- たんぱく質をしっかり取れるようにしてください
-- おにぎり、味噌汁、納豆、豆腐、卵、鶏むね肉、鮭、さば等も積極的に使ってよいです
-- {dosha_rule}
-- {fridge_rule}
-- {avoid_rule}
-- {favorite_rule}
-- {meal_style_rule}
-- {plan_type_rule}
-- {lunch_style_rule}
-- {real_mode_rule}
-
-{date_str}の1日の健康的なダイエットプランを作ってください。
-"""
-    res = client.responses.create(
-        model="gpt-4.1-mini",
-        input=prompt
+        .sm-card {
+            background: #ffffff;
+            border: 1px solid #e9e9e9;
+            border-radius: 18px;
+            padding: 18px 16px;
+            margin-bottom: 14px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.03);
+        }
+        .sm-title {
+            font-size: 1.05rem;
+            font-weight: 700;
+            margin-bottom: 0.6rem;
+        }
+        .sm-sub {
+            color: #666666;
+            font-size: 0.92rem;
+            margin-bottom: 0.3rem;
+        }
+        .sm-menu-row {
+            padding: 8px 0;
+            border-bottom: 1px dashed #eeeeee;
+        }
+        .sm-menu-row:last-child {
+            border-bottom: none;
+        }
+        .sm-day {
+            font-weight: 700;
+            display: inline-block;
+            width: 1.5rem;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
     )
-    return res.output_text
+
+
+def render_today_advice_card(advice: dict):
+    st.markdown(
+        f"""
+        <div class="sm-card">
+            <div class="sm-title">🌿 今日のおすすめ</div>
+            <div class="sm-sub"><b>食事</b></div>
+            <div>{advice["食事"]}</div>
+            <br>
+            <div class="sm-sub"><b>運動</b></div>
+            <div>{advice["運動"]}</div>
+            <br>
+            <div class="sm-sub"><b>ひとこと</b></div>
+            <div>{advice["ひとこと"]}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_week_menu_card(menu_list: list[dict]):
+    today_idx = datetime.now().weekday()
+    rows = []
+    for idx, item in enumerate(menu_list):
+        mark = " ← 今日" if idx == today_idx else ""
+        rows.append(
+            f'<div class="sm-menu-row"><span class="sm-day">{item["day"]}</span> {item["menu"]}{mark}</div>'
+        )
+
+    st.markdown(
+        f"""
+        <div class="sm-card">
+            <div class="sm-title">🍽 今週の献立</div>
+            {''.join(rows)}
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_exercise_card(exercise: dict):
+    st.markdown(
+        f"""
+        <div class="sm-card">
+            <div class="sm-title">🏃 今日の運動</div>
+            <div class="sm-sub"><b>{exercise["title"]}</b></div>
+            <div>{exercise["body"]}</div>
+            <br>
+            <div>{exercise["level_text"]}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
