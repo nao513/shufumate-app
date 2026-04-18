@@ -3,7 +3,19 @@ import gspread
 import pandas as pd
 from google.oauth2.service_account import Credentials
 from datetime import datetime
+from zoneinfo import ZoneInfo
 from uuid import uuid4
+
+JST = ZoneInfo("Asia/Tokyo")
+
+def jst_now():
+    return datetime.now(JST)
+
+def jst_today():
+    return jst_now().date()
+
+def jst_today_str():
+    return jst_now().strftime("%Y-%m-%d")
 
 # =========================
 # 定数
@@ -221,7 +233,7 @@ def save_user_settings(user_id: str, data: dict):
         data["activity_level"],
         data["food_style"],
         data["user_type"],
-        datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+       jst_now().strftime("%Y-%m-%d %H:%M:%S")
     ]
 
     row_index = find_user_row(ws, user_id)
@@ -247,7 +259,7 @@ def save_diet_log(user_id: str, data: dict):
         data["exercise_memo"],
         data["condition_note"],
         data["mood_note"],
-        datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        jst_now().strftime("%Y-%m-%d %H:%M:%S")
     ]
     ws.append_row(row_data)
 
@@ -445,33 +457,53 @@ def get_user_type_advice(user_type: str) -> str:
     return "まずは自分の体調を整えることを優先します。"
 
 
-def build_food_answer(question: str, settings: dict) -> str:
-    q = question.lower()
-    base = get_user_type_advice(settings["user_type"])
+def normalize_question(text: str) -> str:
+    return (
+        text.lower()
+        .replace("　", " ")
+        .replace("？", "?")
+        .replace("。", " ")
+        .replace("、", " ")
+        .replace("！", "!")
+        .strip()
+    )
 
-    if any(k in q for k in ["朝", "あさ", "morning"]):
-        answer = "朝は、たんぱく質＋炭水化物を少し入れるのがおすすめです。例：納豆ごはん、ゆで卵とトースト、ヨーグルトとバナナ。"
-    elif any(k in q for k in ["昼", "ひる", "lunch"]):
-        answer = "昼は、主食を抜きすぎず、たんぱく質を入れると午後に崩れにくいです。例：おにぎり＋味噌汁＋サラダチキン。"
-    elif any(k in q for k in ["夜", "よる", "夕飯", "夕食", "dinner"]):
-        answer = "夜は、脂っこい物を重ねすぎず、主菜＋汁物＋野菜を意識すると整えやすいです。"
-    elif any(k in q for k in ["食べすぎ", "食べ過ぎ", "食べてしま", "食べた後"]):
+
+def build_food_answer(question: str, settings: dict) -> str:
+    q = normalize_question(question)
+    base = get_user_type_advice(settings["user_type"])
+    style = f"食事スタイルは「{settings['food_style']}」で考えます。"
+
+    if any(k in q for k in ["運動前", "トレーニング前", "ヨガ前", "ピラティス前"]):
+        answer = "運動前は、食べすぎずにエネルギーになる物がおすすめです。おにぎり半分〜1個、バナナ、ヨーグルト、ゆで卵などが合わせやすいです。"
+    elif any(k in q for k in ["運動後", "トレーニング後", "ヨガ後", "ピラティス後"]):
+        answer = "運動後は、たんぱく質と炭水化物を少し入れると整えやすいです。例：味噌汁＋ごはん少し＋卵、サラダチキン＋おにぎりなど。"
+    elif any(k in q for k in ["朝", "あさ", "朝ごはん", "朝食"]):
+        answer = "朝は、たんぱく質＋炭水化物を少し入れるのがおすすめです。納豆ごはん、ゆで卵とトースト、ヨーグルトとバナナなどが組みやすいです。"
+    elif any(k in q for k in ["昼", "ひる", "昼ごはん", "昼食", "ランチ"]):
+        answer = "昼は、主食を抜きすぎず、たんぱく質を入れると午後に崩れにくいです。おにぎり＋味噌汁＋サラダチキンのような組み合わせが安定します。"
+    elif any(k in q for k in ["夜", "よる", "夕飯", "夕食"]):
+        answer = "夜は、脂っこい物を重ねすぎず、主菜＋汁物＋野菜を意識すると整えやすいです。ごはんは食べすぎない量で十分です。"
+    elif any(k in q for k in ["食べすぎ", "食べ過ぎ", "食べてしま", "食べた後", "食べ過ぎた"]):
         answer = "食べすぎた日は、次の食事で極端に抜かず、汁物・たんぱく質・野菜で整えるのが安全です。翌日に軽く戻す意識で十分です。"
     elif any(k in q for k in ["甘い", "おやつ", "間食", "スイーツ"]):
         answer = "間食するなら、量を決めて早めの時間に。ヨーグルト、ナッツ少量、チーズ、ゆで卵などに置き換えると整えやすいです。"
+    elif any(k in q for k in ["家族", "子ども", "夫", "みんな"]):
+        answer = "家族向けなら、主菜をしっかり作って、自分は汁物や野菜を先に入れると調整しやすいです。取り分け前に自分の量を決めると崩れにくいです。"
+    elif any(k in q for k in ["時短", "簡単", "すぐ", "忙しい"]):
+        answer = "忙しい日は、丼もの＋汁物、鮭＋ごはん＋即席味噌汁、豆腐＋卵＋ごはんなどの時短型が続けやすいです。"
     else:
         answer = "食事は、主食を極端に抜かず、たんぱく質を毎食少し入れると安定しやすいです。迷ったら『汁物＋たんぱく質＋主食少し＋野菜』で考えると組みやすいです。"
 
-    style = f"食事スタイルは「{settings['food_style']}」で考えます。"
-    return f"{base}\n\n{style}\n\n{answer}"
+    return f"相談内容：{question}\n\n{base}\n\n{style}\n\n{answer}"
 
 
 def build_exercise_answer(question: str, settings: dict) -> str:
-    q = question.lower()
+    q = normalize_question(question)
     level = settings["activity_level"]
     base = get_user_type_advice(settings["user_type"])
 
-    if any(k in q for k in ["5分", "短時間", "忙しい", "時間がない"]):
+    if any(k in q for k in ["5分", "5ぷん", "短時間", "忙しい", "時間がない"]):
         answer = "今日は5分で十分です。肩回し1分、前もも伸ばし1分、股関節まわし1分、軽いスクワット1分、深呼吸1分でOKです。"
     elif any(k in q for k in ["朝", "あさ"]):
         answer = "朝は、背伸び・肩回し・股関節ほぐしなど、起こす系の動きがおすすめです。"
@@ -479,8 +511,10 @@ def build_exercise_answer(question: str, settings: dict) -> str:
         answer = "夜は、がんばる運動より、ストレッチ・呼吸・やさしいヨガの方が整いやすいです。"
     elif any(k in q for k in ["歩く", "ウォーキング", "散歩"]):
         answer = "歩く日は、10〜20分でも十分です。少し腕を振って歩くと体が温まりやすいです。"
-    elif any(k in q for k in ["筋トレ", "筋肉", "引き締め"]):
-        answer = "引き締め目的なら、スクワット・壁腕立て・ヒップリフトなど、自宅でできる基本種目を少しずつ続けるのがおすすめです。"
+    elif any(k in q for k in ["筋トレ", "筋肉", "引き締め", "二の腕", "お腹", "脚"]):
+        answer = "引き締め目的なら、スクワット・壁腕立て・ヒップリフト・膝つきプランクなど、自宅でできる基本種目を少しずつ続けるのがおすすめです。"
+    elif any(k in q for k in ["疲れ", "だるい", "しんどい"]):
+        answer = "疲れている日は、追い込むより、ストレッチ・肩回し・軽い散歩のような回復寄りの動きが合います。"
     else:
         answer = "迷った日は『ストレッチ→軽い全身運動→深呼吸』の順で短く動くと続けやすいです。"
 
@@ -491,11 +525,11 @@ def build_exercise_answer(question: str, settings: dict) -> str:
     else:
         level_text = "活動量はふつう設定なので、軽め〜中くらいで整えるのがおすすめです。"
 
-    return f"{base}\n\n{level_text}\n\n{answer}"
+    return f"相談内容：{question}\n\n{base}\n\n{level_text}\n\n{answer}"
 
 
 def build_condition_answer(question: str, settings: dict) -> str:
-    q = question.lower()
+    q = normalize_question(question)
     base = get_user_type_advice(settings["user_type"])
 
     if any(k in q for k in ["むくみ", "だるい", "重い"]):
@@ -506,14 +540,16 @@ def build_condition_answer(question: str, settings: dict) -> str:
         answer = "お腹の調子が気になる日は、水分、温かい汁物、発酵食品、歩行や体をねじる軽い動きが合いやすいです。"
     elif any(k in q for k in ["眠い", "寝不足", "睡眠"]):
         answer = "寝不足の日は、激しい運動より、日中に軽く体を動かして夜に整える方がおすすめです。カフェインや甘い物のとりすぎに注意してください。"
+    elif any(k in q for k in ["頭痛", "頭が痛い"]):
+        answer = "頭痛がある日は、無理な運動は避けて、水分・休息・刺激を減らす方向で整えるのがおすすめです。つらい時は医療機関を優先してください。"
     else:
         answer = "体調が揺れている日は、食事を極端に減らさず、温かい物と軽い運動で整える考え方がおすすめです。"
 
-    return f"{base}\n\n{answer}"
+    return f"相談内容：{question}\n\n{base}\n\n{answer}"
 
 
 def build_eating_out_answer(question: str, settings: dict) -> str:
-    q = question.lower()
+    q = normalize_question(question)
     base = get_user_type_advice(settings["user_type"])
 
     if any(k in q for k in ["焼肉", "肉"]):
@@ -524,12 +560,14 @@ def build_eating_out_answer(question: str, settings: dict) -> str:
         answer = "ラーメンは、スープを全部飲まない、餃子やチャーハンを重ねすぎない、次の食事で野菜と汁物を意識、の3つで調整しやすいです。"
     elif any(k in q for k in ["寿司"]):
         answer = "寿司は比較的選びやすいです。揚げ物や甘い物を重ねすぎず、汁物を足すと整えやすいです。"
-    elif any(k in q for k in ["食べすぎ", "会食", "外食後"]):
+    elif any(k in q for k in ["居酒屋", "飲み会", "会食"]):
+        answer = "居酒屋や会食では、最初にサラダ・枝豆・冷奴などを入れて、揚げ物と締めを重ねすぎないのが整えやすいです。"
+    elif any(k in q for k in ["食べすぎ", "外食後"]):
         answer = "外食後は、翌日に極端に抜かず、朝か昼で汁物・たんぱく質・野菜を意識してください。軽く歩く程度で十分です。"
     else:
         answer = "外食は『主菜を決める → 汁物かサラダを足す → 主食を食べすぎない』で考えると整えやすいです。"
 
-    return f"{base}\n\n{answer}"
+    return f"相談内容：{question}\n\n{base}\n\n{answer}"
 
 
 def generate_answer(category: str, question: str, settings: dict) -> str:
@@ -547,7 +585,8 @@ def generate_answer(category: str, question: str, settings: dict) -> str:
     if category == "外食調整":
         return build_eating_out_answer(question, settings)
 
-    return "カテゴリを選んで相談してください。"
+    return f"相談内容：{question}\n\nカテゴリを選んで相談してください。"
+
 
 
 # =========================
