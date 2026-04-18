@@ -1,4 +1,5 @@
 import streamlit as st
+import streamlit.components.v1 as components
 import pandas as pd
 import calendar
 from datetime import datetime, timedelta
@@ -72,15 +73,16 @@ def render_daily_timeline_html(recommended: dict):
         "就寝": "#a0c4ff",
     }
 
-    markers_html = ""
+    markers = []
     for label in order:
         if label in recommended:
             left = (time_to_hour_float(recommended[label]) / 24) * 100
             color = colors.get(label, "#d9d9d9")
-            markers_html += f"""
+
+            markers.append(f"""
             <div style="
                 position:absolute;
-                left:{left}%;
+                left:{left:.2f}%;
                 top:10px;
                 transform:translateX(-50%);
                 text-align:center;
@@ -106,51 +108,52 @@ def render_daily_timeline_html(recommended: dict):
                     white-space:nowrap;
                 ">{recommended[label]}</div>
             </div>
-            """
+            """)
 
-    hour_labels = ""
+    hour_labels = []
     for h in range(0, 25, 3):
         left = (h / 24) * 100
-        hour_labels += f"""
+        hour_labels.append(f"""
         <div style="
             position:absolute;
-            left:{left}%;
+            left:{left:.2f}%;
             top:72px;
             transform:translateX(-50%);
             font-size:11px;
             color:#7a6a5f;
         ">{h}:00</div>
-        """
+        """)
 
-    st.markdown(
-        f"""
+    html = f"""
+    <div style="
+        position:relative;
+        width:100%;
+        height:95px;
+        margin:10px 0 18px 0;
+        background:#fffaf5;
+        border:1px solid #eadfce;
+        border-radius:16px;
+        padding:0 10px;
+        box-sizing:border-box;
+        overflow:hidden;
+        font-family:'Hiragino Sans','Yu Gothic',sans-serif;
+    ">
         <div style="
-            position:relative;
-            width:100%;
-            height:95px;
-            margin:10px 0 18px 0;
-            background:#fffaf5;
-            border:1px solid #eadfce;
-            border-radius:16px;
-            padding:0 10px;
-            box-sizing:border-box;
-        ">
-            <div style="
-                position:absolute;
-                left:3%;
-                right:3%;
-                top:16px;
-                height:4px;
-                background:#eadfce;
-                border-radius:999px;
-            "></div>
+            position:absolute;
+            left:3%;
+            right:3%;
+            top:16px;
+            height:4px;
+            background:#eadfce;
+            border-radius:999px;
+        "></div>
 
-            {markers_html}
-            {hour_labels}
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
+        {''.join(markers)}
+        {''.join(hour_labels)}
+    </div>
+    """
+
+    components.html(html, height=110, scrolling=False)
 
 
 st.header("🗓 スケジュール管理")
@@ -217,7 +220,11 @@ st.subheader("🕒 24時間タイムライン")
 
 timeline_df = build_daily_timeline_df(recommended)
 if not timeline_df.empty:
-    st.dataframe(timeline_df[["項目", "時間"]], use_container_width=True, hide_index=True)
+    st.dataframe(
+        timeline_df[["項目", "時間"]],
+        use_container_width=True,
+        hide_index=True
+    )
 
 render_daily_timeline_html(recommended)
 
