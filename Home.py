@@ -24,7 +24,7 @@ section[data-testid="stSidebar"] {
 }
 
 .block-container {
-    max-width: 930px;
+    max-width: 960px;
     padding-top: 2rem;
     padding-bottom: 3rem;
 }
@@ -33,21 +33,21 @@ section[data-testid="stSidebar"] {
     background: #f8f3ec;
     border: 1px solid #e7ddd2;
     border-radius: 42px;
-    padding: 2.3rem 2rem 2rem 2rem;
+    padding: 2.5rem 2.1rem 2.2rem 2.1rem;
     box-shadow: 0 10px 28px rgba(91, 58, 41, 0.05);
 }
 
 .logo-wrap {
     max-width: 310px;
-    margin: 0 auto 0.9rem auto;
+    margin: 0 auto 1rem auto;
 }
 
 .main-copy {
     text-align: center;
     color: #5b3a29;
-    font-size: 2.2rem;
+    font-size: 2.15rem;
     font-weight: 700;
-    line-height: 1.5;
+    line-height: 1.55;
     margin-top: 0.8rem;
 }
 
@@ -56,8 +56,8 @@ section[data-testid="stSidebar"] {
     color: #7a6454;
     font-size: 1rem;
     line-height: 1.9;
-    margin-top: 0.8rem;
-    margin-bottom: 1rem;
+    margin-top: 0.9rem;
+    margin-bottom: 1.1rem;
 }
 
 .deco {
@@ -65,7 +65,22 @@ section[data-testid="stSidebar"] {
     color: #c9a27f;
     font-size: 1rem;
     letter-spacing: 0.2rem;
-    margin-bottom: 1.2rem;
+    margin-bottom: 1.4rem;
+}
+
+.small-note-wrap {
+    margin-top: 1.4rem;
+    background: #fbf6ef;
+    border: 1px solid #eadfce;
+    border-radius: 20px;
+    padding: 1rem 1.1rem;
+}
+
+.small-note-title {
+    color: #5b3a29;
+    font-size: 1.05rem;
+    font-weight: 700;
+    margin-bottom: 0.4rem;
 }
 
 .small-note {
@@ -102,21 +117,21 @@ def render_feature_card(
     image_bg=True
 ):
     with st.container(border=True):
-        c1, c2 = st.columns([2.4, 0.9])
+        c1, c2 = st.columns([2.35, 0.95])
 
         with c1:
             st.markdown(
                 f"""
                 <div style="
-                    min-height: 100px;
+                    min-height: 92px;
                     display: flex;
                     align-items: flex-start;
                 ">
                     <h3 style="
                         margin: 0;
-                        line-height: 1.25;
+                        line-height: 1.3;
                         color: #2f3446;
-                        font-size: 2.1rem;
+                        font-size: 1.95rem;
                         font-weight: 800;
                     ">
                         {title}
@@ -129,10 +144,10 @@ def render_feature_card(
             st.markdown(
                 f"""
                 <div style="
-                    color:#2f3446;
-                    font-size: 1rem;
-                    line-height: 1.8;
-                    min-height: 118px;
+                    color:#4b5563;
+                    font-size: 0.98rem;
+                    line-height: 1.85;
+                    min-height: 120px;
                 ">
                     {desc}
                 </div>
@@ -147,10 +162,11 @@ def render_feature_card(
                     <div style="
                         background:#efe7dc;
                         border-radius:18px;
-                        padding:10px;
+                        padding:12px;
                         display:flex;
                         justify-content:center;
                         align-items:center;
+                        min-height:120px;
                     ">
                     """,
                     unsafe_allow_html=True
@@ -158,7 +174,19 @@ def render_feature_card(
                 st.image(image_path, width=image_width)
                 st.markdown("</div>", unsafe_allow_html=True)
             else:
+                st.markdown(
+                    """
+                    <div style="
+                        display:flex;
+                        justify-content:center;
+                        align-items:center;
+                        min-height:120px;
+                    ">
+                    """,
+                    unsafe_allow_html=True
+                )
                 st.image(image_path, width=image_width)
+                st.markdown("</div>", unsafe_allow_html=True)
 
         if st.button(button_label, key=f"{key_prefix}_btn", use_container_width=True):
             st.switch_page(target_page)
@@ -190,7 +218,7 @@ left, right = st.columns(2)
 with left:
     render_feature_card(
         "ダイエット管理",
-        "体重・体脂肪率の記録や日々の変化チェック、目標に合わせた管理に。",
+        "体重・体脂肪率・筋肉量の記録や日々の変化チェック、目標に合わせた管理に。",
         "assets/home_icons/diet.png",
         "ダイエット管理へ",
         "pages/1_ダイエット管理.py",
@@ -257,7 +285,7 @@ with right:
 
     render_feature_card(
         "初期設定",
-        "体型情報、食事スタイル、地域などを登録しておくと他ページにも反映されます。",
+        "体型情報、食事スタイル、地域、体質などを登録しておくと他ページにも反映されます。",
         "assets/home_icons/settings.png",
         "初期設定へ",
         "pages/6_初期設定.py",
@@ -266,10 +294,14 @@ with right:
         image_bg=True
     )
 
-st.markdown("### まずは、初期設定から始めるのがおすすめです。")
-st.markdown(
-    '<div class="small-note">食事スタイルや地域、体型情報を登録しておくと、他のページにも反映されて使いやすくなります。</div>',
-    unsafe_allow_html=True
-)
+st.markdown("""
+<div class="small-note-wrap">
+    <div class="small-note-title">まずは、初期設定から始めるのがおすすめです。</div>
+    <div class="small-note">
+        体型情報、食事スタイル、地域、体質などを登録しておくと、
+        献立・相談・記録ページにも反映されて使いやすくなります。
+    </div>
+</div>
+""", unsafe_allow_html=True)
 
 st.markdown('</div>', unsafe_allow_html=True)
