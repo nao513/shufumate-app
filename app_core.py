@@ -6,16 +6,23 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 from uuid import uuid4
 
+# =========================
+# タイムゾーン
+# =========================
 JST = ZoneInfo("Asia/Tokyo")
+
 
 def jst_now():
     return datetime.now(JST)
 
+
 def jst_today():
     return jst_now().date()
 
+
 def jst_today_str():
     return jst_now().strftime("%Y-%m-%d")
+
 
 # =========================
 # 定数
@@ -173,6 +180,26 @@ def get_dietlogs_sheet():
 
 
 # =========================
+# 読み取りキャッシュ
+# =========================
+@st.cache_data(ttl=30, show_spinner=False)
+def read_settings_records():
+    ws = get_settings_sheet()
+    return ws.get_all_records()
+
+
+@st.cache_data(ttl=30, show_spinner=False)
+def read_dietlog_records():
+    ws = get_dietlogs_sheet()
+    return ws.get_all_records()
+
+
+def clear_sheet_caches():
+    read_settings_records.clear()
+    read_dietlog_records.clear()
+
+
+# =========================
 # Settings保存・読込
 # =========================
 def find_user_row(ws, user_id: str):
@@ -187,8 +214,7 @@ def find_user_row(ws, user_id: str):
 
 
 def load_user_settings(user_id: str) -> dict:
-    ws = get_settings_sheet()
-    records = ws.get_all_records()
+    records = read_settings_records()
 
     for record in records:
         if str(record.get("user_id", "")) == user_id:
@@ -233,7 +259,7 @@ def save_user_settings(user_id: str, data: dict):
         data["activity_level"],
         data["food_style"],
         data["user_type"],
-       jst_now().strftime("%Y-%m-%d %H:%M:%S")
+        jst_now().strftime("%Y-%m-%d %H:%M:%S"),
     ]
 
     row_index = find_user_row(ws, user_id)
@@ -243,6 +269,8 @@ def save_user_settings(user_id: str, data: dict):
         ws.update(f"A{row_index}:{end_col}{row_index}", [row_data])
     else:
         ws.append_row(row_data)
+
+    clear_sheet_caches()
 
 
 # =========================
@@ -259,14 +287,14 @@ def save_diet_log(user_id: str, data: dict):
         data["exercise_memo"],
         data["condition_note"],
         data["mood_note"],
-        jst_now().strftime("%Y-%m-%d %H:%M:%S")
+        jst_now().strftime("%Y-%m-%d %H:%M:%S"),
     ]
     ws.append_row(row_data)
+    clear_sheet_caches()
 
 
 def load_latest_log(user_id: str) -> dict | None:
-    ws = get_dietlogs_sheet()
-    records = ws.get_all_records()
+    records = read_dietlog_records()
 
     user_logs = [r for r in records if str(r.get("user_id", "")) == user_id]
     if not user_logs:
@@ -297,8 +325,7 @@ def get_initial_log_values(user_id: str) -> dict:
 
 
 def load_recent_logs(user_id: str, limit: int = 10) -> pd.DataFrame:
-    ws = get_dietlogs_sheet()
-    records = ws.get_all_records()
+    records = read_dietlog_records()
     user_logs = [r for r in records if str(r.get("user_id", "")) == user_id]
 
     if not user_logs:
@@ -331,6 +358,43 @@ def load_recent_logs(user_id: str, limit: int = 10) -> pd.DataFrame:
     show_cols = [c for c in show_cols if c in df.columns]
 
     return df[show_cols].head(limit)
+
+
+def load_log_chart_df(user_id: str) -> pd.DataFrame:
+    records = read_dietlog_records()
+    user_logs = [r for r in records if str(r.get("user_id", "")) == user_id]
+
+    if not user_logs:
+        return pd.DataFrame()
+
+    df = pd.DataFrame(user_logs)
+
+    if "log_date" not in df.columns:
+        return pd.DataFrame()
+
+    df["log_date_sort"] = pd.to_datetime(df["log_date"], errors="coerce")
+    df["created_at_sort"] = pd.to_datetime(df.get("created_at"), errors="coerce")
+    df["weight_num"] = pd.to_numeric(df.get("weight"), errors="coerce")
+    df["body_fat_num"] = pd.to_numeric(df.get("body_fat"), errors="coerce")
+
+    df = df.dropna(subset=["log_date_sort"])
+    df = df.sort_values(
+        by=["log_date_sort", "created_at_sort"],
+        ascending=[True, True],
+        na_position="last",
+    )
+
+    df = df.drop_duplicates(subset=["log_date"], keep="last")
+
+    chart_df = pd.DataFrame(
+        {
+            "日付": df["log_date_sort"],
+            "体重(kg)": df["weight_num"],
+            "体脂肪(%)": df["body_fat_num"],
+        }
+    ).set_index("日付")
+
+    return chart_df
 
 
 # =========================
@@ -588,109 +652,6 @@ def generate_answer(category: str, question: str, settings: dict) -> str:
     return f"相談内容：{question}\n\nカテゴリを選んで相談してください。"
 
 
-
-# =========================
-# UI
-# =========================
-def inject_home_css():
-    st.markdown(
-        """
-        <style>
-        .block-container {
-            padding-top: 1.2rem;
-            padding-bottom: 2rem;
-            max-width: 760px;
-        }
-        .sm-card {
-            background: #ffffff;
-            border: 1px solid #e9e9e9;
-            border-radius: 18px;
-            padding: 18px 16px;
-            margin-bottom: 14px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.03);
-        }
-        .sm-title {
-            font-size: 1.05rem;
-            font-weight: 700;
-            margin-bottom: 0.6rem;
-        }
-        .sm-sub {
-            color: #666666;
-            font-size: 0.92rem;
-            margin-bottom: 0.3rem;
-        }
-        .sm-menu-row {
-            padding: 8px 0;
-            border-bottom: 1px dashed #eeeeee;
-        }
-        .sm-menu-row:last-child {
-            border-bottom: none;
-        }
-        .sm-day {
-            font-weight: 700;
-            display: inline-block;
-            width: 1.5rem;
-        }
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
-
-
-def render_today_advice_card(advice: dict):
-    st.markdown(
-        f"""
-        <div class="sm-card">
-            <div class="sm-title">🌿 今日のおすすめ</div>
-            <div class="sm-sub"><b>食事</b></div>
-            <div>{advice["食事"]}</div>
-            <br>
-            <div class="sm-sub"><b>運動</b></div>
-            <div>{advice["運動"]}</div>
-            <br>
-            <div class="sm-sub"><b>ひとこと</b></div>
-            <div>{advice["ひとこと"]}</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-
-def render_week_menu_card(menu_list: list[dict]):
-    today_idx = datetime.now().weekday()
-    rows = []
-    for idx, item in enumerate(menu_list):
-        mark = " ← 今日" if idx == today_idx else ""
-        rows.append(
-            f'<div class="sm-menu-row"><span class="sm-day">{item["day"]}</span> {item["menu"]}{mark}</div>'
-        )
-
-    st.markdown(
-        f"""
-        <div class="sm-card">
-            <div class="sm-title">🍽 今週の献立</div>
-            {''.join(rows)}
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-
-def render_exercise_card(exercise: dict):
-    st.markdown(
-        f"""
-        <div class="sm-card">
-            <div class="sm-title">🏃 今日の運動</div>
-            <div class="sm-sub"><b>{exercise["title"]}</b></div>
-            <div>{exercise["body"]}</div>
-            <br>
-            <div>{exercise["level_text"]}</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-
 # =========================
 # ホーム用サマリー
 # =========================
@@ -704,8 +665,6 @@ def get_home_progress_summary(user_id: str) -> dict:
     target_body_fat = settings["target_body_fat"]
 
     latest_date = "未記録"
-    latest_weight = None
-    latest_body_fat = None
 
     if latest:
         latest_date = to_str(latest.get("log_date", "未記録")) or "未記録"
@@ -739,41 +698,3 @@ def get_home_progress_summary(user_id: str) -> dict:
         "weight_text": weight_text,
         "body_fat_text": body_fat_text,
     }
-
-
-def load_log_chart_df(user_id: str) -> pd.DataFrame:
-    ws = get_dietlogs_sheet()
-    records = ws.get_all_records()
-    user_logs = [r for r in records if str(r.get("user_id", "")) == user_id]
-
-    if not user_logs:
-        return pd.DataFrame()
-
-    df = pd.DataFrame(user_logs)
-
-    if "log_date" not in df.columns:
-        return pd.DataFrame()
-
-    df["log_date_sort"] = pd.to_datetime(df["log_date"], errors="coerce")
-    df["created_at_sort"] = pd.to_datetime(df.get("created_at"), errors="coerce")
-    df["weight_num"] = pd.to_numeric(df.get("weight"), errors="coerce")
-    df["body_fat_num"] = pd.to_numeric(df.get("body_fat"), errors="coerce")
-
-    df = df.dropna(subset=["log_date_sort"])
-    df = df.sort_values(
-        by=["log_date_sort", "created_at_sort"],
-        ascending=[True, True],
-        na_position="last",
-    )
-
-    df = df.drop_duplicates(subset=["log_date"], keep="last")
-
-    chart_df = pd.DataFrame(
-        {
-            "日付": df["log_date_sort"],
-            "体重(kg)": df["weight_num"],
-            "体脂肪(%)": df["body_fat_num"],
-        }
-    ).set_index("日付")
-
-    return chart_df
