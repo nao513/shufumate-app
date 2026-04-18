@@ -205,11 +205,11 @@ def render_feature_card(
 st.markdown('<div class="home-shell">', unsafe_allow_html=True)
 
 st.markdown('<div class="top-logo-wrap">', unsafe_allow_html=True)
-st.image("assets/top/logo.png", use_container_width=True)
+st.image("assets/home_icons/top/logo.png", use_container_width=True)
 st.markdown('</div>', unsafe_allow_html=True)
 
 st.markdown('<div class="hero-wrap">', unsafe_allow_html=True)
-st.image("assets/top/hero.png", use_container_width=True)
+st.image("assets/home_icons/top/hero.png", use_container_width=True)
 st.markdown('</div>', unsafe_allow_html=True)
 
 st.markdown("""
