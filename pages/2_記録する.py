@@ -1,11 +1,12 @@
 import streamlit as st
-from datetime import date
 from app_core import (
     get_user_id,
     get_initial_log_values,
     save_diet_log,
     load_recent_logs,
     load_log_chart_df,
+    jst_today,
+    jst_today_str,
 )
 
 st.title("📝 記録する")
@@ -19,8 +20,10 @@ except Exception as e:
     st.error(f"初期値の読込に失敗しました: {e}")
     st.stop()
 
+today_label = jst_today().strftime("%Y/%m/%d")
+
 with st.form("diet_log_form"):
-    log_date = st.date_input("日付", value=date.today())
+    st.text_input("日付", value=today_label, disabled=True)
 
     weight = st.number_input(
         "体重(kg)",
@@ -49,7 +52,7 @@ with st.form("diet_log_form"):
 
 if submitted:
     save_data = {
-        "log_date": log_date.strftime("%Y-%m-%d"),
+        "log_date": jst_today_str(),
         "weight": float(weight),
         "body_fat": float(body_fat),
         "meal_memo": meal_memo.strip(),
