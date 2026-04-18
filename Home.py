@@ -13,11 +13,19 @@ reload_user_data_if_needed()
 
 
 def img_to_base64(path: str) -> str:
-    return base64.b64encode(Path(path).read_bytes()).decode()
+    p = Path(path)
+    if not p.exists():
+        return ""
+    return base64.b64encode(p.read_bytes()).decode()
 
 
 def show_top_image(path: str, wrap_class: str):
     img_b64 = img_to_base64(path)
+
+    if not img_b64:
+        st.warning(f"画像が見つかりません: {path}")
+        return
+
     st.markdown(
         f'''
         <div class="{wrap_class}">
@@ -224,13 +232,13 @@ def render_feature_card(
     button_label,
     target_page,
     key_prefix,
-    image_width=120,
-    image_bg=True
+    image_width=135,
+    image_bg=False
 ):
     img_b64 = img_to_base64(image_path)
 
     with st.container(border=True):
-        c1, c2 = st.columns([2.75, 0.85], vertical_alignment="top")
+        c1, c2 = st.columns([2.6, 1.0], vertical_alignment="top")
 
         with c1:
             st.markdown(
@@ -298,8 +306,8 @@ with left:
         "ダイエット管理へ",
         "pages/1_ダイエット管理.py",
         "diet",
-        image_width=120,
-        image_bg=True
+        image_width=135,
+        image_bg=False
     )
 
     render_feature_card(
@@ -309,8 +317,8 @@ with left:
         "写真で記録へ",
         "pages/3_写真で記録.py",
         "photo",
-        image_width=120,
-        image_bg=True
+        image_width=135,
+        image_bg=False
     )
 
     render_feature_card(
@@ -320,8 +328,8 @@ with left:
         "家計簿へ",
         "pages/5_家計簿.py",
         "money",
-        image_width=120,
-        image_bg=True
+        image_width=135,
+        image_bg=False
     )
 
     render_feature_card(
@@ -343,8 +351,8 @@ with right:
         "献立・運動プランへ",
         "pages/2_献立・運動プラン.py",
         "plan",
-        image_width=120,
-        image_bg=True
+        image_width=135,
+        image_bg=False
     )
 
     render_feature_card(
@@ -354,8 +362,8 @@ with right:
         "なんでも相談へ",
         "pages/4_なんでも相談.py",
         "advice",
-        image_width=120,
-        image_bg=True
+        image_width=135,
+        image_bg=False
     )
 
     render_feature_card(
@@ -365,8 +373,8 @@ with right:
         "初期設定へ",
         "pages/6_初期設定.py",
         "settings",
-        image_width=120,
-        image_bg=True
+        image_width=135,
+        image_bg=False
     )
 
 st.markdown("""
