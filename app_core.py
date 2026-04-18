@@ -649,6 +649,7 @@ def render_exercise_card(exercise: dict):
         </div>
         """,
         unsafe_allow_html=True,
+    )
 
 
 # =========================
