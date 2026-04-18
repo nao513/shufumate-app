@@ -1,400 +1,373 @@
 import streamlit as st
-import base64
-from pathlib import Path
-from app_core import *
+import gspread
+from google.oauth2.service_account import Credentials
+from datetime import datetime
 
+# =========================
+# ページ設定
+# =========================
 st.set_page_config(
-    page_title="ShufuMate｜主婦の味方アプリ",
-    layout="wide"
+    page_title="ShufuMate",
+    page_icon="🏠",
+    layout="centered",
 )
 
-ensure_headers()
-reload_user_data_if_needed()
+# =========================
+# 基本設定
+# =========================
+DEFAULT_USER_ID = "default_user"
+
+SETTINGS_HEADERS = [
+    "user_id",
+    "nickname",
+    "age",
+    "height_cm",
+    "current_weight",
+    "target_weight",
+    "current_body_fat",
+    "target_body_fat",
+    "activity_level",
+    "food_style",
+    "user_type",
+    "updated_at",
+]
+
+WEEKDAY_JP = ["月", "火", "水", "木", "金", "土", "日"]
 
 
-def img_to_base64(path: str) -> str:
-    p = Path(path)
-    if not p.exists():
-        return ""
-    return base64.b64encode(p.read_bytes()).decode()
+# =========================
+# 共通関数
+# =========================
+def get_user_id() -> str:
+    if "user_id" not in st.session_state:
+        st.session_state["user_id"] = DEFAULT_USER_ID
+    return st.session_state["user_id"]
 
 
-def show_top_image(path: str):
-    img_b64 = img_to_base64(path)
+def to_str(v) -> str:
+    return "" if v is None else str(v)
 
-    if not img_b64:
-        st.warning(f"画像が見つかりません: {path}")
-        return
+
+@st.cache_resource
+def get_gspread_client():
+    scopes = [
+        "https://www.googleapis.com/auth/spreadsheets",
+        "https://www.googleapis.com/auth/drive",
+    ]
+    credentials = Credentials.from_service_account_info(
+        st.secrets["gcp_service_account"],
+        scopes=scopes,
+    )
+    return gspread.authorize(credentials)
+
+
+def get_spreadsheet():
+    client = get_gspread_client()
+    sheet_id = st.secrets["GOOGLE_SHEET_ID"]
+    return client.open_by_key(sheet_id)
+
+
+def ensure_headers(ws, headers):
+    current = ws.row_values(1)
+    if current != headers:
+        ws.update("A1", [headers])
+
+
+def get_or_create_settings_sheet():
+    ss = get_spreadsheet()
+    try:
+        ws = ss.worksheet("Settings")
+    except gspread.exceptions.WorksheetNotFound:
+        ws = ss.add_worksheet(title="Settings", rows=100, cols=len(SETTINGS_HEADERS))
+        ws.append_row(SETTINGS_HEADERS)
+
+    ensure_headers(ws, SETTINGS_HEADERS)
+    return ws
+
+
+def load_user_settings(user_id: str) -> dict:
+    ws = get_or_create_settings_sheet()
+    records = ws.get_all_records()
+
+    for record in records:
+        if str(record.get("user_id", "")) == user_id:
+            return {
+                "nickname": to_str(record.get("nickname", "")),
+                "activity_level": to_str(record.get("activity_level", "ふつう")) or "ふつう",
+                "food_style": to_str(record.get("food_style", "バランス重視")) or "バランス重視",
+                "user_type": to_str(record.get("user_type", "自分だけ向け")) or "自分だけ向け",
+            }
+
+    return {
+        "nickname": "",
+        "activity_level": "ふつう",
+        "food_style": "バランス重視",
+        "user_type": "自分だけ向け",
+    }
+
+
+# =========================
+# 提案ロジック
+# =========================
+def get_today_advice(settings: dict) -> dict:
+    user_type = settings["user_type"]
+    food_style = settings["food_style"]
+
+    if user_type == "自分＋家族向け":
+        return {
+            "食事": f"家族も満足しやすく、自分は重くなりすぎない組み立てがおすすめです。食事スタイルは「{food_style}」を軸に考えます。",
+            "運動": "すきま時間の軽い運動で十分です。家事の合間に5〜10分でもOKです。",
+            "ひとこと": "全部を完璧にしなくて大丈夫です。",
+        }
+    if user_type == "節約重視":
+        return {
+            "食事": f"使い回ししやすい食材で組み立てる日がおすすめです。食事スタイルは「{food_style}」を軸に考えます。",
+            "運動": "家でできる軽い運動を優先しましょう。お金をかけずに続ける形でOKです。",
+            "ひとこと": "無理なく続けられる形がいちばん強いです。",
+        }
+    if user_type == "忙しい日向け":
+        return {
+            "食事": f"時短・洗い物少なめの献立がおすすめです。食事スタイルは「{food_style}」を軸に考えます。",
+            "運動": "今日は5分だけでも十分です。ゼロにしないことを優先します。",
+            "ひとこと": "今日は回すこと優先で大丈夫です。",
+        }
+
+    return {
+        "食事": f"軽めに整えながら、無理のない食事がおすすめです。食事スタイルは「{food_style}」を軸に考えます。",
+        "運動": "短時間でも、自分のための運動時間を少し取りましょう。",
+        "ひとこと": "今日は自分優先で大丈夫です。",
+    }
+
+
+def get_week_menu(settings: dict) -> list[dict]:
+    user_type = settings["user_type"]
+
+    if user_type == "節約重視":
+        return [
+            {"day": "月", "menu": "豆腐そぼろ丼＋味噌汁"},
+            {"day": "火", "menu": "鶏むね肉とキャベツ炒め"},
+            {"day": "水", "menu": "卵と野菜のあんかけ丼"},
+            {"day": "木", "menu": "もやし入りハンバーグ"},
+            {"day": "金", "menu": "焼きそば＋スープ"},
+            {"day": "土", "menu": "カレーの残り活用"},
+            {"day": "日", "menu": "作り置きおかず活用"},
+        ]
+
+    if user_type == "忙しい日向け":
+        return [
+            {"day": "月", "menu": "鶏むねレンジ蒸し＋サラダ"},
+            {"day": "火", "menu": "鮭＋即席味噌汁＋ごはん"},
+            {"day": "水", "menu": "丼もの＋カット野菜"},
+            {"day": "木", "menu": "豆腐ハンバーグ"},
+            {"day": "金", "menu": "パスタ＋スープ"},
+            {"day": "土", "menu": "外食調整日"},
+            {"day": "日", "menu": "冷蔵庫の残りで簡単ごはん"},
+        ]
+
+    if user_type == "自分＋家族向け":
+        return [
+            {"day": "月", "menu": "鶏むね肉と野菜炒め"},
+            {"day": "火", "menu": "鮭と味噌汁"},
+            {"day": "水", "menu": "親子丼＋サラダ"},
+            {"day": "木", "menu": "豆腐ハンバーグ"},
+            {"day": "金", "menu": "パスタ＋スープ"},
+            {"day": "土", "menu": "外食調整日"},
+            {"day": "日", "menu": "作り置き活用"},
+        ]
+
+    return [
+        {"day": "月", "menu": "鶏むね肉と野菜炒め"},
+        {"day": "火", "menu": "鮭と味噌汁"},
+        {"day": "水", "menu": "丼もの＋サラダ"},
+        {"day": "木", "menu": "豆腐ハンバーグ"},
+        {"day": "金", "menu": "パスタ＋スープ"},
+        {"day": "土", "menu": "外食調整日"},
+        {"day": "日", "menu": "作り置き活用"},
+    ]
+
+
+def get_today_exercise(settings: dict) -> dict:
+    user_type = settings["user_type"]
+    activity_level = settings["activity_level"]
+
+    if user_type == "忙しい日向け":
+        title = "5分ストレッチ"
+        body = "肩回し、前もも伸ばし、股関節ほぐし、深呼吸でOKです。"
+    elif user_type == "節約重視":
+        title = "家トレ"
+        body = "スクワット、肩回し、かかと上げを少しずつ。家でできる範囲で十分です。"
+    elif user_type == "自分＋家族向け":
+        title = "散歩 or 軽い全身運動"
+        body = "10〜20分の散歩や、すきま時間の全身運動がおすすめです。"
+    else:
+        title = "ヨガ or ピラティス基礎"
+        body = "短時間でも自分の体を整える時間を取るのがおすすめです。"
+
+    if activity_level == "低い":
+        level_text = "活動量は低め設定なので、今日は軽めで十分です。"
+    elif activity_level == "高い":
+        level_text = "活動量は高め設定なので、余裕があれば少しだけ負荷を上げても大丈夫です。"
+    else:
+        level_text = "活動量はふつう設定なので、軽め〜中くらいで整えるのがおすすめです。"
+
+    return {
+        "title": title,
+        "body": body,
+        "level_text": level_text,
+    }
+
+
+# =========================
+# UI
+# =========================
+def inject_css():
+    st.markdown(
+        """
+        <style>
+        .block-container {
+            padding-top: 1.2rem;
+            padding-bottom: 2rem;
+            max-width: 760px;
+        }
+        .sm-card {
+            background: #ffffff;
+            border: 1px solid #e9e9e9;
+            border-radius: 18px;
+            padding: 18px 16px;
+            margin-bottom: 14px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.03);
+        }
+        .sm-title {
+            font-size: 1.05rem;
+            font-weight: 700;
+            margin-bottom: 0.6rem;
+        }
+        .sm-sub {
+            color: #666666;
+            font-size: 0.92rem;
+            margin-bottom: 0.3rem;
+        }
+        .sm-menu-row {
+            padding: 8px 0;
+            border-bottom: 1px dashed #eeeeee;
+        }
+        .sm-menu-row:last-child {
+            border-bottom: none;
+        }
+        .sm-day {
+            font-weight: 700;
+            display: inline-block;
+            width: 1.5rem;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_today_advice_card(advice: dict):
+    st.markdown(
+        f"""
+        <div class="sm-card">
+            <div class="sm-title">🌿 今日のおすすめ</div>
+            <div class="sm-sub"><b>食事</b></div>
+            <div>{advice["食事"]}</div>
+            <br>
+            <div class="sm-sub"><b>運動</b></div>
+            <div>{advice["運動"]}</div>
+            <br>
+            <div class="sm-sub"><b>ひとこと</b></div>
+            <div>{advice["ひとこと"]}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_week_menu_card(menu_list: list[dict]):
+    today_idx = datetime.now().weekday()  # 月=0
+    rows = []
+    for idx, item in enumerate(menu_list):
+        mark = " ← 今日" if idx == today_idx else ""
+        rows.append(
+            f'<div class="sm-menu-row"><span class="sm-day">{item["day"]}</span> {item["menu"]}{mark}</div>'
+        )
 
     st.markdown(
-        f'''
-        <div class="top-visual-wrap">
-            <img src="data:image/png;base64,{img_b64}">
+        f"""
+        <div class="sm-card">
+            <div class="sm-title">🍽 今週の献立</div>
+            {''.join(rows)}
         </div>
-        ''',
-        unsafe_allow_html=True
+        """,
+        unsafe_allow_html=True,
     )
 
 
-st.markdown("""
-<style>
-html, body, [class*="css"] {
-    font-family: "Hiragino Sans", "Yu Gothic", sans-serif;
-}
-
-.stApp {
-    background: linear-gradient(180deg, #f4efe8 0%, #f8f4ee 100%);
-}
-
-section[data-testid="stSidebar"] {
-    background: #f1ece6;
-}
-
-.block-container {
-    max-width: 980px;
-    padding-top: 1.6rem;
-    padding-bottom: 3rem;
-}
-
-.home-shell {
-    background: #f8f3ec;
-    border: 1px solid #e7ddd2;
-    border-radius: 38px;
-    padding: 1.8rem 1.8rem 2.2rem 1.8rem;
-    box-shadow: 0 10px 28px rgba(91, 58, 41, 0.05);
-}
-
-/* ---------- 上部画像 ---------- */
-
-.top-visual-wrap {
-    margin-bottom: 1.35rem;
-    overflow: hidden;
-    border-radius: 26px;
-}
-
-.top-visual-wrap img {
-    display: block;
-    width: 100%;
-    height: auto;
-}
-
-/* ---------- メインコピー ---------- */
-
-.main-copy {
-    text-align: center;
-    color: #5b3a29;
-    font-size: 2rem;
-    font-weight: 700;
-    line-height: 1.55;
-    margin-top: 0.2rem;
-}
-
-.sub-copy {
-    text-align: center;
-    color: #7a6454;
-    font-size: 1rem;
-    line-height: 1.9;
-    margin-top: 0.8rem;
-    margin-bottom: 1rem;
-}
-
-.deco {
-    text-align: center;
-    color: #c9a27f;
-    font-size: 1rem;
-    letter-spacing: 0.2rem;
-    margin-bottom: 1.2rem;
-}
-
-/* ---------- カード ---------- */
-
-.feature-title-wrap {
-    min-height: 68px;
-    display: flex;
-    align-items: flex-start;
-}
-
-.feature-title {
-    margin: 0;
-    line-height: 1.2;
-    color: #2f3446;
-    font-size: 1.72rem;
-    font-weight: 800;
-    white-space: nowrap;
-    letter-spacing: 0.01em;
-}
-
-.feature-desc {
-    color: #4b5563;
-    font-size: 0.98rem;
-    line-height: 1.85;
-    min-height: 122px;
-}
-
-.feature-image-box {
-    background: #efe7dc;
-    border-radius: 18px;
-    padding: 12px;
-    height: 120px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-}
-
-.feature-image-plain {
-    height: 120px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-}
-
-.feature-image-box img,
-.feature-image-plain img {
-    max-width: 100%;
-    height: auto;
-    display: block;
-    object-fit: contain;
-}
-
-/* ---------- ボタン ---------- */
-
-div.stButton > button {
-    background: #fbf6ef;
-    color: #6a4a39;
-    border: 1px solid #e2d2c1;
-    border-radius: 999px;
-    font-weight: 700;
-    min-height: 2.8rem;
-}
-
-div.stButton > button:hover {
-    background: #f1e5d7;
-    border-color: #d6b99c;
-    color: #5b3a29;
-}
-
-/* ---------- 下部案内 ---------- */
-
-.small-note-wrap {
-    margin-top: 1.4rem;
-    background: #fbf6ef;
-    border: 1px solid #eadfce;
-    border-radius: 20px;
-    padding: 1rem 1.1rem;
-}
-
-.small-note-title {
-    color: #5b3a29;
-    font-size: 1.05rem;
-    font-weight: 700;
-    margin-bottom: 0.4rem;
-}
-
-.small-note {
-    color: #7a6556;
-    font-size: 0.96rem;
-    line-height: 1.8;
-}
-
-/* ---------- レスポンシブ ---------- */
-
-@media (max-width: 1200px) {
-    .feature-title {
-        font-size: 1.55rem;
-    }
-}
-
-@media (max-width: 860px) {
-    .feature-title-wrap {
-        min-height: auto;
-    }
-
-    .feature-title {
-        white-space: normal;
-        font-size: 1.48rem;
-    }
-
-    .feature-desc {
-        min-height: auto;
-    }
-}
-</style>
-""", unsafe_allow_html=True)
-
-
-def render_feature_card(
-    title,
-    desc,
-    image_path,
-    button_label,
-    target_page,
-    key_prefix,
-    image_width=135,
-    image_bg=False
-):
-    img_b64 = img_to_base64(image_path)
-
-    with st.container(border=True):
-        c1, c2 = st.columns([2.6, 1.0], vertical_alignment="top")
-
-        with c1:
-            st.markdown(
-                f"""
-                <div class="feature-title-wrap">
-                    <h3 class="feature-title">{title}</h3>
-                </div>
-                <div class="feature-desc">
-                    {desc}
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
-
-        with c2:
-            if image_bg:
-                st.markdown(
-                    f"""
-                    <div class="feature-image-box">
-                        <img src="data:image/png;base64,{img_b64}" style="width:{image_width}px;">
-                    </div>
-                    """,
-                    unsafe_allow_html=True
-                )
-            else:
-                st.markdown(
-                    f"""
-                    <div class="feature-image-plain">
-                        <img src="data:image/png;base64,{img_b64}" style="width:{image_width}px;">
-                    </div>
-                    """,
-                    unsafe_allow_html=True
-                )
-
-        if st.button(button_label, key=f"{key_prefix}_btn", use_container_width=True):
-            st.switch_page(target_page)
-
-
-st.markdown('<div class="home-shell">', unsafe_allow_html=True)
-
-show_top_image("assets/home_icons/top/top_visual.png")
-
-st.markdown("""
-<div class="main-copy">
-主婦の毎日に寄り添う<br>
-ダイエット・献立・記録・家計アプリ
-</div>
-""", unsafe_allow_html=True)
-
-st.markdown("""
-<div class="sub-copy">
-毎日のちょっとした悩みを、やさしくサポートします。
-</div>
-""", unsafe_allow_html=True)
-
-st.markdown('<div class="deco">── ✦ ──</div>', unsafe_allow_html=True)
-
-left, right = st.columns(2)
-
-with left:
-    render_feature_card(
-        "ダイエット管理",
-        "体重・体脂肪率・筋肉量の記録や日々の変化チェック、目標に合わせた管理に。",
-        "assets/home_icons/diet.png",
-        "ダイエット管理へ",
-        "pages/1_ダイエット管理.py",
-        "diet"
+def render_exercise_card(exercise: dict):
+    st.markdown(
+        f"""
+        <div class="sm-card">
+            <div class="sm-title">🏃 今日の運動</div>
+            <div class="sm-sub"><b>{exercise["title"]}</b></div>
+            <div>{exercise["body"]}</div>
+            <br>
+            <div>{exercise["level_text"]}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
 
-    render_feature_card(
-        "写真で記録",
-        "冷蔵庫や体重計の写真から、食材や数値を読み取って記録に活かせます。",
-        "assets/home_icons/photo.png",
-        "写真で記録へ",
-        "pages/3_写真で記録.py",
-        "photo"
-    )
 
-    render_feature_card(
-        "家計簿",
-        "レシート撮影や手入力で、シンプルに記録して見返しやすく管理できます。",
-        "assets/home_icons/money.png",
-        "家計簿へ",
-        "pages/5_家計簿.py",
-        "money"
-    )
+# =========================
+# 画面
+# =========================
+inject_css()
 
-    render_feature_card(
-        "アーユルヴェーダ",
-        "8項目から体質傾向をチェックします。チェックが多い体質が、今の自分に近いタイプです。",
-        "assets/home_icons/ayurveda.png",
-        "アーユルヴェーダへ",
-        "pages/7_アーユルヴェーダ.py",
-        "ayurveda"
-    )
+user_id = get_user_id()
 
-    render_feature_card(
-        "教育費・人生設計",
-        "子どもの人数や教育方針に合わせて、教育費の目安をざっくり確認できます。",
-        "assets/home_icons/education.png",
-        "教育費・人生設計へ",
-        "pages/9_教育費・人生設計.py",
-        "education"
-    )
+try:
+    settings = load_user_settings(user_id)
+except Exception as e:
+    st.error(f"設定の読込に失敗しました: {e}")
+    st.stop()
 
-with right:
-    render_feature_card(
-        "献立・運動プラン",
-        "その日の状態や冷蔵庫の食材、目標に合わせて続けやすい提案を作れます。",
-        "assets/home_icons/plan.png",
-        "献立・運動プランへ",
-        "pages/2_献立・運動プラン.py",
-        "plan"
-    )
+nickname = settings["nickname"].strip()
+today_text = datetime.now().strftime("%Y年%m月%d日")
+weekday_text = WEEKDAY_JP[datetime.now().weekday()]
 
-    render_feature_card(
-        "なんでも相談",
-        "夕飯どうする？運動前後は何を食べる？そんな日常の迷いを気軽に相談できます。",
-        "assets/home_icons/advice.png",
-        "なんでも相談へ",
-        "pages/4_なんでも相談.py",
-        "advice"
-    )
+st.title("🏠 ホーム")
+st.caption(f"{today_text}（{weekday_text}）")
 
-    render_feature_card(
-        "初期設定",
-        "体型情報、食事スタイル、地域、体質などを登録しておくと他ページにも反映されます。",
-        "assets/home_icons/settings.png",
-        "初期設定へ",
-        "pages/6_初期設定.py",
-        "settings"
-    )
+if nickname:
+    st.subheader(f"{nickname}さん、今日のおすすめです")
+else:
+    st.subheader("今日のおすすめです")
 
-    render_feature_card(
-        "スケジュール",
-        "予定管理や生活リズムの目安を見ながら、毎日の流れを整えやすくします。",
-        "assets/home_icons/schedule.png",
-        "スケジュールへ",
-        "pages/8_スケジュール.py",
-        "schedule"
-    )
+advice = get_today_advice(settings)
+week_menu = get_week_menu(settings)
+exercise = get_today_exercise(settings)
 
-    render_feature_card(
-        "お得情報",
-        "地域設定に合わせて、暮らしや家計に役立つお得情報を見やすく広げていきます。",
-        "assets/home_icons/deals.png",
-        "お得情報へ",
-        "pages/10_お得情報.py",
-        "deals"
-    )
+render_today_advice_card(advice)
+render_week_menu_card(week_menu)
+render_exercise_card(exercise)
 
-st.markdown("""
-<div class="small-note-wrap">
-    <div class="small-note-title">まずは、初期設定から始めるのがおすすめです。</div>
-    <div class="small-note">
-        体型情報、食事スタイル、地域、体質などを登録しておくと、
-        献立・相談・記録ページにも反映されて使いやすくなります。
-    </div>
-</div>
-""", unsafe_allow_html=True)
+st.markdown("### つかう")
+col1, col2, col3 = st.columns(3)
 
-st.markdown('</div>', unsafe_allow_html=True)
+with col1:
+    if st.button("📝 記録する", use_container_width=True):
+        st.switch_page("pages/2_記録する.py")
+
+with col2:
+    if st.button("💬 相談する", use_container_width=True):
+        st.switch_page("pages/3_相談する.py")
+
+with col3:
+    if st.button("⚙️ 設定", use_container_width=True):
+        st.switch_page("pages/1_設定.py")
+
+st.divider()
+st.write(f"利用タイプ：{settings['user_type']}")
+st.write(f"活動量：{settings['activity_level']}")
+st.write(f"食事スタイル：{settings['food_style']}")
