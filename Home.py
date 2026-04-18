@@ -23,7 +23,7 @@ st.markdown(
     """
     <style>
     .block-container {
-        padding-top: 1rem;
+        padding-top: 3.2rem;
         padding-bottom: 2rem;
         max-width: 760px;
     }
@@ -32,6 +32,7 @@ st.markdown(
         border: 1px solid #f1e7dc;
         border-radius: 22px;
         padding: 18px 16px 14px 16px;
+        margin-top: 0.5rem;
         margin-bottom: 16px;
         box-shadow: 0 4px 14px rgba(0,0,0,0.03);
     }
