@@ -698,3 +698,43 @@ def get_home_progress_summary(user_id: str) -> dict:
         "weight_text": weight_text,
         "body_fat_text": body_fat_text,
     }
+
+def get_today_log_status(user_id: str) -> dict:
+    today = jst_today_str()
+    records = read_dietlog_records()
+
+    today_logs = [
+        r for r in records
+        if str(r.get("user_id", "")) == user_id
+        and to_str(r.get("log_date", "")) == today
+    ]
+
+    if not today_logs:
+        return {
+            "is_logged": False,
+            "label": "今日はまだ未記録です",
+            "detail": "体重・体脂肪・食事・運動を記録できます。",
+        }
+
+    def sort_key(x):
+        created_at = to_str(x.get("created_at", ""))
+        return created_at
+
+    today_logs.sort(key=sort_key, reverse=True)
+    latest = today_logs[0]
+    created_at = to_str(latest.get("created_at", ""))
+
+    time_text = ""
+    if len(created_at) >= 16:
+        time_text = created_at[11:16]
+
+    if time_text:
+        detail = f"今日の記録は保存済みです（最終保存 {time_text}）"
+    else:
+        detail = "今日の記録は保存済みです。"
+
+    return {
+        "is_logged": True,
+        "label": "今日は記録済みです",
+        "detail": detail,
+    }
