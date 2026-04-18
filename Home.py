@@ -8,6 +8,7 @@ from app_core import (
     get_today_advice,
     get_week_menu,
     get_today_exercise,
+    get_home_progress_summary,
 )
 
 st.set_page_config(
@@ -89,6 +90,37 @@ st.markdown(
         margin: 2px 6px 2px 0;
         font-size: 0.84rem;
     }
+    .sm-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+    }
+    .sm-mini-card {
+        background: #fffdf9;
+        border: 1px solid #eee7dc;
+        border-radius: 16px;
+        padding: 14px 12px;
+    }
+    .sm-mini-title {
+        font-size: 0.88rem;
+        color: #666666;
+        margin-bottom: 0.35rem;
+    }
+    .sm-mini-main {
+        font-size: 1.2rem;
+        font-weight: 700;
+        margin-bottom: 0.25rem;
+    }
+    .sm-mini-sub {
+        font-size: 0.88rem;
+        color: #666666;
+        line-height: 1.5;
+    }
+    @media (max-width: 640px) {
+        .sm-grid {
+            grid-template-columns: 1fr;
+        }
+    }
     </style>
     """,
     unsafe_allow_html=True,
@@ -121,6 +153,30 @@ def render_today_advice_card(advice: dict):
             <br>
             <div class="sm-sub"><b>ひとこと</b></div>
             <div class="sm-text">{advice["ひとこと"]}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_progress_card(summary: dict):
+    st.markdown(
+        f"""
+        <div class="sm-card">
+            <div class="sm-title">📊 最新の記録</div>
+            <div class="sm-sub">最新記録日：{summary["latest_date"]}</div>
+            <div class="sm-grid" style="margin-top:12px;">
+                <div class="sm-mini-card">
+                    <div class="sm-mini-title">体重</div>
+                    <div class="sm-mini-main">{summary["latest_weight"]:.1f} kg</div>
+                    <div class="sm-mini-sub">{summary["weight_text"]}</div>
+                </div>
+                <div class="sm-mini-card">
+                    <div class="sm-mini-title">体脂肪</div>
+                    <div class="sm-mini-main">{summary["latest_body_fat"]:.1f} %</div>
+                    <div class="sm-mini-sub">{summary["body_fat_text"]}</div>
+                </div>
+            </div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -169,6 +225,7 @@ user_id = get_user_id()
 
 try:
     settings = load_user_settings(user_id)
+    progress = get_home_progress_summary(user_id)
 except Exception as e:
     st.error(f"設定の読込に失敗しました: {e}")
     st.stop()
@@ -211,6 +268,7 @@ st.markdown(
 )
 
 render_today_advice_card(advice)
+render_progress_card(progress)
 render_week_menu_card(week_menu)
 render_exercise_card(exercise)
 
