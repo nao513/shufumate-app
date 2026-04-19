@@ -264,7 +264,29 @@ def analyze_meal_balance_from_image(uploaded_file) -> dict:
     }
 
 
-def render_balance_badges(balance: dict):
+def suggest_one_addition(balance: dict, meal_type_hint: str = "") -> str:
+    meal_type_hint = (meal_type_hint or "").strip()
+
+    if not balance.get("protein", False):
+        if meal_type_hint == "朝ごはん":
+            return "足すなら1つ：ゆで卵 or ヨーグルト"
+        return "足すなら1つ：卵 or 豆腐"
+
+    if not balance.get("vegetables", False):
+        if meal_type_hint == "間食":
+            return "足すなら1つ：トマト or 野菜スープ"
+        return "足すなら1つ：サラダ or 温野菜"
+
+    if not balance.get("soup", False):
+        return "足すなら1つ：味噌汁 or スープ"
+
+    if not balance.get("main_food", False) and meal_type_hint != "間食":
+        return "足すなら1つ：ごはん少し or おにぎり"
+
+    return "今は大きく足さなくてもOKです"
+
+
+def render_balance_badges(balance: dict, meal_type_hint: str = ""):
     labels = [
         ("主食", balance.get("main_food", False)),
         ("たんぱく質", balance.get("protein", False)),
@@ -284,9 +306,13 @@ def render_balance_badges(balance: dict):
         )
 
     st.markdown("".join(html), unsafe_allow_html=True)
+
     comment = balance.get("comment", "").strip()
     if comment:
         st.caption(comment)
+
+    suggestion = suggest_one_addition(balance, meal_type_hint=meal_type_hint)
+    st.info(suggestion)
 
 
 def preset_text_by_type(meal_type: str, meal_text: str) -> tuple[str, str, str, str]:
@@ -377,7 +403,7 @@ with tab1:
 
     if "eval_balance_result" in st.session_state:
         st.markdown("### 写真から見た目安")
-        render_balance_badges(st.session_state["eval_balance_result"])
+        render_balance_badges(st.session_state["eval_balance_result"], meal_type_hint=eval_meal_type)
 
     st.markdown("### 写真に写っている内容")
     st.caption("写真だけでは伝わりにくいものを少し足すと、評価が安定します。")
@@ -475,12 +501,14 @@ with tab2:
             index=2,
             key="log_target_slot",
         )
+        log_hint_for_balance = log_target_slot
     else:
         time_hint = get_time_hint_label()
         history_hint = get_today_meal_history_hint(latest_log, today_str)
         st.caption(f"AIが写真＋時間帯ヒント（今は「{time_hint}」寄り）＋今日の記録状況で推定します。")
         st.caption(history_hint)
         log_target_slot = None
+        log_hint_for_balance = st.session_state.get("last_guessed_slot", "")
 
     btn1, btn2 = st.columns(2)
 
@@ -502,10 +530,12 @@ with tab2:
                             meal_draft = read_meal_text_from_image(selected_log_image, f"{guessed_slot}の記録")
                             apply_draft_to_log_fields(guessed_slot, meal_draft)
                             st.session_state["last_guessed_slot"] = guessed_slot
+                            log_hint_for_balance = guessed_slot
                             st.success(f"AIが「{guessed_slot}」と判断して下書きを入れました。必要なら直してください。")
                         else:
                             meal_draft = read_meal_text_from_image(selected_log_image, f"{log_target_slot}の記録")
                             apply_draft_to_log_fields(log_target_slot, meal_draft)
+                            log_hint_for_balance = log_target_slot
                             st.success(f"{log_target_slot}の欄に下書きを入れました。必要なら直してください。")
                 except Exception as e:
                     st.error(f"写真の読み取りに失敗しました: {e}")
@@ -527,7 +557,8 @@ with tab2:
 
     if "log_balance_result" in st.session_state:
         st.markdown("### 写真から見た目安")
-        render_balance_badges(st.session_state["log_balance_result"])
+        balance_hint = st.session_state.get("last_guessed_slot", log_hint_for_balance)
+        render_balance_badges(st.session_state["log_balance_result"], meal_type_hint=balance_hint)
 
     st.markdown("### 食べたもの")
     breakfast_text = st.text_area(
