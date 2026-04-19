@@ -1034,3 +1034,56 @@ def change_login_id(user_id: str, current_password: str, new_login_id: str):
 
     st.session_state["auth_login_id"] = new_login_id
     clear_sheet_caches()
+
+def change_password(user_id: str, current_password: str, new_password: str, new_password_confirm: str):
+    if not user_id:
+        raise ValueError("ユーザー情報が見つかりません。")
+    if not current_password:
+        raise ValueError("現在のパスワードを入力してください。")
+    if not new_password:
+        raise ValueError("新しいパスワードを入力してください。")
+    if len(new_password) < 4:
+        raise ValueError("新しいパスワードは4文字以上にしてください。")
+    if new_password != new_password_confirm:
+        raise ValueError("新しいパスワード確認が一致しません。")
+
+    current_user = find_user_by_user_id(user_id)
+    if not current_user:
+        raise ValueError("現在のユーザーが見つかりません。")
+
+    current_login_id = to_str(current_user.get("login_id", "")).strip()
+    current_nickname = to_str(current_user.get("nickname", "")).strip()
+    current_birth_date = to_str(current_user.get("birth_date", "")).strip()
+    current_created_at = to_str(current_user.get("created_at", "")).strip()
+    current_is_active = to_str(current_user.get("is_active", "1")).strip() or "1"
+
+    old_salt = to_str(current_user.get("password_salt", ""))
+    old_password_hash = to_str(current_user.get("password_hash", ""))
+
+    if not verify_password(current_password, old_salt, old_password_hash):
+        raise ValueError("現在のパスワードが違います。")
+
+    new_salt = generate_salt()
+    new_password_hash = hash_password(new_password, new_salt)
+
+    ws = get_users_sheet()
+    row_index = find_user_row_by_user_id(ws, user_id)
+    if not row_index:
+        raise ValueError("Usersシートの更新行が見つかりません。")
+
+    row_data = [
+        user_id,
+        current_login_id,
+        new_password_hash,
+        new_salt,
+        current_nickname,
+        current_birth_date,
+        current_created_at,
+        jst_now().strftime("%Y-%m-%d %H:%M:%S"),
+        current_is_active,
+    ]
+
+    end_col = chr(64 + len(USERS_HEADERS))
+    ws.update(f"A{row_index}:{end_col}{row_index}", [row_data])
+
+    clear_sheet_caches()
