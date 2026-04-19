@@ -1314,3 +1314,57 @@ def get_week_goal(settings: dict, summary: dict) -> dict:
         "title": title,
         "body": body,
     }
+
+def get_log_streak_summary(user_id: str) -> dict:
+    records = read_dietlog_records()
+    user_logs = [r for r in records if str(r.get("user_id", "")) == user_id]
+
+    log_dates = set()
+
+    for row in user_logs:
+        log_date_str = to_str(row.get("log_date", "")).strip()
+        if not log_date_str:
+            continue
+        try:
+            d = datetime.strptime(log_date_str, "%Y-%m-%d").date()
+            log_dates.add(d)
+        except Exception:
+            continue
+
+    today = jst_today()
+    yesterday = yesterday = today.fromordinal(today.toordinal() - 1)
+
+    if today in log_dates:
+        days = 0
+        cursor = today
+        while cursor in log_dates:
+            days += 1
+            cursor = cursor.fromordinal(cursor.toordinal() - 1)
+
+        return {
+            "days": days,
+            "is_active": True,
+            "label": f"今日で {days}日連続です",
+            "detail": "このまま続けていきましょう。",
+        }
+
+    if yesterday in log_dates:
+        days = 0
+        cursor = yesterday
+        while cursor in log_dates:
+            days += 1
+            cursor = cursor.fromordinal(cursor.toordinal() - 1)
+
+        return {
+            "days": days,
+            "is_active": False,
+            "label": f"昨日まで {days}日連続でした",
+            "detail": "今日も記録すると連続記録が続きます。",
+        }
+
+    return {
+        "days": 0,
+        "is_active": False,
+        "label": "連続記録はまだありません",
+        "detail": "まずは今日1回の記録からで大丈夫です。",
+    }
