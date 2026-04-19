@@ -181,8 +181,6 @@ def render_account_card(profile: dict | None):
     nickname = profile.get("nickname", "") or "未設定"
     login_id = profile.get("login_id", "") or "未設定"
     birth_date = profile.get("birth_date", "") or "未設定"
-    age = profile.get("age", None)
-    age_text = f"{age}歳" if age is not None else "未設定"
 
     st.markdown(
         f"""
@@ -199,10 +197,6 @@ def render_account_card(profile: dict | None):
             <div class="sm-account-row">
                 <span class="sm-account-key">生年月日</span>
                 <span class="sm-account-value">{birth_date}</span>
-            </div>
-            <div class="sm-account-row">
-                <span class="sm-account-key">年齢</span>
-                <span class="sm-account-value">{age_text}</span>
             </div>
         </div>
         """,
@@ -317,7 +311,6 @@ except Exception as e:
 
 now = jst_now()
 nickname = profile["nickname"].strip() if profile else settings["nickname"].strip()
-age_text = f"{profile['age']}歳" if profile and profile.get("age") is not None else ""
 today_text = now.strftime("%Y年%m月%d日")
 weekday_text = WEEKDAY_JP[now.weekday()]
 
@@ -345,9 +338,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-if nickname and age_text:
-    st.subheader(f"{nickname}さん（{age_text}）、今日のおすすめです")
-elif nickname:
+if nickname:
     st.subheader(f"{nickname}さん、今日のおすすめです")
 else:
     st.subheader("今日のおすすめです")
