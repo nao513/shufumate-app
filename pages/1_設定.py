@@ -12,6 +12,7 @@ from app_core import (
     ACTIVITY_LEVEL_OPTIONS,
     FOOD_STYLE_OPTIONS,
     USER_TYPE_OPTIONS,
+    ADVICE_TONE_OPTIONS,
 )
 
 require_login()
@@ -129,6 +130,14 @@ with st.form("settings_form"):
         else 0,
     )
 
+    advice_tone = st.selectbox(
+        "アドバイスの言い方",
+        ADVICE_TONE_OPTIONS,
+        index=ADVICE_TONE_OPTIONS.index(settings["advice_tone"])
+        if settings["advice_tone"] in ADVICE_TONE_OPTIONS
+        else 0,
+    )
+
     submitted = st.form_submit_button("基本設定を保存", use_container_width=True)
 
 if submitted:
@@ -142,6 +151,7 @@ if submitted:
         "activity_level": activity_level,
         "food_style": food_style,
         "user_type": user_type,
+        "advice_tone": advice_tone,
     }
 
     try:
