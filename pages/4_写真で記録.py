@@ -213,10 +213,13 @@ def analyze_meal_balance_from_image(uploaded_file) -> dict:
 
 返すキーは必ず以下:
 {
-  "main_food": true or false,
-  "protein": true or false,
-  "vegetables": true or false,
-  "soup": true or false,
+  "main_food": true,
+  "protein": true,
+  "vegetables": true,
+  "soup": true,
+  "heavy": false,
+  "sweet": false,
+  "fried": false,
   "comment": "20文字以内の短い一言"
 }
 
@@ -225,6 +228,9 @@ def analyze_meal_balance_from_image(uploaded_file) -> dict:
 - protein は 卵、魚、肉、豆腐、納豆、ヨーグルトなど
 - vegetables は サラダ、野菜、副菜、海藻、きのこなど
 - soup は 味噌汁、スープ、汁物
+- heavy は 全体的に重め・こってり・量が多そうな印象
+- sweet は デザート、甘い飲み物、スイーツ中心
+- fried は 揚げ物が目立つ
 - comment は短く自然な日本語
 - JSON以外は出力しない
 """
@@ -252,6 +258,9 @@ def analyze_meal_balance_from_image(uploaded_file) -> dict:
             "protein": False,
             "vegetables": False,
             "soup": False,
+            "heavy": False,
+            "sweet": False,
+            "fried": False,
             "comment": "写真から目安を見ました",
         }
 
@@ -260,6 +269,9 @@ def analyze_meal_balance_from_image(uploaded_file) -> dict:
         "protein": bool(data.get("protein", False)),
         "vegetables": bool(data.get("vegetables", False)),
         "soup": bool(data.get("soup", False)),
+        "heavy": bool(data.get("heavy", False)),
+        "sweet": bool(data.get("sweet", False)),
+        "fried": bool(data.get("fried", False)),
         "comment": str(data.get("comment", "写真から目安を見ました")).strip(),
     }
 
@@ -284,6 +296,18 @@ def suggest_one_addition(balance: dict, meal_type_hint: str = "") -> str:
         return "足すなら1つ：ごはん少し or おにぎり"
 
     return "今は大きく足さなくてもOKです"
+
+
+def suggest_one_reduction(balance: dict, meal_type_hint: str = "") -> str:
+    meal_type_hint = (meal_type_hint or "").strip()
+
+    if balance.get("fried", False):
+        return "減らすなら1つ：揚げ物を少し"
+    if balance.get("sweet", False) and meal_type_hint == "間食":
+        return "減らすなら1つ：甘いものを少し"
+    if balance.get("heavy", False):
+        return "減らすなら1つ：主食かこってり系を少し"
+    return "今は無理に減らさなくてもOKです"
 
 
 def render_balance_badges(balance: dict, meal_type_hint: str = ""):
@@ -311,8 +335,14 @@ def render_balance_badges(balance: dict, meal_type_hint: str = ""):
     if comment:
         st.caption(comment)
 
-    suggestion = suggest_one_addition(balance, meal_type_hint=meal_type_hint)
-    st.info(suggestion)
+    add_text = suggest_one_addition(balance, meal_type_hint=meal_type_hint)
+    reduce_text = suggest_one_reduction(balance, meal_type_hint=meal_type_hint)
+
+    col1, col2 = st.columns(2)
+    with col1:
+        st.info(add_text)
+    with col2:
+        st.warning(reduce_text)
 
 
 def preset_text_by_type(meal_type: str, meal_text: str) -> tuple[str, str, str, str]:
@@ -530,12 +560,10 @@ with tab2:
                             meal_draft = read_meal_text_from_image(selected_log_image, f"{guessed_slot}の記録")
                             apply_draft_to_log_fields(guessed_slot, meal_draft)
                             st.session_state["last_guessed_slot"] = guessed_slot
-                            log_hint_for_balance = guessed_slot
                             st.success(f"AIが「{guessed_slot}」と判断して下書きを入れました。必要なら直してください。")
                         else:
                             meal_draft = read_meal_text_from_image(selected_log_image, f"{log_target_slot}の記録")
                             apply_draft_to_log_fields(log_target_slot, meal_draft)
-                            log_hint_for_balance = log_target_slot
                             st.success(f"{log_target_slot}の欄に下書きを入れました。必要なら直してください。")
                 except Exception as e:
                     st.error(f"写真の読み取りに失敗しました: {e}")
