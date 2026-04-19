@@ -1619,3 +1619,227 @@ def build_log_feedback(user_id: str, save_data: dict) -> dict:
         "title": title,
         "body": body,
     }
+
+# =========================
+# 食事評価ロジック
+# =========================
+MEAL_TYPE_LABELS = {
+    "朝ごはん": "朝ごはん",
+    "昼ごはん": "昼ごはん",
+    "夜ごはん": "夜ごはん",
+    "間食": "間食",
+    "朝": "朝ごはん",
+    "昼": "昼ごはん",
+    "夜": "夜ごはん",
+}
+
+PROTEIN_WORDS = [
+    "卵", "ゆで卵", "豆腐", "納豆", "鮭", "しゃけ", "しらす", "鶏", "鶏肉",
+    "豚", "豚肉", "牛", "牛肉", "魚", "さば", "サバ", "ツナ", "枝豆",
+    "ヨーグルト", "豆乳", "サラダチキン", "チキン", "豆", "ハム", "チーズ",
+]
+
+VEGETABLE_WORDS = [
+    "サラダ", "野菜", "ブロッコリー", "ほうれん草", "小松菜", "トマト", "キャベツ",
+    "レタス", "きのこ", "えのき", "しいたけ", "椎茸", "しめじ", "わかめ",
+    "青のり", "とろろ昆布", "昆布", "ごぼう", "大根", "にんじん", "玉ねぎ",
+    "オクラ", "海藻", "乾燥野菜", "おひたし", "白菜", "もやし",
+]
+
+FRUIT_WORDS = [
+    "ブルーベリー", "パイナップル", "キウイ", "いちご", "みかん", "バナナ",
+    "りんご", "果物", "フルーツ", "いちご", "オレンジ",
+]
+
+SOUP_WORDS = [
+    "味噌汁", "みそ汁", "スープ", "豚汁", "鍋", "汁物",
+]
+
+CARB_WORDS = [
+    "ごはん", "おにぎり", "パン", "トースト", "麺", "パスタ", "うどん",
+    "そば", "ベーグル", "雑炊", "乾麺", "オートミール",
+]
+
+HEAVY_WORDS = [
+    "揚げ", "揚げ物", "唐揚げ", "ラーメン", "カレー", "丼", "大盛り",
+    "クリーム", "カルボナーラ", "ポテト", "チーズたっぷり", "こってり",
+]
+
+SALTY_WORDS = [
+    "味噌", "みそ", "しらす", "鮭", "しゃけ", "サバ", "さば",
+    "漬物", "昆布", "ポン酢", "味付き", "塩", "塩焼き",
+]
+
+
+def _contains_any(text: str, words: list[str]) -> bool:
+    return any(word in text for word in words)
+
+
+def _count_hits(text: str, words: list[str]) -> int:
+    count = 0
+    for word in words:
+        if word in text:
+            count += 1
+    return count
+
+
+def build_food_evaluation_from_text(
+    meal_type: str,
+    meal_text: str,
+    settings: dict,
+    latest_log: dict | None = None,
+    note: str = "",
+) -> dict:
+    meal_label = MEAL_TYPE_LABELS.get(meal_type, meal_type)
+    text = to_str(meal_text).strip()
+    note = to_str(note).strip()
+
+    if not text:
+        return {
+            "title": f"{meal_label}の評価",
+            "body": "食事内容がまだ入っていません。写真に写っている内容や食べたものを少し入れると、評価しやすくなります。",
+            "score_text": "",
+        }
+
+    support = get_support_focus_summary(settings, latest_log)
+
+    protein_count = _count_hits(text, PROTEIN_WORDS)
+    vegetable_count = _count_hits(text, VEGETABLE_WORDS)
+    fruit_count = _count_hits(text, FRUIT_WORDS)
+    soup_count = _count_hits(text, SOUP_WORDS)
+    carb_count = _count_hits(text, CARB_WORDS)
+    heavy_count = _count_hits(text, HEAVY_WORDS)
+    salty_count = _count_hits(text, SALTY_WORDS)
+
+    score = 78
+
+    if protein_count >= 1:
+        score += 4
+    if protein_count >= 2:
+        score += 3
+
+    if vegetable_count >= 1:
+        score += 4
+    if vegetable_count >= 3:
+        score += 3
+
+    if fruit_count >= 1:
+        score += 2
+
+    if soup_count >= 1:
+        score += 3
+
+    if carb_count >= 1:
+        score += 2
+
+    if heavy_count >= 1:
+        score -= 4
+    if heavy_count >= 2:
+        score -= 3
+
+    if salty_count >= 2:
+        score -= 2
+    if salty_count >= 4:
+        score -= 2
+
+    if meal_label == "朝ごはん":
+        if protein_count >= 1 and carb_count >= 1:
+            score += 2
+        if fruit_count >= 1:
+            score += 1
+
+    if meal_label == "夜ごはん":
+        if heavy_count >= 1:
+            score -= 2
+        if soup_count >= 1 or vegetable_count >= 2:
+            score += 2
+
+    score = max(55, min(score, 96))
+
+    if score >= 90:
+        score_text = "90〜95点"
+    elif score >= 85:
+        score_text = "85〜90点"
+    elif score >= 80:
+        score_text = "80〜85点"
+    elif score >= 75:
+        score_text = "75〜80点"
+    else:
+        score_text = "70〜75点"
+
+    good_points = []
+    concern_points = []
+    improve_points = []
+
+    if protein_count >= 1:
+        good_points.append("たんぱく質が入っていて、満足感や回復につながりやすいです。")
+    else:
+        concern_points.append("たんぱく質が少なめなので、腹持ちや引き締め目線では少し弱めです。")
+        improve_points.append("卵、豆腐、納豆、魚、鶏肉などを1つ足すと整いやすいです。")
+
+    if vegetable_count >= 1:
+        good_points.append("野菜・きのこ・海藻系が入っていて、バランスを取りやすいです。")
+    else:
+        concern_points.append("野菜や食物繊維が少なめです。")
+        improve_points.append("味噌汁、温野菜、トマト、ブロッコリー、おひたしなどを少し足すと良いです。")
+
+    if soup_count >= 1:
+        good_points.append("汁物があるので、体を冷やしにくく、食事全体も整いやすいです。")
+
+    if fruit_count >= 1:
+        good_points.append("果物が入っていて、ビタミン面でもプラスです。")
+
+    if salty_count >= 3:
+        concern_points.append("塩分はやや重なりやすい組み合わせです。")
+        improve_points.append("次の食事は薄味・水分・野菜を意識すると整いやすいです。")
+
+    if heavy_count >= 1:
+        concern_points.append("少し重めになりやすい内容です。")
+        improve_points.append("量を少し控えるか、野菜や汁物を足すとバランスが取りやすいです。")
+
+    if not good_points:
+        good_points.append("大きく崩れているわけではなく、整え方しだいで十分良くできます。")
+
+    if not concern_points:
+        concern_points.append("大きな弱点はありません。今日はこのままでもかなり整っています。")
+
+    if not improve_points:
+        if support["food_tip"]:
+            improve_points.append(support["food_tip"])
+        else:
+            improve_points.append("次の食事で汁物か野菜を少し足すと、さらにまとまりやすいです。")
+
+    intro = f"{meal_label}としては {score_text} くらいです。"
+
+    lines = [intro, ""]
+
+    lines.append("良いところ")
+    for item in good_points[:5]:
+        lines.append(f"・{item}")
+
+    lines.append("")
+    lines.append("少し気になるところ")
+    for item in concern_points[:4]:
+        lines.append(f"・{item}")
+
+    lines.append("")
+    lines.append("さらに良くするなら")
+    for item in improve_points[:4]:
+        lines.append(f"・{item}")
+
+    if support["points"]:
+        lines.append("")
+        lines.append("今整えたいポイント")
+        lines.append("・" + " / ".join(support["points"]))
+
+    if note:
+        lines.append("")
+        lines.append("補足メモ")
+        lines.append(f"・{note}")
+
+    return {
+        "title": f"{meal_label}の評価",
+        "body": "\n".join(lines),
+        "score_text": score_text,
+        "score_value": score,
+    }
