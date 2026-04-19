@@ -7,12 +7,15 @@ from app_core import (
     logout_user,
     load_user_settings,
     load_current_user_profile,
+    load_latest_log,
     get_today_advice,
     get_week_menu,
     get_today_exercise,
     get_home_progress_summary,
     get_today_log_status,
     get_week_goal,
+    get_log_streak_summary,
+    get_support_focus_summary,
     jst_now,
 )
 
@@ -58,9 +61,21 @@ st.markdown(
         margin-bottom: 14px;
         box-shadow: 0 2px 10px rgba(0,0,0,0.03);
     }
+    .sm-focus-card {
+        background: #fffdf8;
+        border: 1px solid #efe5d6;
+    }
     .sm-goal-card {
         background: #fffdf8;
         border: 1px solid #efe5d6;
+    }
+    .sm-streak-on {
+        background: #f8fcff;
+        border: 1px solid #dceaf5;
+    }
+    .sm-streak-off {
+        background: #fcfbff;
+        border: 1px solid #e8e3f2;
     }
     .sm-status-ok {
         background: #f7fcf8;
@@ -144,33 +159,10 @@ st.markdown(
 
 
 def show_logo():
-    logo_candidates = [
-        Path("assets/top/logo.png"),
-        Path("assets/logo.png"),
-    ]
-    for logo_path in logo_candidates:
+    for logo_path in [Path("assets/top/logo.png"), Path("assets/logo.png")]:
         if logo_path.exists():
             st.image(str(logo_path), use_container_width=True)
             return
-
-
-def render_today_advice_card(advice: dict):
-    st.markdown(
-        f"""
-        <div class="sm-card">
-            <div class="sm-title">🌿 今日のおすすめ</div>
-            <div class="sm-sub"><b>食事</b></div>
-            <div class="sm-text">{advice["食事"]}</div>
-            <br>
-            <div class="sm-sub"><b>運動</b></div>
-            <div class="sm-text">{advice["運動"]}</div>
-            <br>
-            <div class="sm-sub"><b>ひとこと</b></div>
-            <div class="sm-text">{advice["ひとこと"]}</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
 
 
 def render_status_card(status: dict):
@@ -189,12 +181,59 @@ def render_status_card(status: dict):
     )
 
 
+def render_streak_card(streak: dict):
+    card_class = "sm-streak-on" if streak["is_active"] else "sm-streak-off"
+    icon = "🔥" if streak["is_active"] else "📝"
+
+    st.markdown(
+        f"""
+        <div class="sm-card {card_class}">
+            <div class="sm-title">{icon} 連続記録</div>
+            <div class="sm-text"><b>{streak["label"]}</b></div>
+            <div class="sm-sub" style="margin-top:8px;">{streak["detail"]}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_focus_card(focus: dict):
+    st.markdown(
+        f"""
+        <div class="sm-card sm-focus-card">
+            <div class="sm-title">🧭 今整えたいポイント</div>
+            <div class="sm-text">{focus["body"].replace(chr(10), "<br>")}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def render_week_goal_card(goal: dict):
     st.markdown(
         f"""
         <div class="sm-card sm-goal-card">
             <div class="sm-title">🎯 {goal["title"]}</div>
             <div class="sm-text">{goal["body"].replace(chr(10), "<br>")}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_today_advice_card(advice: dict):
+    st.markdown(
+        f"""
+        <div class="sm-card">
+            <div class="sm-title">🌿 今日のおすすめ</div>
+            <div class="sm-sub"><b>食事</b></div>
+            <div class="sm-text">{advice["食事"]}</div>
+            <br>
+            <div class="sm-sub"><b>運動</b></div>
+            <div class="sm-text">{advice["運動"]}</div>
+            <br>
+            <div class="sm-sub"><b>ひとこと</b></div>
+            <div class="sm-text">{advice["ひとこと"]}</div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -226,8 +265,9 @@ def render_progress_card(summary: dict):
 
 
 def render_week_menu_card(menu_list: list[dict], now):
-    today_idx = now.weekday()
     rows = []
+    today_idx = now.weekday()
+
     for idx, item in enumerate(menu_list):
         mark = " ← 今日" if idx == today_idx else ""
         rows.append(
@@ -262,24 +302,23 @@ def render_exercise_card(exercise: dict):
 
 user_id = get_user_id()
 
-try:
-    settings = load_user_settings(user_id)
-    profile = load_current_user_profile()
-    progress = get_home_progress_summary(user_id)
-    today_status = get_today_log_status(user_id)
-    week_goal = get_week_goal(settings, progress)
-except Exception as e:
-    st.error(f"設定の読込に失敗しました: {e}")
-    st.stop()
+settings = load_user_settings(user_id)
+profile = load_current_user_profile()
+latest_log = load_latest_log(user_id)
+progress = get_home_progress_summary(user_id)
+today_status = get_today_log_status(user_id)
+streak = get_log_streak_summary(user_id)
+week_goal = get_week_goal(settings, progress)
+focus = get_support_focus_summary(settings, latest_log)
 
 now = jst_now()
 nickname = profile["nickname"].strip() if profile else settings["nickname"].strip()
 today_text = now.strftime("%Y年%m月%d日")
 weekday_text = WEEKDAY_JP[now.weekday()]
 
-advice = get_today_advice(settings)
+advice = get_today_advice(settings, latest_log)
 week_menu = get_week_menu(settings)
-exercise = get_today_exercise(settings)
+exercise = get_today_exercise(settings, latest_log)
 
 top1, top2 = st.columns([3, 1])
 
@@ -301,10 +340,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-if nickname:
-    st.subheader(f"{nickname}さん、今日のおすすめです")
-else:
-    st.subheader("今日のおすすめです")
+st.subheader(f"{nickname}さん、今日のおすすめです" if nickname else "今日のおすすめです")
 
 st.markdown(
     f"""
@@ -316,6 +352,8 @@ st.markdown(
 )
 
 render_status_card(today_status)
+render_streak_card(streak)
+render_focus_card(focus)
 render_week_goal_card(week_goal)
 render_today_advice_card(advice)
 render_progress_card(progress)
