@@ -2,8 +2,11 @@ import streamlit as st
 from pathlib import Path
 from app_core import (
     WEEKDAY_JP,
+    require_login,
     get_user_id,
+    logout_user,
     load_user_settings,
+    load_current_user_profile,
     get_today_advice,
     get_week_menu,
     get_today_exercise,
@@ -17,6 +20,8 @@ st.set_page_config(
     page_icon="🏠",
     layout="centered",
 )
+
+require_login()
 
 st.markdown(
     """
