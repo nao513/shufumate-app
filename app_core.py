@@ -53,6 +53,7 @@ SETTINGS_HEADERS = [
     "activity_level",
     "food_style",
     "user_type",
+    "advice_tone",
     "updated_at",
 ]
 
@@ -87,6 +88,12 @@ FOOD_STYLE_OPTIONS = [
     "たんぱく質重視",
     "節約重視",
     "時短重視",
+]
+
+ADVICE_TONE_OPTIONS = [
+    "やさしく",
+    "しっかり",
+    "淡々と",
 ]
 
 CATEGORY_OPTIONS = [
@@ -370,21 +377,22 @@ def create_user(login_id: str, password: str, nickname: str, birth_date: date | 
 
     settings_ws = get_settings_sheet()
     settings_ws.append_row(
-        [
-            user_id,
-            nickname,
-            age if age is not None else "",
-            160.0,
-            50.0,
-            48.0,
-            30.0,
-            28.0,
-            "ふつう",
-            "バランス重視",
-            "自分だけ向け",
-            now_str,
-        ]
-    )
+    [
+        user_id,
+        nickname,
+        age if age is not None else "",
+        160.0,
+        50.0,
+        48.0,
+        30.0,
+        28.0,
+        "ふつう",
+        "バランス重視",
+        "自分だけ向け",
+        "やさしく",
+        now_str,
+    ]
+)
 
     clear_sheet_caches()
 
