@@ -1,6 +1,7 @@
 import streamlit as st
 import base64
 import json
+from pathlib import Path
 from app_core import (
     require_login,
     get_user_id,
@@ -68,15 +69,6 @@ st.markdown(
         font-size: 0.92rem;
         line-height: 1.6;
     }
-    .sm-chip {
-        display:inline-block;
-        padding: 5px 10px;
-        margin: 3px 6px 3px 0;
-        border-radius: 999px;
-        border: 1px solid #eadfd1;
-        background: #faf5ee;
-        font-size: 0.84rem;
-    }
     .sm-balance {
         display:inline-block;
         padding: 6px 10px;
@@ -104,10 +96,6 @@ st.markdown(
         font-size: 0.9rem;
         line-height: 1.7;
     }
-    .sm-section-gap {
-        margin-top: 8px;
-        margin-bottom: 12px;
-    }
     </style>
     """,
     unsafe_allow_html=True,
@@ -118,18 +106,11 @@ settings = load_user_settings(user_id)
 latest_log = load_latest_log(user_id)
 today_str = jst_today_str()
 
-st.markdown(
-    """
-    <div class="sm-hero">
-        <div class="sm-hero-title">📷 写真で記録</div>
-        <div class="sm-hero-sub">
-            写真から食事内容を下書きしたり、バランスを見たりしながら、
-            記録をラクに残せるページです。
-        </div>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
+
+def show_saved_illustration(path_str: str, caption: str = ""):
+    path = Path(path_str)
+    if path.exists():
+        st.image(str(path), caption=caption if caption else None, use_container_width=True)
 
 
 def get_openai_client():
@@ -412,17 +393,14 @@ def suggest_buy_item(balance: dict, meal_type_hint: str = "", settings_dict: dic
         if not balance.get("soup", False):
             return "買うなら：わかめスープ or 味噌汁"
 
-    if "冷えやすい" in traits:
-        if not balance.get("soup", False):
-            return "買うなら：味噌汁 or 温かいスープ"
+    if "冷えやすい" in traits and not balance.get("soup", False):
+        return "買うなら：味噌汁 or 温かいスープ"
 
-    if "疲れやすい" in traits or "寝不足" in conditions or "だるい" in conditions:
-        if not balance.get("protein", False):
-            return "買うなら：ヨーグルト or サラダチキン"
+    if ("疲れやすい" in traits or "寝不足" in conditions or "だるい" in conditions) and not balance.get("protein", False):
+        return "買うなら：ヨーグルト or サラダチキン"
 
-    if "胃腸がゆらぎやすい" in traits or "食べすぎた" in conditions:
-        if not balance.get("soup", False):
-            return "買うなら：やさしいスープ or 味噌汁"
+    if ("胃腸がゆらぎやすい" in traits or "食べすぎた" in conditions) and not balance.get("soup", False):
+        return "買うなら：やさしいスープ or 味噌汁"
 
     if not balance.get("protein", False):
         if meal_type_hint == "朝ごはん":
@@ -448,17 +426,14 @@ def suggest_home_item(balance: dict, meal_type_hint: str = "", settings_dict: di
     if "冷えやすい" in traits and not balance.get("soup", False):
         return "家にあれば：味噌汁 or 温かいお茶を追加"
 
-    if "むくみやすい" in traits or "むくみあり" in conditions:
-        if not balance.get("vegetables", False):
-            return "家にあれば：トマト or 野菜を少し"
+    if ("むくみやすい" in traits or "むくみあり" in conditions) and not balance.get("vegetables", False):
+        return "家にあれば：トマト or 野菜を少し"
 
-    if "疲れやすい" in traits or "寝不足" in conditions:
-        if not balance.get("protein", False):
-            return "家にあれば：卵 or 豆腐を1つ"
+    if ("疲れやすい" in traits or "寝不足" in conditions) and not balance.get("protein", False):
+        return "家にあれば：卵 or 豆腐を1つ"
 
-    if "胃腸がゆらぎやすい" in traits or "食べすぎた" in conditions:
-        if not balance.get("soup", False):
-            return "家にあれば：スープ or 味噌汁を1杯"
+    if ("胃腸がゆらぎやすい" in traits or "食べすぎた" in conditions) and not balance.get("soup", False):
+        return "家にあれば：スープ or 味噌汁を1杯"
 
     if not balance.get("protein", False):
         return "家にあれば：卵 or 豆腐を1つ"
@@ -547,24 +522,9 @@ def render_balance_badges(balance: dict, meal_type_hint: str = "", settings_dict
     if personal_hint:
         st.markdown(f'<div class="sm-note">反映中：{personal_hint}</div>', unsafe_allow_html=True)
 
-    buy_text = suggest_buy_item(
-        balance,
-        meal_type_hint=meal_type_hint,
-        settings_dict=settings_dict,
-        latest_log_dict=latest_log_dict,
-    )
-    home_text = suggest_home_item(
-        balance,
-        meal_type_hint=meal_type_hint,
-        settings_dict=settings_dict,
-        latest_log_dict=latest_log_dict,
-    )
-    reduce_text = suggest_one_reduction(
-        balance,
-        meal_type_hint=meal_type_hint,
-        settings_dict=settings_dict,
-        latest_log_dict=latest_log_dict,
-    )
+    buy_text = suggest_buy_item(balance, meal_type_hint=meal_type_hint, settings_dict=settings_dict, latest_log_dict=latest_log_dict)
+    home_text = suggest_home_item(balance, meal_type_hint=meal_type_hint, settings_dict=settings_dict, latest_log_dict=latest_log_dict)
+    reduce_text = suggest_one_reduction(balance, meal_type_hint=meal_type_hint, settings_dict=settings_dict, latest_log_dict=latest_log_dict)
 
     col1, col2 = st.columns(2)
     with col1:
@@ -603,12 +563,28 @@ def apply_draft_to_log_fields(target_slot: str, meal_draft: str):
         st.session_state["photo_log_snack"] = meal_draft
 
 
+show_saved_illustration("assets/illust/photo_record_top.png", "写真で記録")
+
+st.markdown(
+    """
+    <div class="sm-hero">
+        <div class="sm-hero-title">📷 写真で記録</div>
+        <div class="sm-hero-sub">
+            保存してあるイラストを使いながら、写真から食事内容を下書きしたり、
+            バランスを見たり、記録をラクに残せるページです。
+        </div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
 tab1, tab2, tab3 = st.tabs(
     ["🍽 この食事を評価", "📝 食べたものを記録", "⚖ 体重計を記録"]
 )
 
 with tab1:
     st.markdown('<div class="sm-card sm-card-soft">', unsafe_allow_html=True)
+    show_saved_illustration("assets/illust/meal_eval.png")
     st.markdown('<div class="sm-title">この食事を評価</div>', unsafe_allow_html=True)
     st.markdown('<div class="sm-sub">写真と内容の補足から、食事を評価します。</div>', unsafe_allow_html=True)
 
@@ -667,7 +643,6 @@ with tab1:
             latest_log_dict=latest_log,
         )
 
-    st.markdown('<div class="sm-section-gap"></div>', unsafe_allow_html=True)
     st.markdown("### 写真に写っている内容")
     st.markdown(
         """
@@ -715,7 +690,6 @@ with tab1:
 
         base_text = eval_meal_text.strip()
         merged_note = eval_note.strip()
-
         has_section_input = sections_text.replace("朝: ", "").replace("昼: ", "").replace("夜: ", "").replace("間食: ", "").strip()
 
         if has_section_input:
@@ -743,6 +717,7 @@ with tab1:
 
 with tab2:
     st.markdown('<div class="sm-card sm-card-soft">', unsafe_allow_html=True)
+    show_saved_illustration("assets/illust/meal_log.png")
     st.markdown('<div class="sm-title">食べたものを記録</div>', unsafe_allow_html=True)
     st.markdown('<div class="sm-sub">食後の写真やメモを使って、食事記録をかんたんに残します。</div>', unsafe_allow_html=True)
 
@@ -838,30 +813,10 @@ with tab2:
         )
 
     st.markdown("### 食べたもの")
-    breakfast_text = st.text_area(
-        "朝",
-        placeholder="例：納豆ごはん、味噌汁、ゆで卵",
-        height=80,
-        key="photo_log_breakfast",
-    )
-    lunch_text = st.text_area(
-        "昼",
-        placeholder="例：鮭おにぎり、味噌汁、サラダチキン",
-        height=80,
-        key="photo_log_lunch",
-    )
-    dinner_text = st.text_area(
-        "夜",
-        placeholder="例：焼き魚、味噌汁、サラダ、ごはん少なめ",
-        height=80,
-        key="photo_log_dinner",
-    )
-    snack_text = st.text_area(
-        "間食",
-        placeholder="例：ヨーグルト、チョコ2個、なし",
-        height=80,
-        key="photo_log_snack",
-    )
+    breakfast_text = st.text_area("朝", placeholder="例：納豆ごはん、味噌汁、ゆで卵", height=80, key="photo_log_breakfast")
+    lunch_text = st.text_area("昼", placeholder="例：鮭おにぎり、味噌汁、サラダチキン", height=80, key="photo_log_lunch")
+    dinner_text = st.text_area("夜", placeholder="例：焼き魚、味噌汁、サラダ、ごはん少なめ", height=80, key="photo_log_dinner")
+    snack_text = st.text_area("間食", placeholder="例：ヨーグルト、チョコ2個、なし", height=80, key="photo_log_snack")
 
     log_note = st.text_area(
         "補足メモ（任意）",
@@ -915,6 +870,7 @@ with tab2:
 
 with tab3:
     st.markdown('<div class="sm-card sm-card-soft">', unsafe_allow_html=True)
+    show_saved_illustration("assets/illust/scale_record.png")
     st.markdown('<div class="sm-title">体重計を記録</div>', unsafe_allow_html=True)
     st.markdown('<div class="sm-sub">体重計の写真と数値を使って、今日の記録に残します。</div>', unsafe_allow_html=True)
 
