@@ -118,6 +118,29 @@ def get_today_meal_history_hint(latest_log_dict: dict | None, today_date_str: st
     return "今日の記録ヒント: " + " / ".join(parts)
 
 
+def normalize_multi(v) -> list[str]:
+    if v is None:
+        return []
+    if isinstance(v, str):
+        raw = v.strip()
+        if not raw:
+            return []
+        return [item.strip() for item in raw.split(",") if item.strip()]
+    if isinstance(v, (list, tuple, set)):
+        return [str(item).strip() for item in v if str(item).strip()]
+    return []
+
+
+def get_constitution_traits(settings_dict: dict) -> list[str]:
+    return normalize_multi(settings_dict.get("constitution_traits", []))
+
+
+def get_today_conditions_from_latest_log(latest_log_dict: dict | None) -> list[str]:
+    if not latest_log_dict:
+        return []
+    return normalize_multi(latest_log_dict.get("today_conditions", []))
+
+
 def read_meal_text_from_image(uploaded_file, meal_type_hint: str = "") -> str:
     client = get_openai_client()
     image_data_url = uploaded_file_to_data_url(uploaded_file)
@@ -276,8 +299,28 @@ def analyze_meal_balance_from_image(uploaded_file) -> dict:
     }
 
 
-def suggest_buy_item(balance: dict, meal_type_hint: str = "") -> str:
+def suggest_buy_item(balance: dict, meal_type_hint: str = "", settings_dict: dict | None = None, latest_log_dict: dict | None = None) -> str:
     meal_type_hint = (meal_type_hint or "").strip()
+    traits = get_constitution_traits(settings_dict or {})
+    conditions = get_today_conditions_from_latest_log(latest_log_dict)
+
+    if "むくみやすい" in traits or "むくみあり" in conditions:
+        if not balance.get("vegetables", False):
+            return "買うなら：カットサラダ or ミニトマト"
+        if not balance.get("soup", False):
+            return "買うなら：わかめスープ or 味噌汁"
+
+    if "冷えやすい" in traits:
+        if not balance.get("soup", False):
+            return "買うなら：味噌汁 or 温かいスープ"
+
+    if "疲れやすい" in traits or "寝不足" in conditions or "だるい" in conditions:
+        if not balance.get("protein", False):
+            return "買うなら：ヨーグルト or サラダチキン"
+
+    if "胃腸がゆらぎやすい" in traits or "食べすぎた" in conditions:
+        if not balance.get("soup", False):
+            return "買うなら：やさしいスープ or 味噌汁"
 
     if not balance.get("protein", False):
         if meal_type_hint == "朝ごはん":
@@ -296,8 +339,24 @@ def suggest_buy_item(balance: dict, meal_type_hint: str = "") -> str:
     return "買い足しは今はなくても大丈夫です"
 
 
-def suggest_home_item(balance: dict, meal_type_hint: str = "") -> str:
-    meal_type_hint = (meal_type_hint or "").strip()
+def suggest_home_item(balance: dict, meal_type_hint: str = "", settings_dict: dict | None = None, latest_log_dict: dict | None = None) -> str:
+    traits = get_constitution_traits(settings_dict or {})
+    conditions = get_today_conditions_from_latest_log(latest_log_dict)
+
+    if "冷えやすい" in traits and not balance.get("soup", False):
+        return "家にあれば：味噌汁 or 温かいお茶を追加"
+
+    if "むくみやすい" in traits or "むくみあり" in conditions:
+        if not balance.get("vegetables", False):
+            return "家にあれば：トマト or 野菜を少し"
+
+    if "疲れやすい" in traits or "寝不足" in conditions:
+        if not balance.get("protein", False):
+            return "家にあれば：卵 or 豆腐を1つ"
+
+    if "胃腸がゆらぎやすい" in traits or "食べすぎた" in conditions:
+        if not balance.get("soup", False):
+            return "家にあれば：スープ or 味噌汁を1杯"
 
     if not balance.get("protein", False):
         return "家にあれば：卵 or 豆腐を1つ"
@@ -314,8 +373,15 @@ def suggest_home_item(balance: dict, meal_type_hint: str = "") -> str:
     return "家にあるもので無理に足さなくてもOKです"
 
 
-def suggest_one_reduction(balance: dict, meal_type_hint: str = "") -> str:
-    meal_type_hint = (meal_type_hint or "").strip()
+def suggest_one_reduction(balance: dict, meal_type_hint: str = "", settings_dict: dict | None = None, latest_log_dict: dict | None = None) -> str:
+    traits = get_constitution_traits(settings_dict or {})
+    conditions = get_today_conditions_from_latest_log(latest_log_dict)
+
+    if ("むくみやすい" in traits or "むくみあり" in conditions) and balance.get("heavy", False):
+        return "減らすなら：こってり系を少し"
+
+    if ("胃腸がゆらぎやすい" in traits or "食べすぎた" in conditions) and balance.get("heavy", False):
+        return "減らすなら：量を少し"
 
     if balance.get("fried", False):
         return "減らすなら：揚げ物を少し"
@@ -326,7 +392,36 @@ def suggest_one_reduction(balance: dict, meal_type_hint: str = "") -> str:
     return "今は無理に減らさなくてもOKです"
 
 
-def render_balance_badges(balance: dict, meal_type_hint: str = ""):
+def build_personal_hint_text(settings_dict: dict | None = None, latest_log_dict: dict | None = None) -> str:
+    traits = get_constitution_traits(settings_dict or {})
+    conditions = get_today_conditions_from_latest_log(latest_log_dict)
+
+    hints = []
+
+    if "冷えやすい" in traits:
+        hints.append("冷えやすい体質寄り")
+    if "むくみやすい" in traits:
+        hints.append("むくみやすい体質寄り")
+    if "疲れやすい" in traits:
+        hints.append("疲れやすい体質寄り")
+    if "胃腸がゆらぎやすい" in traits:
+        hints.append("胃腸にやさしい方が合いやすい")
+    if "寝不足" in conditions:
+        hints.append("今日は寝不足寄り")
+    if "だるい" in conditions:
+        hints.append("今日はだるさあり")
+    if "むくみあり" in conditions:
+        hints.append("今日はむくみあり")
+    if "食べすぎた" in conditions:
+        hints.append("今日は食べすぎ後の調整日")
+
+    if not hints:
+        return ""
+
+    return " / ".join(hints[:3])
+
+
+def render_balance_badges(balance: dict, meal_type_hint: str = "", settings_dict: dict | None = None, latest_log_dict: dict | None = None):
     labels = [
         ("主食", balance.get("main_food", False)),
         ("たんぱく質", balance.get("protein", False)),
@@ -351,9 +446,28 @@ def render_balance_badges(balance: dict, meal_type_hint: str = ""):
     if comment:
         st.caption(comment)
 
-    buy_text = suggest_buy_item(balance, meal_type_hint=meal_type_hint)
-    home_text = suggest_home_item(balance, meal_type_hint=meal_type_hint)
-    reduce_text = suggest_one_reduction(balance, meal_type_hint=meal_type_hint)
+    personal_hint = build_personal_hint_text(settings_dict=settings_dict, latest_log_dict=latest_log_dict)
+    if personal_hint:
+        st.caption(f"反映中：{personal_hint}")
+
+    buy_text = suggest_buy_item(
+        balance,
+        meal_type_hint=meal_type_hint,
+        settings_dict=settings_dict,
+        latest_log_dict=latest_log_dict,
+    )
+    home_text = suggest_home_item(
+        balance,
+        meal_type_hint=meal_type_hint,
+        settings_dict=settings_dict,
+        latest_log_dict=latest_log_dict,
+    )
+    reduce_text = suggest_one_reduction(
+        balance,
+        meal_type_hint=meal_type_hint,
+        settings_dict=settings_dict,
+        latest_log_dict=latest_log_dict,
+    )
 
     col1, col2 = st.columns(2)
     with col1:
@@ -451,7 +565,12 @@ with tab1:
 
     if "eval_balance_result" in st.session_state:
         st.markdown("### 写真から見た目安")
-        render_balance_badges(st.session_state["eval_balance_result"], meal_type_hint=eval_meal_type)
+        render_balance_badges(
+            st.session_state["eval_balance_result"],
+            meal_type_hint=eval_meal_type,
+            settings_dict=settings,
+            latest_log_dict=latest_log,
+        )
 
     st.markdown("### 写真に写っている内容")
     st.caption("写真だけでは伝わりにくいものを少し足すと、評価が安定します。")
@@ -604,7 +723,12 @@ with tab2:
     if "log_balance_result" in st.session_state:
         st.markdown("### 写真から見た目安")
         balance_hint = st.session_state.get("last_guessed_slot", log_hint_for_balance)
-        render_balance_badges(st.session_state["log_balance_result"], meal_type_hint=balance_hint)
+        render_balance_badges(
+            st.session_state["log_balance_result"],
+            meal_type_hint=balance_hint,
+            settings_dict=settings,
+            latest_log_dict=latest_log,
+        )
 
     st.markdown("### 食べたもの")
     breakfast_text = st.text_area(
