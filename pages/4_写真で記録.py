@@ -276,37 +276,53 @@ def analyze_meal_balance_from_image(uploaded_file) -> dict:
     }
 
 
-def suggest_one_addition(balance: dict, meal_type_hint: str = "") -> str:
+def suggest_buy_item(balance: dict, meal_type_hint: str = "") -> str:
     meal_type_hint = (meal_type_hint or "").strip()
 
     if not balance.get("protein", False):
         if meal_type_hint == "朝ごはん":
-            return "足すなら1つ：ゆで卵 or ヨーグルト"
-        return "足すなら1つ：卵 or 豆腐"
+            return "買うなら：ゆで卵 or ヨーグルト"
+        return "買うなら：サラダチキン or 冷ややっこ"
 
     if not balance.get("vegetables", False):
-        if meal_type_hint == "間食":
-            return "足すなら1つ：トマト or 野菜スープ"
-        return "足すなら1つ：サラダ or 温野菜"
+        return "買うなら：カットサラダ or ミニトマト"
 
     if not balance.get("soup", False):
-        return "足すなら1つ：味噌汁 or スープ"
+        return "買うなら：即席味噌汁 or スープ"
 
     if not balance.get("main_food", False) and meal_type_hint != "間食":
-        return "足すなら1つ：ごはん少し or おにぎり"
+        return "買うなら：おにぎり or 小さいごはん"
 
-    return "今は大きく足さなくてもOKです"
+    return "買い足しは今はなくても大丈夫です"
+
+
+def suggest_home_item(balance: dict, meal_type_hint: str = "") -> str:
+    meal_type_hint = (meal_type_hint or "").strip()
+
+    if not balance.get("protein", False):
+        return "家にあれば：卵 or 豆腐を1つ"
+
+    if not balance.get("vegetables", False):
+        return "家にあれば：野菜を少し or おひたし"
+
+    if not balance.get("soup", False):
+        return "家にあれば：味噌汁 or スープを1杯"
+
+    if not balance.get("main_food", False) and meal_type_hint != "間食":
+        return "家にあれば：ごはん少しを追加"
+
+    return "家にあるもので無理に足さなくてもOKです"
 
 
 def suggest_one_reduction(balance: dict, meal_type_hint: str = "") -> str:
     meal_type_hint = (meal_type_hint or "").strip()
 
     if balance.get("fried", False):
-        return "減らすなら1つ：揚げ物を少し"
+        return "減らすなら：揚げ物を少し"
     if balance.get("sweet", False) and meal_type_hint == "間食":
-        return "減らすなら1つ：甘いものを少し"
+        return "減らすなら：甘いものを少し"
     if balance.get("heavy", False):
-        return "減らすなら1つ：主食かこってり系を少し"
+        return "減らすなら：主食かこってり系を少し"
     return "今は無理に減らさなくてもOKです"
 
 
@@ -335,12 +351,14 @@ def render_balance_badges(balance: dict, meal_type_hint: str = ""):
     if comment:
         st.caption(comment)
 
-    add_text = suggest_one_addition(balance, meal_type_hint=meal_type_hint)
+    buy_text = suggest_buy_item(balance, meal_type_hint=meal_type_hint)
+    home_text = suggest_home_item(balance, meal_type_hint=meal_type_hint)
     reduce_text = suggest_one_reduction(balance, meal_type_hint=meal_type_hint)
 
     col1, col2 = st.columns(2)
     with col1:
-        st.info(add_text)
+        st.info(buy_text)
+        st.info(home_text)
     with col2:
         st.warning(reduce_text)
 
