@@ -1843,3 +1843,36 @@ def build_food_evaluation_from_text(
         "score_text": score_text,
         "score_value": score,
     }
+
+def parse_meal_sections_from_text(meal_memo: str) -> dict:
+    text = to_str(meal_memo)
+    result = {"朝": "", "昼": "", "夜": "", "間食": ""}
+
+    lines = text.splitlines()
+    current_key = None
+
+    for raw_line in lines:
+        line = raw_line.strip()
+        if not line:
+            continue
+
+        if line.startswith("朝:"):
+            current_key = "朝"
+            result[current_key] = line.replace("朝:", "", 1).strip()
+        elif line.startswith("昼:"):
+            current_key = "昼"
+            result[current_key] = line.replace("昼:", "", 1).strip()
+        elif line.startswith("夜:"):
+            current_key = "夜"
+            result[current_key] = line.replace("夜:", "", 1).strip()
+        elif line.startswith("間食:"):
+            current_key = "間食"
+            result[current_key] = line.replace("間食:", "", 1).strip()
+        else:
+            if current_key:
+                if result[current_key]:
+                    result[current_key] += " " + line
+                else:
+                    result[current_key] = line
+
+    return result
