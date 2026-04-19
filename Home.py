@@ -12,6 +12,7 @@ from app_core import (
     get_today_exercise,
     get_home_progress_summary,
     get_today_log_status,
+    get_week_goal,
     jst_now,
 )
 
@@ -56,6 +57,10 @@ st.markdown(
         padding: 18px 16px;
         margin-bottom: 14px;
         box-shadow: 0 2px 10px rgba(0,0,0,0.03);
+    }
+    .sm-goal-card {
+        background: #fffdf8;
+        border: 1px solid #efe5d6;
     }
     .sm-status-ok {
         background: #f7fcf8;
@@ -184,6 +189,18 @@ def render_status_card(status: dict):
     )
 
 
+def render_week_goal_card(goal: dict):
+    st.markdown(
+        f"""
+        <div class="sm-card sm-goal-card">
+            <div class="sm-title">🎯 {goal["title"]}</div>
+            <div class="sm-text">{goal["body"].replace(chr(10), "<br>")}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def render_progress_card(summary: dict):
     st.markdown(
         f"""
@@ -250,6 +267,7 @@ try:
     profile = load_current_user_profile()
     progress = get_home_progress_summary(user_id)
     today_status = get_today_log_status(user_id)
+    week_goal = get_week_goal(settings, progress)
 except Exception as e:
     st.error(f"設定の読込に失敗しました: {e}")
     st.stop()
@@ -298,6 +316,7 @@ st.markdown(
 )
 
 render_status_card(today_status)
+render_week_goal_card(week_goal)
 render_today_advice_card(advice)
 render_progress_card(progress)
 render_week_menu_card(week_menu, now)
