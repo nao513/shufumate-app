@@ -57,10 +57,6 @@ st.markdown(
         margin-bottom: 14px;
         box-shadow: 0 2px 10px rgba(0,0,0,0.03);
     }
-    .sm-account-card {
-        background: #fcfbff;
-        border: 1px solid #e7e0f2;
-    }
     .sm-status-ok {
         background: #f7fcf8;
         border: 1px solid #d9ecde;
@@ -131,30 +127,9 @@ st.markdown(
         color: #666666;
         line-height: 1.5;
     }
-    .sm-account-row {
-        padding: 6px 0;
-        border-bottom: 1px dashed #eeeaf6;
-        line-height: 1.6;
-    }
-    .sm-account-row:last-child {
-        border-bottom: none;
-    }
-    .sm-account-key {
-        display: inline-block;
-        width: 7rem;
-        color: #666666;
-        font-size: 0.92rem;
-    }
-    .sm-account-value {
-        font-weight: 600;
-        font-size: 0.96rem;
-    }
     @media (max-width: 640px) {
         .sm-grid {
             grid-template-columns: 1fr;
-        }
-        .sm-account-key {
-            width: 6.2rem;
         }
     }
     </style>
@@ -172,36 +147,6 @@ def show_logo():
         if logo_path.exists():
             st.image(str(logo_path), use_container_width=True)
             return
-
-
-def render_account_card(profile: dict | None):
-    if not profile:
-        return
-
-    nickname = profile.get("nickname", "") or "未設定"
-    login_id = profile.get("login_id", "") or "未設定"
-    birth_date = profile.get("birth_date", "") or "未設定"
-
-    st.markdown(
-        f"""
-        <div class="sm-card sm-account-card">
-            <div class="sm-title">👤 アカウント情報</div>
-            <div class="sm-account-row">
-                <span class="sm-account-key">ニックネーム</span>
-                <span class="sm-account-value">{nickname}</span>
-            </div>
-            <div class="sm-account-row">
-                <span class="sm-account-key">ログインID</span>
-                <span class="sm-account-value">{login_id}</span>
-            </div>
-            <div class="sm-account-row">
-                <span class="sm-account-key">生年月日</span>
-                <span class="sm-account-value">{birth_date}</span>
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
 
 
 def render_today_advice_card(advice: dict):
@@ -352,7 +297,6 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-render_account_card(profile)
 render_status_card(today_status)
 render_today_advice_card(advice)
 render_progress_card(progress)
