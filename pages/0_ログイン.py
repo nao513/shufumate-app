@@ -34,5 +34,5 @@ with col1:
         st.switch_page("pages/0_新規登録.py")
 
 with col2:
-    if st.button("ホームへ戻る", use_container_width=True):
-        st.switch_page("Home.py")
+    if st.button("ページ再読込", use_container_width=True):
+        st.rerun()
