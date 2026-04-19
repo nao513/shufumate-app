@@ -1,1 +1,7 @@
-
+streamlit
+pandas
+gspread
+openai
+Pillow
+google-auth
+opencv-python-headless
