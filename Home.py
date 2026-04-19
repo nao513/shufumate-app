@@ -361,7 +361,7 @@ render_week_menu_card(week_menu, now)
 render_exercise_card(exercise)
 
 st.markdown("### つかう")
-col1, col2, col3 = st.columns(3)
+col1, col2 = st.columns(2)
 
 with col1:
     if st.button("📝 記録する", use_container_width=True):
@@ -371,6 +371,12 @@ with col2:
     if st.button("💬 相談する", use_container_width=True):
         st.switch_page("pages/3_相談する.py")
 
+col3, col4 = st.columns(2)
+
 with col3:
+    if st.button("📷 写真で記録", use_container_width=True):
+        st.switch_page("pages/4_写真で記録.py")
+
+with col4:
     if st.button("⚙️ 設定", use_container_width=True):
         st.switch_page("pages/1_設定.py")
