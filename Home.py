@@ -220,6 +220,13 @@ st.markdown(
         width: 100%;
         font-size: 0.92rem !important;
     }
+    div[data-testid="stExpander"] {
+        border: 1px solid #eee3d7;
+        border-radius: 16px;
+        overflow: hidden;
+        margin-bottom: 10px;
+        background: #fffdf9;
+    }
     h3 {
         margin-top: 0.5rem !important;
         margin-bottom: 0.55rem !important;
@@ -489,9 +496,15 @@ st.markdown(
 )
 
 render_compact_today_card(advice, exercise)
-render_status_card(today_status)
-render_streak_card(streak)
-render_focus_card(focus)
-render_week_goal_card(week_goal)
-render_progress_card(progress)
-render_week_menu_card(week_menu, now)
+
+with st.expander("今日の記録・流れを見る"):
+    render_status_card(today_status)
+    render_streak_card(streak)
+
+with st.expander("今のポイント・今週の目標を見る"):
+    render_focus_card(focus)
+    render_week_goal_card(week_goal)
+
+with st.expander("最新の記録・今週の献立を見る"):
+    render_progress_card(progress)
+    render_week_menu_card(week_menu, now)
