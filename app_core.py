@@ -2,7 +2,7 @@ import streamlit as st
 import gspread
 import pandas as pd
 from google.oauth2.service_account import Credentials
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from zoneinfo import ZoneInfo
 from uuid import uuid4
 import hashlib
@@ -54,6 +54,7 @@ SETTINGS_HEADERS = [
     "food_style",
     "user_type",
     "advice_tone",
+    "constitution_traits",
     "updated_at",
 ]
 
@@ -66,6 +67,7 @@ DIETLOG_HEADERS = [
     "exercise_memo",
     "condition_note",
     "mood_note",
+    "today_conditions",
     "created_at",
 ]
 
@@ -94,6 +96,27 @@ ADVICE_TONE_OPTIONS = [
     "やさしく",
     "しっかり",
     "淡々と",
+]
+
+CONSTITUTION_TRAIT_OPTIONS = [
+    "冷えやすい",
+    "むくみやすい",
+    "疲れやすい",
+    "便通が乱れやすい",
+    "胃腸がゆらぎやすい",
+    "甘いものに流れやすい",
+    "食べすぎやすい",
+]
+
+TODAY_CONDITION_OPTIONS = [
+    "寝不足",
+    "だるい",
+    "むくみあり",
+    "食べすぎた",
+    "外食あり",
+    "時間がない",
+    "気分が落ち気味",
+    "運動できそう",
 ]
 
 CATEGORY_OPTIONS = [
@@ -129,6 +152,19 @@ def to_int(v, default=0) -> int:
         return int(float(v))
     except Exception:
         return default
+
+
+def parse_multi_value(v) -> list[str]:
+    raw = to_str(v).strip()
+    if not raw:
+        return []
+    return [item.strip() for item in raw.split(",") if item.strip()]
+
+
+def join_multi_value(items) -> str:
+    if not items:
+        return ""
+    return ",".join([to_str(item).strip() for item in items if to_str(item).strip()])
 
 
 # =========================
@@ -201,7 +237,7 @@ def get_or_create_sheet(title: str, headers: list[str], rows: int = 200):
     try:
         ws = ss.worksheet(title)
     except gspread.exceptions.WorksheetNotFound:
-        ws = ss.add_worksheet(title=title, rows=rows, cols=len(headers))
+        ws = ss.add_worksheet(title=title, rows=rows, cols=max(len(headers), 20))
         ws.append_row(headers)
 
     ensure_headers(ws, headers)
@@ -225,20 +261,17 @@ def get_dietlogs_sheet():
 # =========================
 @st.cache_data(ttl=30, show_spinner=False)
 def read_users_records():
-    ws = get_users_sheet()
-    return ws.get_all_records()
+    return get_users_sheet().get_all_records()
 
 
 @st.cache_data(ttl=30, show_spinner=False)
 def read_settings_records():
-    ws = get_settings_sheet()
-    return ws.get_all_records()
+    return get_settings_sheet().get_all_records()
 
 
 @st.cache_data(ttl=30, show_spinner=False)
 def read_dietlog_records():
-    ws = get_dietlogs_sheet()
-    return ws.get_all_records()
+    return get_dietlogs_sheet().get_all_records()
 
 
 def clear_sheet_caches():
@@ -279,7 +312,6 @@ def require_login():
         st.stop()
 
 
-# 既存ページ互換用
 def get_user_id() -> str:
     user_id = get_current_user_id()
     if not user_id:
@@ -309,8 +341,7 @@ def find_user_by_login_id(login_id: str) -> dict | None:
     if not login_id:
         return None
 
-    records = read_users_records()
-    for record in records:
+    for record in read_users_records():
         if (
             to_str(record.get("login_id", "")).strip() == login_id
             and to_str(record.get("is_active", "1")).strip() != "0"
@@ -320,8 +351,7 @@ def find_user_by_login_id(login_id: str) -> dict | None:
 
 
 def find_user_by_user_id(user_id: str) -> dict | None:
-    records = read_users_records()
-    for record in records:
+    for record in read_users_records():
         if (
             to_str(record.get("user_id", "")) == user_id
             and to_str(record.get("is_active", "1")).strip() != "0"
@@ -343,11 +373,7 @@ def create_user(login_id: str, password: str, nickname: str, birth_date: date | 
     if not nickname:
         raise ValueError("ニックネームを入力してください。")
 
-    if isinstance(birth_date, date):
-        birth_date_str = birth_date.strftime("%Y-%m-%d")
-    else:
-        birth_date_str = to_str(birth_date).strip()
-
+    birth_date_str = birth_date.strftime("%Y-%m-%d") if isinstance(birth_date, date) else to_str(birth_date).strip()
     if not birth_date_str:
         raise ValueError("生年月日を入力してください。")
 
@@ -360,8 +386,7 @@ def create_user(login_id: str, password: str, nickname: str, birth_date: date | 
     now_str = jst_now().strftime("%Y-%m-%d %H:%M:%S")
     age = calculate_age_from_birth_date(birth_date_str)
 
-    users_ws = get_users_sheet()
-    users_ws.append_row(
+    get_users_sheet().append_row(
         [
             user_id,
             login_id,
@@ -375,8 +400,7 @@ def create_user(login_id: str, password: str, nickname: str, birth_date: date | 
         ]
     )
 
-    settings_ws = get_settings_sheet()
-    settings_ws.append_row(
+    get_settings_sheet().append_row(
         [
             user_id,
             nickname,
@@ -390,6 +414,7 @@ def create_user(login_id: str, password: str, nickname: str, birth_date: date | 
             "バランス重視",
             "自分だけ向け",
             "やさしく",
+            "",
             now_str,
         ]
     )
@@ -415,10 +440,7 @@ def verify_login(login_id: str, password: str) -> dict | None:
     if not salt or not password_hash:
         return None
 
-    if verify_password(password, salt, password_hash):
-        return user_record
-
-    return None
+    return user_record if verify_password(password, salt, password_hash) else None
 
 
 def load_current_user_profile() -> dict | None:
@@ -439,6 +461,16 @@ def load_current_user_profile() -> dict | None:
         "birth_date": to_str(record.get("birth_date", "")),
         "age": age,
     }
+
+
+def _update_user_row(user_id: str, row_data: list):
+    ws = get_users_sheet()
+    row_index = find_user_row_by_user_id(ws, user_id)
+    if not row_index:
+        raise ValueError("Usersシートの更新行が見つかりません。")
+
+    end_col = chr(64 + len(USERS_HEADERS))
+    ws.update(f"A{row_index}:{end_col}{row_index}", [row_data])
 
 
 def change_login_id(user_id: str, current_password: str, new_login_id: str):
@@ -465,30 +497,22 @@ def change_login_id(user_id: str, current_password: str, new_login_id: str):
 
     salt = to_str(current_user.get("password_salt", ""))
     password_hash = to_str(current_user.get("password_hash", ""))
-
     if not verify_password(current_password, salt, password_hash):
         raise ValueError("現在のパスワードが違います。")
-
-    ws = get_users_sheet()
-    row_index = find_user_row_by_user_id(ws, user_id)
-    if not row_index:
-        raise ValueError("Usersシートの更新行が見つかりません。")
 
     row_data = [
         user_id,
         new_login_id,
         password_hash,
         salt,
-        to_str(current_user.get("nickname", "")),
-        to_str(current_user.get("birth_date", "")),
-        to_str(current_user.get("created_at", "")),
+        to_str(current_user.get("nickname", "")).strip(),
+        to_str(current_user.get("birth_date", "")).strip(),
+        to_str(current_user.get("created_at", "")).strip(),
         jst_now().strftime("%Y-%m-%d %H:%M:%S"),
-        to_str(current_user.get("is_active", "1")) or "1",
+        to_str(current_user.get("is_active", "1")).strip() or "1",
     ]
 
-    end_col = chr(64 + len(USERS_HEADERS))
-    ws.update(f"A{row_index}:{end_col}{row_index}", [row_data])
-
+    _update_user_row(user_id, row_data)
     st.session_state["auth_login_id"] = new_login_id
     clear_sheet_caches()
 
@@ -511,17 +535,11 @@ def change_password(user_id: str, current_password: str, new_password: str, new_
 
     old_salt = to_str(current_user.get("password_salt", ""))
     old_password_hash = to_str(current_user.get("password_hash", ""))
-
     if not verify_password(current_password, old_salt, old_password_hash):
         raise ValueError("現在のパスワードが違います。")
 
     new_salt = generate_salt()
     new_password_hash = hash_password(new_password, new_salt)
-
-    ws = get_users_sheet()
-    row_index = find_user_row_by_user_id(ws, user_id)
-    if not row_index:
-        raise ValueError("Usersシートの更新行が見つかりません。")
 
     row_data = [
         user_id,
@@ -535,93 +553,12 @@ def change_password(user_id: str, current_password: str, new_password: str, new_
         to_str(current_user.get("is_active", "1")).strip() or "1",
     ]
 
-    end_col = chr(64 + len(USERS_HEADERS))
-    ws.update(f"A{row_index}:{end_col}{row_index}", [row_data])
-
-    clear_sheet_caches()
-
-
-def change_birth_date(user_id: str, current_password: str, new_birth_date):
-    if not user_id:
-        raise ValueError("ユーザー情報が見つかりません。")
-    if not current_password:
-        raise ValueError("現在のパスワードを入力してください。")
-
-    current_user = find_user_by_user_id(user_id)
-    if not current_user:
-        raise ValueError("現在のユーザーが見つかりません。")
-
-    password_salt = to_str(current_user.get("password_salt", ""))
-    password_hash = to_str(current_user.get("password_hash", ""))
-
-    if not verify_password(current_password, password_salt, password_hash):
-        raise ValueError("現在のパスワードが違います。")
-
-    if isinstance(new_birth_date, date):
-        birth_date_str = new_birth_date.strftime("%Y-%m-%d")
-    else:
-        birth_date_str = to_str(new_birth_date).strip()
-
-    if not birth_date_str:
-        raise ValueError("生年月日を入力してください。")
-
-    new_age = calculate_age_from_birth_date(birth_date_str)
-    if new_age is None:
-        raise ValueError("生年月日が正しくありません。")
-
-    users_ws = get_users_sheet()
-    user_row_index = find_user_row_by_user_id(users_ws, user_id)
-    if not user_row_index:
-        raise ValueError("Usersシートの更新行が見つかりません。")
-
-    updated_user_row = [
-        user_id,
-        to_str(current_user.get("login_id", "")).strip(),
-        password_hash,
-        password_salt,
-        to_str(current_user.get("nickname", "")).strip(),
-        birth_date_str,
-        to_str(current_user.get("created_at", "")).strip(),
-        jst_now().strftime("%Y-%m-%d %H:%M:%S"),
-        to_str(current_user.get("is_active", "1")).strip() or "1",
-    ]
-
-    users_end_col = chr(64 + len(USERS_HEADERS))
-    users_ws.update(f"A{user_row_index}:{users_end_col}{user_row_index}", [updated_user_row])
-
-    settings_ws = get_settings_sheet()
-    settings_row_index = find_user_row_by_user_id(settings_ws, user_id)
-
-    if settings_row_index:
-        current_settings = load_user_settings(user_id)
-
-        updated_settings_row = [
-            user_id,
-            to_str(current_settings.get("nickname", "")).strip(),
-            new_age,
-            current_settings.get("height_cm", 160.0),
-            current_settings.get("current_weight", 50.0),
-            current_settings.get("target_weight", 48.0),
-            current_settings.get("current_body_fat", 30.0),
-            current_settings.get("target_body_fat", 28.0),
-            to_str(current_settings.get("activity_level", "ふつう")) or "ふつう",
-            to_str(current_settings.get("food_style", "バランス重視")) or "バランス重視",
-            to_str(current_settings.get("user_type", "自分だけ向け")) or "自分だけ向け",
-            to_str(current_settings.get("advice_tone", "やさしく")) or "やさしく",
-            jst_now().strftime("%Y-%m-%d %H:%M:%S"),
-        ]
-
-        settings_end_col = chr(64 + len(SETTINGS_HEADERS))
-        settings_ws.update(
-            f"A{settings_row_index}:{settings_end_col}{settings_row_index}",
-            [updated_settings_row],
-        )
-
+    _update_user_row(user_id, row_data)
     clear_sheet_caches()
 
 
 # =========================
-# Settings保存・読込
+# Settings
 # =========================
 def load_user_settings(user_id: str) -> dict:
     records = read_settings_records()
@@ -645,6 +582,7 @@ def load_user_settings(user_id: str) -> dict:
                 "food_style": to_str(record.get("food_style", "バランス重視")) or "バランス重視",
                 "user_type": to_str(record.get("user_type", "自分だけ向け")) or "自分だけ向け",
                 "advice_tone": to_str(record.get("advice_tone", "やさしく")) or "やさしく",
+                "constitution_traits": parse_multi_value(record.get("constitution_traits", "")),
             }
 
     return {
@@ -659,6 +597,7 @@ def load_user_settings(user_id: str) -> dict:
         "food_style": "バランス重視",
         "user_type": "自分だけ向け",
         "advice_tone": "やさしく",
+        "constitution_traits": [],
     }
 
 
@@ -667,14 +606,12 @@ def save_user_settings(user_id: str, data: dict):
     profile = load_current_user_profile()
     current_user = find_user_by_user_id(user_id)
 
-    age = None
-    if profile and profile.get("user_id") == user_id:
-        age = profile.get("age")
+    age = profile.get("age") if profile and profile.get("user_id") == user_id else ""
 
     row_data = [
         user_id,
         data["nickname"],
-        age if age is not None else "",
+        age,
         data["height_cm"],
         data["current_weight"],
         data["target_weight"],
@@ -684,6 +621,7 @@ def save_user_settings(user_id: str, data: dict):
         data["food_style"],
         data["user_type"],
         data.get("advice_tone", "やさしく"),
+        join_multi_value(data.get("constitution_traits", [])),
         jst_now().strftime("%Y-%m-%d %H:%M:%S"),
     ]
 
@@ -696,63 +634,121 @@ def save_user_settings(user_id: str, data: dict):
         ws.append_row(row_data)
 
     if current_user:
-        users_ws = get_users_sheet()
-        user_row_index = find_user_row_by_user_id(users_ws, user_id)
-        if user_row_index:
-            updated_user_row = [
-                user_id,
-                to_str(current_user.get("login_id", "")).strip(),
-                to_str(current_user.get("password_hash", "")).strip(),
-                to_str(current_user.get("password_salt", "")).strip(),
-                data["nickname"],
-                to_str(current_user.get("birth_date", "")).strip(),
-                to_str(current_user.get("created_at", "")).strip(),
-                jst_now().strftime("%Y-%m-%d %H:%M:%S"),
-                to_str(current_user.get("is_active", "1")).strip() or "1",
-            ]
-            users_end_col = chr(64 + len(USERS_HEADERS))
-            users_ws.update(
-                f"A{user_row_index}:{users_end_col}{user_row_index}",
-                [updated_user_row],
-            )
-            st.session_state["auth_nickname"] = data["nickname"]
+        updated_user_row = [
+            user_id,
+            to_str(current_user.get("login_id", "")).strip(),
+            to_str(current_user.get("password_hash", "")).strip(),
+            to_str(current_user.get("password_salt", "")).strip(),
+            data["nickname"],
+            to_str(current_user.get("birth_date", "")).strip(),
+            to_str(current_user.get("created_at", "")).strip(),
+            jst_now().strftime("%Y-%m-%d %H:%M:%S"),
+            to_str(current_user.get("is_active", "1")).strip() or "1",
+        ]
+        _update_user_row(user_id, updated_user_row)
+        st.session_state["auth_nickname"] = data["nickname"]
+
+    clear_sheet_caches()
+
+
+def change_birth_date(user_id: str, current_password: str, new_birth_date):
+    if not user_id:
+        raise ValueError("ユーザー情報が見つかりません。")
+    if not current_password:
+        raise ValueError("現在のパスワードを入力してください。")
+
+    current_user = find_user_by_user_id(user_id)
+    if not current_user:
+        raise ValueError("現在のユーザーが見つかりません。")
+
+    password_salt = to_str(current_user.get("password_salt", ""))
+    password_hash = to_str(current_user.get("password_hash", ""))
+    if not verify_password(current_password, password_salt, password_hash):
+        raise ValueError("現在のパスワードが違います。")
+
+    birth_date_str = new_birth_date.strftime("%Y-%m-%d") if isinstance(new_birth_date, date) else to_str(new_birth_date).strip()
+    if not birth_date_str:
+        raise ValueError("生年月日を入力してください。")
+
+    new_age = calculate_age_from_birth_date(birth_date_str)
+    if new_age is None:
+        raise ValueError("生年月日が正しくありません。")
+
+    updated_user_row = [
+        user_id,
+        to_str(current_user.get("login_id", "")).strip(),
+        password_hash,
+        password_salt,
+        to_str(current_user.get("nickname", "")).strip(),
+        birth_date_str,
+        to_str(current_user.get("created_at", "")).strip(),
+        jst_now().strftime("%Y-%m-%d %H:%M:%S"),
+        to_str(current_user.get("is_active", "1")).strip() or "1",
+    ]
+    _update_user_row(user_id, updated_user_row)
+
+    settings_ws = get_settings_sheet()
+    settings_row_index = find_user_row_by_user_id(settings_ws, user_id)
+
+    if settings_row_index:
+        current_settings = load_user_settings(user_id)
+
+        updated_settings_row = [
+            user_id,
+            to_str(current_settings.get("nickname", "")).strip(),
+            new_age,
+            current_settings.get("height_cm", 160.0),
+            current_settings.get("current_weight", 50.0),
+            current_settings.get("target_weight", 48.0),
+            current_settings.get("current_body_fat", 30.0),
+            current_settings.get("target_body_fat", 28.0),
+            to_str(current_settings.get("activity_level", "ふつう")) or "ふつう",
+            to_str(current_settings.get("food_style", "バランス重視")) or "バランス重視",
+            to_str(current_settings.get("user_type", "自分だけ向け")) or "自分だけ向け",
+            to_str(current_settings.get("advice_tone", "やさしく")) or "やさしく",
+            join_multi_value(current_settings.get("constitution_traits", [])),
+            jst_now().strftime("%Y-%m-%d %H:%M:%S"),
+        ]
+
+        end_col = chr(64 + len(SETTINGS_HEADERS))
+        settings_ws.update(
+            f"A{settings_row_index}:{end_col}{settings_row_index}",
+            [updated_settings_row],
+        )
 
     clear_sheet_caches()
 
 
 # =========================
-# DietLogs保存・読込
+# DietLogs
 # =========================
 def save_diet_log(user_id: str, data: dict):
-    ws = get_dietlogs_sheet()
-    row_data = [
-        user_id,
-        data["log_date"],
-        data["weight"],
-        data["body_fat"],
-        data["meal_memo"],
-        data["exercise_memo"],
-        data["condition_note"],
-        data["mood_note"],
-        jst_now().strftime("%Y-%m-%d %H:%M:%S"),
-    ]
-    ws.append_row(row_data)
+    get_dietlogs_sheet().append_row(
+        [
+            user_id,
+            data["log_date"],
+            data["weight"],
+            data["body_fat"],
+            data["meal_memo"],
+            data["exercise_memo"],
+            data["condition_note"],
+            data["mood_note"],
+            join_multi_value(data.get("today_conditions", [])),
+            jst_now().strftime("%Y-%m-%d %H:%M:%S"),
+        ]
+    )
     clear_sheet_caches()
 
 
 def load_latest_log(user_id: str) -> dict | None:
-    records = read_dietlog_records()
-
-    user_logs = [r for r in records if str(r.get("user_id", "")) == user_id]
+    user_logs = [r for r in read_dietlog_records() if str(r.get("user_id", "")) == user_id]
     if not user_logs:
         return None
 
-    def sort_key(x):
-        created_at = to_str(x.get("created_at", ""))
-        log_date = to_str(x.get("log_date", ""))
-        return (log_date, created_at)
-
-    user_logs.sort(key=sort_key, reverse=True)
+    user_logs.sort(
+        key=lambda x: (to_str(x.get("log_date", "")), to_str(x.get("created_at", ""))),
+        reverse=True,
+    )
     return user_logs[0]
 
 
@@ -762,26 +758,28 @@ def get_initial_log_values(user_id: str) -> dict:
         return {
             "weight": to_float(latest.get("weight", 50.0), 50.0),
             "body_fat": to_float(latest.get("body_fat", 30.0), 30.0),
+            "today_conditions": parse_multi_value(latest.get("today_conditions", "")),
         }
 
     settings = load_user_settings(user_id)
     return {
         "weight": settings["current_weight"],
         "body_fat": settings["current_body_fat"],
+        "today_conditions": [],
     }
 
 
 def load_recent_logs(user_id: str, limit: int = 10) -> pd.DataFrame:
-    records = read_dietlog_records()
-    user_logs = [r for r in records if str(r.get("user_id", "")) == user_id]
-
+    user_logs = [r for r in read_dietlog_records() if str(r.get("user_id", "")) == user_id]
     if not user_logs:
         return pd.DataFrame()
 
     df = pd.DataFrame(user_logs)
-
     df["log_date_sort"] = pd.to_datetime(df.get("log_date"), errors="coerce")
     df["created_at_sort"] = pd.to_datetime(df.get("created_at"), errors="coerce")
+
+    if "today_conditions" in df.columns:
+        df["today_conditions"] = df["today_conditions"].fillna("").astype(str).str.replace(",", " / ")
 
     df = df.sort_values(
         by=["log_date_sort", "created_at_sort"],
@@ -794,6 +792,7 @@ def load_recent_logs(user_id: str, limit: int = 10) -> pd.DataFrame:
             "log_date": "日付",
             "weight": "体重(kg)",
             "body_fat": "体脂肪(%)",
+            "today_conditions": "今日の状態",
             "meal_memo": "食事メモ",
             "exercise_memo": "運動メモ",
             "condition_note": "体調メモ",
@@ -801,21 +800,18 @@ def load_recent_logs(user_id: str, limit: int = 10) -> pd.DataFrame:
         }
     )
 
-    show_cols = ["日付", "体重(kg)", "体脂肪(%)", "食事メモ", "運動メモ", "体調メモ", "気分メモ"]
+    show_cols = ["日付", "体重(kg)", "体脂肪(%)", "今日の状態", "食事メモ", "運動メモ", "体調メモ", "気分メモ"]
     show_cols = [c for c in show_cols if c in df.columns]
 
     return df[show_cols].head(limit)
 
 
 def load_log_chart_df(user_id: str) -> pd.DataFrame:
-    records = read_dietlog_records()
-    user_logs = [r for r in records if str(r.get("user_id", "")) == user_id]
-
+    user_logs = [r for r in read_dietlog_records() if str(r.get("user_id", "")) == user_id]
     if not user_logs:
         return pd.DataFrame()
 
     df = pd.DataFrame(user_logs)
-
     if "log_date" not in df.columns:
         return pd.DataFrame()
 
@@ -830,10 +826,9 @@ def load_log_chart_df(user_id: str) -> pd.DataFrame:
         ascending=[True, True],
         na_position="last",
     )
-
     df = df.drop_duplicates(subset=["log_date"], keep="last")
 
-    chart_df = pd.DataFrame(
+    return pd.DataFrame(
         {
             "日付": df["log_date_sort"],
             "体重(kg)": df["weight_num"],
@@ -841,42 +836,25 @@ def load_log_chart_df(user_id: str) -> pd.DataFrame:
         }
     ).set_index("日付")
 
-    return chart_df
-
 
 def get_today_log_status(user_id: str) -> dict:
     today = jst_today_str()
-    records = read_dietlog_records()
-
     today_logs = [
-        r
-        for r in records
-        if str(r.get("user_id", "")) == user_id
-        and to_str(r.get("log_date", "")) == today
+        r for r in read_dietlog_records()
+        if str(r.get("user_id", "")) == user_id and to_str(r.get("log_date", "")) == today
     ]
 
     if not today_logs:
         return {
             "is_logged": False,
             "label": "今日はまだ未記録です",
-            "detail": "体重・体脂肪・食事・運動を記録できます。",
+            "detail": "体重・体脂肪・今日の状態を記録できます。",
         }
 
-    def sort_key(x):
-        return to_str(x.get("created_at", ""))
-
-    today_logs.sort(key=sort_key, reverse=True)
-    latest = today_logs[0]
-    created_at = to_str(latest.get("created_at", ""))
-
-    time_text = ""
-    if len(created_at) >= 16:
-        time_text = created_at[11:16]
-
-    if time_text:
-        detail = f"今日の記録は保存済みです（最終保存 {time_text}）"
-    else:
-        detail = "今日の記録は保存済みです。"
+    today_logs.sort(key=lambda x: to_str(x.get("created_at", "")), reverse=True)
+    created_at = to_str(today_logs[0].get("created_at", ""))
+    time_text = created_at[11:16] if len(created_at) >= 16 else ""
+    detail = f"今日の記録は保存済みです（最終保存 {time_text}）" if time_text else "今日の記録は保存済みです。"
 
     return {
         "is_logged": True,
@@ -885,9 +863,6 @@ def get_today_log_status(user_id: str) -> dict:
     }
 
 
-# =========================
-# ホーム用サマリー
-# =========================
 def get_home_progress_summary(user_id: str) -> dict:
     settings = load_user_settings(user_id)
     latest = load_latest_log(user_id)
@@ -910,19 +885,21 @@ def get_home_progress_summary(user_id: str) -> dict:
     weight_diff = round(latest_weight - target_weight, 1)
     body_fat_diff = round(latest_body_fat - target_body_fat, 1)
 
-    if weight_diff > 0:
-        weight_text = f"目標まであと {weight_diff:.1f}kg"
-    elif weight_diff < 0:
-        weight_text = f"目標を {abs(weight_diff):.1f}kg 下回っています"
-    else:
-        weight_text = "体重は目標ぴったりです"
+    weight_text = (
+        f"目標まであと {weight_diff:.1f}kg"
+        if weight_diff > 0
+        else f"目標を {abs(weight_diff):.1f}kg 下回っています"
+        if weight_diff < 0
+        else "体重は目標ぴったりです"
+    )
 
-    if body_fat_diff > 0:
-        body_fat_text = f"目標まであと {body_fat_diff:.1f}%"
-    elif body_fat_diff < 0:
-        body_fat_text = f"目標を {abs(body_fat_diff):.1f}% 下回っています"
-    else:
-        body_fat_text = "体脂肪は目標ぴったりです"
+    body_fat_text = (
+        f"目標まであと {body_fat_diff:.1f}%"
+        if body_fat_diff > 0
+        else f"目標を {abs(body_fat_diff):.1f}% 下回っています"
+        if body_fat_diff < 0
+        else "体脂肪は目標ぴったりです"
+    )
 
     return {
         "latest_date": latest_date,
@@ -934,52 +911,291 @@ def get_home_progress_summary(user_id: str) -> dict:
 
 
 # =========================
-# ホーム提案
+# 不足しやすい目安 / 体質・今日の状態ロジック
 # =========================
+FOCUS_LABELS = {
+    "protein": "たんぱく質",
+    "vegetables": "野菜・食物繊維",
+    "hydration": "水分",
+    "rest": "休息",
+    "activity": "軽い活動",
+    "warm_care": "体を冷やしすぎないこと",
+    "digestive_care": "胃腸にやさしい食事",
+}
+
+FOCUS_FOOD_TIPS = {
+    "protein": "卵、豆腐、魚、鶏むね肉など、たんぱく質を少し入れるのがおすすめです。",
+    "vegetables": "汁物や温野菜、きのこ、海藻を足すと整えやすいです。",
+    "hydration": "冷たい物に偏らず、水分をこまめにとる意識がおすすめです。",
+    "rest": "回復を優先し、消化しやすい食事で無理を減らす日がおすすめです。",
+    "activity": "食後や家事の合間に少し動くと整いやすいです。",
+    "warm_care": "温かい汁物や温野菜で、体を冷やしすぎない組み立てがおすすめです。",
+    "digestive_care": "重たい物を重ねず、やわらかく温かい食事が合いやすいです。",
+}
+
+FOCUS_EXERCISE_TIPS = {
+    "protein": "運動後は軽くたんぱく質をとれると整いやすいです。",
+    "vegetables": "今日は強度より、食事バランスを意識する方が優先です。",
+    "hydration": "長時間より、軽く動いて水分をこまめにとる形がおすすめです。",
+    "rest": "今日は追い込まず、ストレッチや深呼吸中心で十分です。",
+    "activity": "10分程度の散歩や軽いストレッチから始めるのがおすすめです。",
+    "warm_care": "体を温めるような軽い散歩やストレッチが合いやすいです。",
+    "digestive_care": "お腹に負担が少ない、やさしい動きから始めるのがおすすめです。",
+}
+
+
+def _score_support_focus(settings: dict, today_conditions: list[str]) -> dict:
+    scores = {key: 0 for key in FOCUS_LABELS.keys()}
+    traits = settings.get("constitution_traits", []) or []
+
+    for trait in traits:
+        if trait == "冷えやすい":
+            scores["warm_care"] += 2
+            scores["activity"] += 1
+        elif trait == "むくみやすい":
+            scores["hydration"] += 2
+            scores["activity"] += 1
+        elif trait == "疲れやすい":
+            scores["rest"] += 2
+            scores["protein"] += 1
+        elif trait == "便通が乱れやすい":
+            scores["vegetables"] += 2
+            scores["hydration"] += 1
+            scores["activity"] += 1
+        elif trait == "胃腸がゆらぎやすい":
+            scores["digestive_care"] += 2
+        elif trait == "甘いものに流れやすい":
+            scores["protein"] += 1
+            scores["vegetables"] += 1
+        elif trait == "食べすぎやすい":
+            scores["vegetables"] += 1
+            scores["hydration"] += 1
+            scores["digestive_care"] += 1
+
+    for cond in today_conditions:
+        if cond == "寝不足":
+            scores["rest"] += 2
+            scores["protein"] += 1
+        elif cond == "だるい":
+            scores["rest"] += 1
+            scores["hydration"] += 1
+        elif cond == "むくみあり":
+            scores["hydration"] += 2
+            scores["activity"] += 1
+        elif cond == "食べすぎた":
+            scores["vegetables"] += 1
+            scores["hydration"] += 1
+            scores["digestive_care"] += 1
+        elif cond == "外食あり":
+            scores["vegetables"] += 1
+            scores["hydration"] += 1
+        elif cond == "時間がない":
+            scores["protein"] += 1
+        elif cond == "気分が落ち気味":
+            scores["rest"] += 1
+            scores["activity"] += 1
+        elif cond == "運動できそう":
+            scores["activity"] += 1
+            scores["protein"] += 1
+
+    if max(scores.values()) == 0:
+        scores["protein"] = 1
+        scores["hydration"] = 1
+        scores["activity"] = 1
+
+    return scores
+
+
+def get_support_focus_summary(settings: dict, latest_log: dict | None = None) -> dict:
+    today_conditions = parse_multi_value(latest_log.get("today_conditions", "")) if latest_log else []
+    scores = _score_support_focus(settings, today_conditions)
+
+    ordered = sorted(scores.items(), key=lambda x: (-x[1], x[0]))
+    top_keys = [key for key, score in ordered if score > 0][:3]
+    points = [FOCUS_LABELS[key] for key in top_keys]
+
+    top_food = FOCUS_FOOD_TIPS[top_keys[0]] if top_keys else "汁物とたんぱく質を意識すると整えやすいです。"
+    top_exercise = FOCUS_EXERCISE_TIPS[top_keys[0]] if top_keys else "軽いストレッチや散歩からで十分です。"
+
+    body_lines = []
+    if points:
+        body_lines.append("今整えたいポイント： " + " / ".join(points))
+    if today_conditions:
+        body_lines.append("今日の状態： " + " / ".join(today_conditions))
+    else:
+        body_lines.append("今日は基本の整えを意識する日です。")
+
+    body_lines.append("食事の目安： " + top_food)
+    body_lines.append("運動の目安： " + top_exercise)
+
+    return {
+        "points": points,
+        "food_tip": top_food,
+        "exercise_tip": top_exercise,
+        "today_conditions": today_conditions,
+        "body": "\n".join(body_lines),
+    }
+
+
+# =========================
+# ホーム表示用
+# =========================
+def get_week_goal(settings: dict, summary: dict) -> dict:
+    user_type = to_str(settings.get("user_type", "自分だけ向け")) or "自分だけ向け"
+    tone = to_str(settings.get("advice_tone", "やさしく")) or "やさしく"
+    weight_text = to_str(summary.get("weight_text", ""))
+    body_fat_text = to_str(summary.get("body_fat_text", ""))
+
+    if user_type == "忙しい日向け":
+        body = "完璧を目指さず、まずは記録を続けることを優先しましょう。週3回、5分だけでも動けたら十分です。"
+    elif user_type == "節約重視":
+        body = "食材を使い切る意識で、無理なく整える1週間にしましょう。外食後も次の食事で戻せば大丈夫です。"
+    elif user_type == "自分＋家族向け":
+        body = "家族優先の中でも、自分の量と体調を意識する1週間にしましょう。まずは1日1回、自分のための選択ができれば十分です。"
+    else:
+        body = "体重や体脂肪だけでなく、記録を続けることそのものを目標にしましょう。小さく整える積み重ねがいちばん強いです。"
+
+    if weight_text:
+        body += f"\n\n体重の目安：{weight_text}"
+    if body_fat_text:
+        body += f"\n体脂肪の目安：{body_fat_text}"
+
+    if tone == "しっかり":
+        body += "\n\n今週も流れで過ごさず、1回ずつ整えていきましょう。"
+    elif tone == "やさしく":
+        body += "\n\n今週もあせらず、自分のペースで進めば大丈夫です。"
+
+    return {
+        "title": "今週の目標",
+        "body": body,
+    }
+
+
+def get_log_streak_summary(user_id: str) -> dict:
+    user_logs = [r for r in read_dietlog_records() if str(r.get("user_id", "")) == user_id]
+    log_dates = set()
+
+    for row in user_logs:
+        log_date_str = to_str(row.get("log_date", "")).strip()
+        if not log_date_str:
+            continue
+        try:
+            log_dates.add(datetime.strptime(log_date_str, "%Y-%m-%d").date())
+        except Exception:
+            continue
+
+    today = jst_today()
+    yesterday = today - timedelta(days=1)
+
+    if today in log_dates:
+        days = 0
+        cursor = today
+        while cursor in log_dates:
+            days += 1
+            cursor -= timedelta(days=1)
+
+        return {
+            "days": days,
+            "is_active": True,
+            "label": f"今日で {days}日連続です",
+            "detail": "このまま続けていきましょう。",
+        }
+
+    if yesterday in log_dates:
+        days = 0
+        cursor = yesterday
+        while cursor in log_dates:
+            days += 1
+            cursor -= timedelta(days=1)
+
+        return {
+            "days": days,
+            "is_active": False,
+            "label": f"昨日まで {days}日連続でした",
+            "detail": "今日も記録すると連続記録が続きます。",
+        }
+
+    return {
+        "days": 0,
+        "is_active": False,
+        "label": "連続記録はまだありません",
+        "detail": "まずは今日1回の記録からで大丈夫です。",
+    }
+
+
 def tone_short_message(text: str, tone: str) -> str:
     tone = to_str(tone).strip() or "やさしく"
 
     if tone == "しっかり":
         return f"{text} 今日は意識して整えましょう。"
-
     if tone == "淡々と":
         return text
-
     return f"{text} あせらず進めば大丈夫です。"
 
 
-def get_today_advice(settings: dict) -> dict:
+def get_today_advice(settings: dict, latest_log: dict | None = None) -> dict:
     user_type = settings["user_type"]
     food_style = settings["food_style"]
     advice_tone = settings.get("advice_tone", "やさしく")
+    support = get_support_focus_summary(settings, latest_log)
+    point_text = " / ".join(support["points"]) if support["points"] else "基本の整え"
 
     if user_type == "自分＋家族向け":
         advice = {
-            "食事": f"家族も満足しやすく、自分は重くなりすぎない組み立てがおすすめです。食事スタイルは「{food_style}」を軸に考えます。",
+            "食事": f"家族も満足しやすく、自分は重くなりすぎない組み立てがおすすめです。食事スタイルは「{food_style}」を軸に、特に {point_text} を意識しましょう。",
             "運動": "すきま時間の軽い運動で十分です。家事の合間に5〜10分でもOKです。",
             "ひとこと": "全部を完璧にしなくて大丈夫です。",
         }
     elif user_type == "節約重視":
         advice = {
-            "食事": f"使い回ししやすい食材で組み立てる日がおすすめです。食事スタイルは「{food_style}」を軸に考えます。",
+            "食事": f"使い回ししやすい食材で組み立てる日がおすすめです。食事スタイルは「{food_style}」を軸に、特に {point_text} を意識しましょう。",
             "運動": "家でできる軽い運動を優先しましょう。お金をかけずに続ける形でOKです。",
             "ひとこと": "無理なく続けられる形がいちばん強いです。",
         }
     elif user_type == "忙しい日向け":
         advice = {
-            "食事": f"時短・洗い物少なめの献立がおすすめです。食事スタイルは「{food_style}」を軸に考えます。",
+            "食事": f"時短・洗い物少なめの献立がおすすめです。食事スタイルは「{food_style}」を軸に、特に {point_text} を意識しましょう。",
             "運動": "今日は5分だけでも十分です。ゼロにしないことを優先します。",
             "ひとこと": "今日は回すこと優先で大丈夫です。",
         }
     else:
         advice = {
-            "食事": f"軽めに整えながら、無理のない食事がおすすめです。食事スタイルは「{food_style}」を軸に考えます。",
+            "食事": f"軽めに整えながら、無理のない食事がおすすめです。食事スタイルは「{food_style}」を軸に、特に {point_text} を意識しましょう。",
             "運動": "短時間でも、自分のための運動時間を少し取りましょう。",
             "ひとこと": "今日は自分優先で大丈夫です。",
         }
 
     advice["ひとこと"] = tone_short_message(advice["ひとこと"], advice_tone)
     return advice
+
+
+def get_today_exercise(settings: dict, latest_log: dict | None = None) -> dict:
+    user_type = settings["user_type"]
+    activity_level = settings["activity_level"]
+    support = get_support_focus_summary(settings, latest_log)
+
+    title = "ヨガ or ピラティス基礎"
+    body = support["exercise_tip"]
+
+    if user_type == "忙しい日向け":
+        title = "5分ストレッチ"
+    elif user_type == "節約重視":
+        title = "家トレ"
+    elif user_type == "自分＋家族向け":
+        title = "散歩 or 軽い全身運動"
+
+    if activity_level == "低い":
+        level_text = "活動量は低め設定なので、今日は軽めで十分です。"
+    elif activity_level == "高い":
+        level_text = "活動量は高め設定なので、余裕があれば少しだけ負荷を上げても大丈夫です。"
+    else:
+        level_text = "活動量はふつう設定なので、軽め〜中くらいで整えるのがおすすめです。"
+
+    return {
+        "title": title,
+        "body": body,
+        "level_text": level_text,
+    }
 
 
 def get_week_menu(settings: dict) -> list[dict]:
@@ -1029,37 +1245,6 @@ def get_week_menu(settings: dict) -> list[dict]:
     ]
 
 
-def get_today_exercise(settings: dict) -> dict:
-    user_type = settings["user_type"]
-    activity_level = settings["activity_level"]
-
-    if user_type == "忙しい日向け":
-        title = "5分ストレッチ"
-        body = "肩回し、前もも伸ばし、股関節ほぐし、深呼吸でOKです。"
-    elif user_type == "節約重視":
-        title = "家トレ"
-        body = "スクワット、肩回し、かかと上げを少しずつ。家でできる範囲で十分です。"
-    elif user_type == "自分＋家族向け":
-        title = "散歩 or 軽い全身運動"
-        body = "10〜20分の散歩や、すきま時間の全身運動がおすすめです。"
-    else:
-        title = "ヨガ or ピラティス基礎"
-        body = "短時間でも自分の体を整える時間を取るのがおすすめです。"
-
-    if activity_level == "低い":
-        level_text = "活動量は低め設定なので、今日は軽めで十分です。"
-    elif activity_level == "高い":
-        level_text = "活動量は高め設定なので、余裕があれば少しだけ負荷を上げても大丈夫です。"
-    else:
-        level_text = "活動量はふつう設定なので、軽め〜中くらいで整えるのがおすすめです。"
-
-    return {
-        "title": title,
-        "body": body,
-        "level_text": level_text,
-    }
-
-
 # =========================
 # 相談ロジック
 # =========================
@@ -1090,17 +1275,17 @@ def apply_advice_tone(text: str, tone: str) -> str:
 
     if tone == "しっかり":
         return f"今日は少し意識して整えましょう。\n\n{text}\n\n次の1回をきちんと整える意識で進めるのがおすすめです。"
-
     if tone == "淡々と":
         return text
-
     return f"大丈夫です。無理なく整えていきましょう。\n\n{text}\n\nできるところからで十分です。"
 
 
-def build_food_answer(question: str, settings: dict) -> str:
+def build_food_answer(question: str, settings: dict, latest_log: dict | None = None) -> str:
     q = normalize_question(question)
     base = get_user_type_advice(settings["user_type"])
     style = f"食事スタイルは「{settings['food_style']}」で考えます。"
+    support = get_support_focus_summary(settings, latest_log)
+    context = f"今整えたいポイント：{' / '.join(support['points'])}" if support["points"] else ""
 
     if any(k in q for k in ["運動前", "トレーニング前", "ヨガ前", "ピラティス前"]):
         answer = "運動前は、食べすぎずにエネルギーになる物がおすすめです。おにぎり半分〜1個、バナナ、ヨーグルト、ゆで卵などが合わせやすいです。"
@@ -1123,13 +1308,21 @@ def build_food_answer(question: str, settings: dict) -> str:
     else:
         answer = "食事は、主食を極端に抜かず、たんぱく質を毎食少し入れると安定しやすいです。迷ったら『汁物＋たんぱく質＋主食少し＋野菜』で考えると組みやすいです。"
 
-    return f"相談内容：{question}\n\n{base}\n\n{style}\n\n{answer}"
+    parts = [f"相談内容：{question}", base, style]
+    if context:
+        parts.append(context)
+    parts.append("今日の目安：" + support["food_tip"])
+    parts.append(answer)
+
+    return "\n\n".join(parts)
 
 
-def build_exercise_answer(question: str, settings: dict) -> str:
+def build_exercise_answer(question: str, settings: dict, latest_log: dict | None = None) -> str:
     q = normalize_question(question)
     level = settings["activity_level"]
     base = get_user_type_advice(settings["user_type"])
+    support = get_support_focus_summary(settings, latest_log)
+    context = f"今整えたいポイント：{' / '.join(support['points'])}" if support["points"] else ""
 
     if any(k in q for k in ["5分", "5ぷん", "短時間", "忙しい", "時間がない"]):
         answer = "今日は5分で十分です。肩回し1分、前もも伸ばし1分、股関節まわし1分、軽いスクワット1分、深呼吸1分でOKです。"
@@ -1153,12 +1346,20 @@ def build_exercise_answer(question: str, settings: dict) -> str:
     else:
         level_text = "活動量はふつう設定なので、軽め〜中くらいで整えるのがおすすめです。"
 
-    return f"相談内容：{question}\n\n{base}\n\n{level_text}\n\n{answer}"
+    parts = [f"相談内容：{question}", base, level_text]
+    if context:
+        parts.append(context)
+    parts.append("今日の目安：" + support["exercise_tip"])
+    parts.append(answer)
+
+    return "\n\n".join(parts)
 
 
-def build_condition_answer(question: str, settings: dict) -> str:
+def build_condition_answer(question: str, settings: dict, latest_log: dict | None = None) -> str:
     q = normalize_question(question)
     base = get_user_type_advice(settings["user_type"])
+    support = get_support_focus_summary(settings, latest_log)
+    context = f"今整えたいポイント：{' / '.join(support['points'])}" if support["points"] else ""
 
     if any(k in q for k in ["むくみ", "だるい", "重い"]):
         answer = "むくみやだるさがある日は、冷たい物を重ねすぎず、水分をこまめに取り、足首を回したり軽く歩いたりすると整えやすいです。"
@@ -1173,12 +1374,20 @@ def build_condition_answer(question: str, settings: dict) -> str:
     else:
         answer = "体調が揺れている日は、食事を極端に減らさず、温かい物と軽い運動で整える考え方がおすすめです。"
 
-    return f"相談内容：{question}\n\n{base}\n\n{answer}"
+    parts = [f"相談内容：{question}", base]
+    if context:
+        parts.append(context)
+    parts.append("今日の目安：" + support["food_tip"])
+    parts.append(answer)
+
+    return "\n\n".join(parts)
 
 
-def build_eating_out_answer(question: str, settings: dict) -> str:
+def build_eating_out_answer(question: str, settings: dict, latest_log: dict | None = None) -> str:
     q = normalize_question(question)
     base = get_user_type_advice(settings["user_type"])
+    support = get_support_focus_summary(settings, latest_log)
+    context = f"今整えたいポイント：{' / '.join(support['points'])}" if support["points"] else ""
 
     if any(k in q for k in ["焼肉", "肉"]):
         answer = "焼肉なら、最初にサラダやスープを入れて、ごはんは食べすぎない量に。脂の多い肉ばかり重ねず、赤身や鶏も混ぜると整えやすいです。"
@@ -1195,27 +1404,33 @@ def build_eating_out_answer(question: str, settings: dict) -> str:
     else:
         answer = "外食は『主菜を決める → 汁物かサラダを足す → 主食を食べすぎない』で考えると整えやすいです。"
 
-    return f"相談内容：{question}\n\n{base}\n\n{answer}"
+    parts = [f"相談内容：{question}", base]
+    if context:
+        parts.append(context)
+    parts.append("今日の目安：" + support["food_tip"])
+    parts.append(answer)
+
+    return "\n\n".join(parts)
 
 
-def generate_answer(category: str, question: str, settings: dict) -> str:
+def generate_answer(category: str, question: str, settings: dict, latest_log: dict | None = None) -> str:
     question = question.strip()
-
     if not question:
         return "相談内容を入力してください。短くても大丈夫です。"
 
     if category == "食事":
-        answer = build_food_answer(question, settings)
+        answer = build_food_answer(question, settings, latest_log)
     elif category == "運動":
-        answer = build_exercise_answer(question, settings)
+        answer = build_exercise_answer(question, settings, latest_log)
     elif category == "体調":
-        answer = build_condition_answer(question, settings)
+        answer = build_condition_answer(question, settings, latest_log)
     elif category == "外食調整":
-        answer = build_eating_out_answer(question, settings)
+        answer = build_eating_out_answer(question, settings, latest_log)
     else:
         answer = f"相談内容：{question}\n\nカテゴリを選んで相談してください。"
 
     return apply_advice_tone(answer, settings.get("advice_tone", "やさしく"))
+
 
 def build_log_feedback(user_id: str, save_data: dict) -> dict:
     settings = load_user_settings(user_id)
@@ -1230,6 +1445,8 @@ def build_log_feedback(user_id: str, save_data: dict) -> dict:
     exercise_memo = to_str(save_data.get("exercise_memo", "")).strip()
     condition_note = to_str(save_data.get("condition_note", "")).strip()
     mood_note = to_str(save_data.get("mood_note", "")).strip()
+
+    support = get_support_focus_summary(settings, save_data)
 
     lines = []
 
@@ -1258,6 +1475,9 @@ def build_log_feedback(user_id: str, save_data: dict) -> dict:
     else:
         lines.append("今日は数値中心の記録です。食事か運動を一言残すと振り返りやすくなります。")
 
+    if support["points"]:
+        lines.append("今整えたいポイント： " + " / ".join(support["points"]))
+
     if condition_note or mood_note:
         lines.append("体調や気分も残せているので、変化を追いやすいです。")
 
@@ -1278,93 +1498,4 @@ def build_log_feedback(user_id: str, save_data: dict) -> dict:
     return {
         "title": title,
         "body": body,
-    }
-
-def get_week_goal(settings: dict, summary: dict) -> dict:
-    user_type = to_str(settings.get("user_type", "自分だけ向け")) or "自分だけ向け"
-    tone = to_str(settings.get("advice_tone", "やさしく")) or "やさしく"
-
-    weight_text = to_str(summary.get("weight_text", ""))
-    body_fat_text = to_str(summary.get("body_fat_text", ""))
-
-    if user_type == "忙しい日向け":
-        title = "今週の目標"
-        body = "完璧を目指さず、まずは記録を続けることを優先しましょう。週3回、5分だけでも動けたら十分です。"
-    elif user_type == "節約重視":
-        title = "今週の目標"
-        body = "食材を使い切る意識で、無理なく整える1週間にしましょう。外食後も次の食事で戻せば大丈夫です。"
-    elif user_type == "自分＋家族向け":
-        title = "今週の目標"
-        body = "家族優先の中でも、自分の量と体調を意識する1週間にしましょう。まずは1日1回、自分のための選択ができれば十分です。"
-    else:
-        title = "今週の目標"
-        body = "体重や体脂肪だけでなく、記録を続けることそのものを目標にしましょう。小さく整える積み重ねがいちばん強いです。"
-
-    if weight_text:
-        body += f"\n\n体重の目安：{weight_text}"
-    if body_fat_text:
-        body += f"\n体脂肪の目安：{body_fat_text}"
-
-    if tone == "しっかり":
-        body += "\n\n今週も流れで過ごさず、1回ずつ整えていきましょう。"
-    elif tone == "やさしく":
-        body += "\n\n今週もあせらず、自分のペースで進めば大丈夫です。"
-
-    return {
-        "title": title,
-        "body": body,
-    }
-
-def get_log_streak_summary(user_id: str) -> dict:
-    records = read_dietlog_records()
-    user_logs = [r for r in records if str(r.get("user_id", "")) == user_id]
-
-    log_dates = set()
-
-    for row in user_logs:
-        log_date_str = to_str(row.get("log_date", "")).strip()
-        if not log_date_str:
-            continue
-        try:
-            d = datetime.strptime(log_date_str, "%Y-%m-%d").date()
-            log_dates.add(d)
-        except Exception:
-            continue
-
-    today = jst_today()
-    yesterday = yesterday = today.fromordinal(today.toordinal() - 1)
-
-    if today in log_dates:
-        days = 0
-        cursor = today
-        while cursor in log_dates:
-            days += 1
-            cursor = cursor.fromordinal(cursor.toordinal() - 1)
-
-        return {
-            "days": days,
-            "is_active": True,
-            "label": f"今日で {days}日連続です",
-            "detail": "このまま続けていきましょう。",
-        }
-
-    if yesterday in log_dates:
-        days = 0
-        cursor = yesterday
-        while cursor in log_dates:
-            days += 1
-            cursor = cursor.fromordinal(cursor.toordinal() - 1)
-
-        return {
-            "days": days,
-            "is_active": False,
-            "label": f"昨日まで {days}日連続でした",
-            "detail": "今日も記録すると連続記録が続きます。",
-        }
-
-    return {
-        "days": 0,
-        "is_active": False,
-        "label": "連続記録はまだありません",
-        "detail": "まずは今日1回の記録からで大丈夫です。",
     }
