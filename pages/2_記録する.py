@@ -46,10 +46,22 @@ with st.form("diet_log_form"):
         format="%.1f",
     )
 
-    meal_memo = st.text_area("食事メモ", placeholder="例：朝 納豆ごはん、昼 パスタ、夜 鮭と味噌汁")
-    exercise_memo = st.text_area("運動メモ", placeholder="例：ヨガ30分、散歩20分")
-    condition_note = st.text_area("体調メモ", placeholder="例：少しむくみあり、よく眠れた")
-    mood_note = st.text_area("気分メモ", placeholder="例：疲れ気味、やる気あり")
+    meal_memo = st.text_area(
+        "食事メモ",
+        placeholder="例：朝 納豆ごはん、昼 パスタ、夜 鮭と味噌汁",
+    )
+    exercise_memo = st.text_area(
+        "運動メモ",
+        placeholder="例：ヨガ30分、散歩20分",
+    )
+    condition_note = st.text_area(
+        "体調メモ",
+        placeholder="例：少しむくみあり、よく眠れた",
+    )
+    mood_note = st.text_area(
+        "気分メモ",
+        placeholder="例：疲れ気味、やる気あり",
+    )
 
     submitted = st.form_submit_button("今日の記録を保存", use_container_width=True)
 
