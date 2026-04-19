@@ -23,10 +23,14 @@ st.caption("基本設定とアカウント設定を管理します")
 
 user_id = get_user_id()
 
-settings = load_user_settings(user_id)
-profile = load_current_user_profile()
+try:
+    settings = load_user_settings(user_id)
+    profile = load_current_user_profile()
+except Exception as e:
+    st.error(f"設定の読込に失敗しました: {e}")
+    st.stop()
 
-nickname_default = profile["nickname"] if profile else settings["nickname"]
+nickname_default = profile["nickname"] if profile else settings.get("nickname", "")
 login_id_text = profile["login_id"] if profile else ""
 birth_date_text = profile["birth_date"] if profile else "未設定"
 age_text = f"{profile['age']}歳" if profile and profile.get("age") is not None else "未設定"
@@ -39,9 +43,28 @@ def parse_birth_date_or_default(value: str) -> date:
         return date(1976, 1, 1)
 
 
+def normalize_multiselect_default(value, allowed_options: list[str]) -> list[str]:
+    if value is None:
+        return []
+
+    if isinstance(value, str):
+        raw_items = [v.strip() for v in value.split(",") if v.strip()]
+    elif isinstance(value, (list, tuple, set)):
+        raw_items = [str(v).strip() for v in value if str(v).strip()]
+    else:
+        raw_items = []
+
+    return [item for item in raw_items if item in allowed_options]
+
+
 birth_default = parse_birth_date_or_default(birth_date_text)
 current_year = date.today().year
 year_options = list(range(current_year, 1899, -1))
+
+constitution_traits_default = normalize_multiselect_default(
+    settings.get("constitution_traits", []),
+    CONSTITUTION_TRAIT_OPTIONS,
+)
 
 st.subheader("基本設定")
 
@@ -58,7 +81,7 @@ with st.form("settings_form"):
         "身長(cm)",
         min_value=100.0,
         max_value=220.0,
-        value=float(settings["height_cm"]),
+        value=float(settings.get("height_cm", 160.0)),
         step=0.5,
         format="%.1f",
     )
@@ -69,7 +92,7 @@ with st.form("settings_form"):
             "現在体重(kg)",
             min_value=20.0,
             max_value=200.0,
-            value=float(settings["current_weight"]),
+            value=float(settings.get("current_weight", 50.0)),
             step=0.1,
             format="%.1f",
         )
@@ -78,7 +101,7 @@ with st.form("settings_form"):
             "目標体重(kg)",
             min_value=20.0,
             max_value=200.0,
-            value=float(settings["target_weight"]),
+            value=float(settings.get("target_weight", 48.0)),
             step=0.1,
             format="%.1f",
         )
@@ -89,7 +112,7 @@ with st.form("settings_form"):
             "現在体脂肪(%)",
             min_value=0.0,
             max_value=70.0,
-            value=float(settings["current_body_fat"]),
+            value=float(settings.get("current_body_fat", 30.0)),
             step=0.1,
             format="%.1f",
         )
@@ -98,7 +121,7 @@ with st.form("settings_form"):
             "目標体脂肪(%)",
             min_value=0.0,
             max_value=70.0,
-            value=float(settings["target_body_fat"]),
+            value=float(settings.get("target_body_fat", 28.0)),
             step=0.1,
             format="%.1f",
         )
@@ -107,57 +130,60 @@ with st.form("settings_form"):
         "活動量",
         ACTIVITY_LEVEL_OPTIONS,
         index=ACTIVITY_LEVEL_OPTIONS.index(settings["activity_level"])
-        if settings["activity_level"] in ACTIVITY_LEVEL_OPTIONS else 1,
+        if settings.get("activity_level") in ACTIVITY_LEVEL_OPTIONS else 1,
     )
 
     food_style = st.selectbox(
         "食事スタイル",
         FOOD_STYLE_OPTIONS,
         index=FOOD_STYLE_OPTIONS.index(settings["food_style"])
-        if settings["food_style"] in FOOD_STYLE_OPTIONS else 0,
+        if settings.get("food_style") in FOOD_STYLE_OPTIONS else 0,
     )
 
     user_type = st.selectbox(
         "利用タイプ",
         USER_TYPE_OPTIONS,
         index=USER_TYPE_OPTIONS.index(settings["user_type"])
-        if settings["user_type"] in USER_TYPE_OPTIONS else 0,
+        if settings.get("user_type") in USER_TYPE_OPTIONS else 0,
     )
 
     advice_tone = st.selectbox(
         "アドバイスの言い方",
         ADVICE_TONE_OPTIONS,
         index=ADVICE_TONE_OPTIONS.index(settings["advice_tone"])
-        if settings["advice_tone"] in ADVICE_TONE_OPTIONS else 0,
+        if settings.get("advice_tone") in ADVICE_TONE_OPTIONS else 0,
     )
 
     constitution_traits = st.multiselect(
         "体質・傾向",
         CONSTITUTION_TRAIT_OPTIONS,
-        default=settings.get("constitution_traits", []),
+        default=constitution_traits_default,
     )
 
     submitted = st.form_submit_button("基本設定を保存", use_container_width=True)
 
 if submitted:
-    save_user_settings(
-        user_id,
-        {
-            "nickname": nickname.strip(),
-            "height_cm": float(height_cm),
-            "current_weight": float(current_weight),
-            "target_weight": float(target_weight),
-            "current_body_fat": float(current_body_fat),
-            "target_body_fat": float(target_body_fat),
-            "activity_level": activity_level,
-            "food_style": food_style,
-            "user_type": user_type,
-            "advice_tone": advice_tone,
-            "constitution_traits": constitution_traits,
-        },
-    )
-    st.success("基本設定を保存しました")
-    st.rerun()
+    try:
+        save_user_settings(
+            user_id,
+            {
+                "nickname": nickname.strip(),
+                "height_cm": float(height_cm),
+                "current_weight": float(current_weight),
+                "target_weight": float(target_weight),
+                "current_body_fat": float(current_body_fat),
+                "target_body_fat": float(target_body_fat),
+                "activity_level": activity_level,
+                "food_style": food_style,
+                "user_type": user_type,
+                "advice_tone": advice_tone,
+                "constitution_traits": constitution_traits,
+            },
+        )
+        st.success("基本設定を保存しました")
+        st.rerun()
+    except Exception as e:
+        st.error(f"保存に失敗しました: {e}")
 
 st.divider()
 st.subheader("アカウント設定")
@@ -174,13 +200,16 @@ with st.expander("ログインIDを変更"):
         change_id_submitted = st.form_submit_button("ログインIDを変更", use_container_width=True)
 
     if change_id_submitted:
-        change_login_id(
-            user_id=user_id,
-            current_password=current_password_for_id,
-            new_login_id=new_login_id,
-        )
-        st.success("ログインIDを変更しました")
-        st.rerun()
+        try:
+            change_login_id(
+                user_id=user_id,
+                current_password=current_password_for_id,
+                new_login_id=new_login_id,
+            )
+            st.success("ログインIDを変更しました")
+            st.rerun()
+        except Exception as e:
+            st.error(f"ログインID変更に失敗しました: {e}")
 
 with st.expander("生年月日を変更"):
     st.caption("変更すると年齢表示も自動で更新されます")
@@ -218,14 +247,17 @@ with st.expander("生年月日を変更"):
         change_birth_submitted = st.form_submit_button("生年月日を変更", use_container_width=True)
 
     if change_birth_submitted:
-        new_birth_date = date(int(birth_year), int(birth_month), int(birth_day))
-        change_birth_date(
-            user_id=user_id,
-            current_password=current_password_for_birth,
-            new_birth_date=new_birth_date,
-        )
-        st.success("生年月日を変更しました")
-        st.rerun()
+        try:
+            new_birth_date = date(int(birth_year), int(birth_month), int(birth_day))
+            change_birth_date(
+                user_id=user_id,
+                current_password=current_password_for_birth,
+                new_birth_date=new_birth_date,
+            )
+            st.success("生年月日を変更しました")
+            st.rerun()
+        except Exception as e:
+            st.error(f"生年月日変更に失敗しました: {e}")
 
 with st.expander("パスワードを変更"):
     with st.form("change_password_form"):
@@ -247,11 +279,14 @@ with st.expander("パスワードを変更"):
         change_pw_submitted = st.form_submit_button("パスワードを変更", use_container_width=True)
 
     if change_pw_submitted:
-        change_password(
-            user_id=user_id,
-            current_password=current_password,
-            new_password=new_password,
-            new_password_confirm=new_password_confirm,
-        )
-        st.success("パスワードを変更しました")
-        st.rerun()
+        try:
+            change_password(
+                user_id=user_id,
+                current_password=current_password,
+                new_password=new_password,
+                new_password_confirm=new_password_confirm,
+            )
+            st.success("パスワードを変更しました")
+            st.rerun()
+        except Exception as e:
+            st.error(f"パスワード変更に失敗しました: {e}")
