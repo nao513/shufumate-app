@@ -1,212 +1,38 @@
 import streamlit as st
-import gspread
-from google.oauth2.service_account import Credentials
-from datetime import datetime
+from app_core import (
+    require_login,
+    get_user_id,
+    load_user_settings,
+    load_current_user_profile,
+    save_user_settings,
+    change_login_id,
+    change_password,
+    ACTIVITY_LEVEL_OPTIONS,
+    FOOD_STYLE_OPTIONS,
+    USER_TYPE_OPTIONS,
+)
 
-# =========================
-# 基本設定
-# =========================
-SETTINGS_HEADERS = [
-    "user_id",
-    "nickname",
-    "age",
-    "height_cm",
-    "current_weight",
-    "target_weight",
-    "current_body_fat",
-    "target_body_fat",
-    "activity_level",
-    "food_style",
-    "user_type",
-    "updated_at",
-]
-
-USER_TYPE_OPTIONS = [
-    "自分だけ向け",
-    "自分＋家族向け",
-    "節約重視",
-    "忙しい日向け",
-]
-
-ACTIVITY_LEVEL_OPTIONS = [
-    "低い",
-    "ふつう",
-    "高い",
-]
-
-FOOD_STYLE_OPTIONS = [
-    "バランス重視",
-    "和食中心",
-    "たんぱく質重視",
-    "節約重視",
-    "時短重視",
-]
-
-DEFAULT_USER_ID = "default_user"
-
-
-# =========================
-# 共通関数
-# =========================
-def get_user_id() -> str:
-    if "user_id" not in st.session_state:
-        st.session_state["user_id"] = DEFAULT_USER_ID
-    return st.session_state["user_id"]
-
-
-def to_str(v) -> str:
-    return "" if v is None else str(v)
-
-
-def to_float(v, default=0.0) -> float:
-    try:
-        if v in [None, ""]:
-            return default
-        return float(v)
-    except Exception:
-        return default
-
-
-def to_int(v, default=0) -> int:
-    try:
-        if v in [None, ""]:
-            return default
-        return int(float(v))
-    except Exception:
-        return default
-
-
-@st.cache_resource
-def get_gspread_client():
-    scopes = [
-        "https://www.googleapis.com/auth/spreadsheets",
-        "https://www.googleapis.com/auth/drive",
-    ]
-    credentials = Credentials.from_service_account_info(
-        st.secrets["gcp_service_account"],
-        scopes=scopes,
-    )
-    return gspread.authorize(credentials)
-
-
-def get_spreadsheet():
-    client = get_gspread_client()
-    sheet_id = st.secrets["GOOGLE_SHEET_ID"]
-    return client.open_by_key(sheet_id)
-
-
-def get_or_create_settings_sheet():
-    ss = get_spreadsheet()
-    try:
-        ws = ss.worksheet("Settings")
-    except gspread.exceptions.WorksheetNotFound:
-        ws = ss.add_worksheet(title="Settings", rows=100, cols=len(SETTINGS_HEADERS))
-        ws.append_row(SETTINGS_HEADERS)
-
-    ensure_headers(ws, SETTINGS_HEADERS)
-    return ws
-
-
-def ensure_headers(ws, headers):
-    current = ws.row_values(1)
-    if current != headers:
-        ws.update("A1", [headers])
-
-
-def find_user_row(ws, user_id: str):
-    values = ws.get_all_values()
-    if len(values) <= 1:
-        return None
-
-    for row_idx, row in enumerate(values[1:], start=2):
-        if len(row) > 0 and row[0] == user_id:
-            return row_idx
-    return None
-
-
-def load_user_settings(user_id: str) -> dict:
-    ws = get_or_create_settings_sheet()
-    records = ws.get_all_records()
-
-    for record in records:
-        if str(record.get("user_id", "")) == user_id:
-            return {
-                "nickname": to_str(record.get("nickname", "")),
-                "age": to_int(record.get("age", 49), 49),
-                "height_cm": to_float(record.get("height_cm", 160.0), 160.0),
-                "current_weight": to_float(record.get("current_weight", 50.0), 50.0),
-                "target_weight": to_float(record.get("target_weight", 48.0), 48.0),
-                "current_body_fat": to_float(record.get("current_body_fat", 30.0), 30.0),
-                "target_body_fat": to_float(record.get("target_body_fat", 28.0), 28.0),
-                "activity_level": to_str(record.get("activity_level", "ふつう")) or "ふつう",
-                "food_style": to_str(record.get("food_style", "バランス重視")) or "バランス重視",
-                "user_type": to_str(record.get("user_type", "自分だけ向け")) or "自分だけ向け",
-            }
-
-    return {
-        "nickname": "",
-        "age": 49,
-        "height_cm": 160.0,
-        "current_weight": 50.0,
-        "target_weight": 48.0,
-        "current_body_fat": 30.0,
-        "target_body_fat": 28.0,
-        "activity_level": "ふつう",
-        "food_style": "バランス重視",
-        "user_type": "自分だけ向け",
-    }
-
-
-def save_user_settings(user_id: str, data: dict):
-    ws = get_or_create_settings_sheet()
-    row_data = [
-        user_id,
-        data["nickname"],
-        data["age"],
-        data["height_cm"],
-        data["current_weight"],
-        data["target_weight"],
-        data["current_body_fat"],
-        data["target_body_fat"],
-        data["activity_level"],
-        data["food_style"],
-        data["user_type"],
-        datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-    ]
-
-    row_index = find_user_row(ws, user_id)
-
-    if row_index:
-        end_col = chr(64 + len(SETTINGS_HEADERS))
-        ws.update(f"A{row_index}:{end_col}{row_index}", [row_data])
-    else:
-        ws.append_row(row_data)
-
-
-# =========================
-# 画面
-# =========================
 st.title("⚙️ 設定")
 st.caption("提案に使う基本情報を保存します")
 
+require_login()
 user_id = get_user_id()
 
 try:
     settings = load_user_settings(user_id)
+    profile = load_current_user_profile()
 except Exception as e:
     st.error(f"設定の読込に失敗しました: {e}")
     st.stop()
 
-with st.form("settings_form"):
-    nickname = st.text_input("ニックネーム", value=settings["nickname"])
+nickname_default = profile["nickname"] if profile else settings["nickname"]
+age_text = f"{profile['age']}歳" if profile and profile.get("age") is not None else "不明"
+login_id_text = profile["login_id"] if profile else ""
 
-    age = st.number_input(
-        "年齢",
-        min_value=18,
-        max_value=100,
-        value=int(settings["age"]),
-        step=1,
-    )
+with st.form("settings_form"):
+    st.text_input("ログインID", value=login_id_text, disabled=True)
+    nickname = st.text_input("ニックネーム", value=nickname_default)
+    st.text_input("年齢", value=age_text, disabled=True)
 
     height_cm = st.number_input(
         "身長(cm)",
@@ -277,12 +103,11 @@ with st.form("settings_form"):
         else 0,
     )
 
-    submitted = st.form_submit_button("保存", use_container_width=True)
+    submitted = st.form_submit_button("基本設定を保存", use_container_width=True)
 
 if submitted:
     save_data = {
         "nickname": nickname.strip(),
-        "age": int(age),
         "height_cm": float(height_cm),
         "current_weight": float(current_weight),
         "target_weight": float(target_weight),
@@ -299,3 +124,47 @@ if submitted:
         st.rerun()
     except Exception as e:
         st.error(f"保存に失敗しました: {e}")
+
+st.divider()
+st.subheader("🔑 ログインID変更")
+st.caption("変更には現在のパスワード確認が必要です")
+
+with st.form("change_login_id_form"):
+    new_login_id = st.text_input("新しいログインID")
+    current_password_for_id = st.text_input("現在のパスワード", type="password", key="current_password_for_id")
+    change_id_submitted = st.form_submit_button("ログインIDを変更", use_container_width=True)
+
+if change_id_submitted:
+    try:
+        change_login_id(
+            user_id=user_id,
+            current_password=current_password_for_id,
+            new_login_id=new_login_id,
+        )
+        st.success("ログインIDを変更しました。次回から新しいIDでログインできます。")
+        st.rerun()
+    except Exception as e:
+        st.error(f"ログインID変更に失敗しました: {e}")
+
+st.divider()
+st.subheader("🔒 パスワード変更")
+st.caption("現在のパスワード確認が必要です")
+
+with st.form("change_password_form"):
+    current_password = st.text_input("現在のパスワード", type="password", key="current_password")
+    new_password = st.text_input("新しいパスワード", type="password", key="new_password")
+    new_password_confirm = st.text_input("新しいパスワード（確認）", type="password", key="new_password_confirm")
+    change_pw_submitted = st.form_submit_button("パスワードを変更", use_container_width=True)
+
+if change_pw_submitted:
+    try:
+        change_password(
+            user_id=user_id,
+            current_password=current_password,
+            new_password=new_password,
+            new_password_confirm=new_password_confirm,
+        )
+        st.success("パスワードを変更しました。次回から新しいパスワードでログインできます。")
+        st.rerun()
+    except Exception as e:
+        st.error(f"パスワード変更に失敗しました: {e}")
