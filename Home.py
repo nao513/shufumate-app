@@ -30,35 +30,35 @@ st.markdown(
     """
     <style>
     .block-container {
-        padding-top: 1.9rem;
-        padding-bottom: 2rem;
+        padding-top: 1.5rem;
+        padding-bottom: 1.8rem;
         max-width: 760px;
     }
     .sm-hero {
         background: linear-gradient(135deg, #fff9f3 0%, #fffdf9 100%);
         border: 1px solid #f0e4d8;
-        border-radius: 22px;
-        padding: 16px 15px 12px 15px;
+        border-radius: 20px;
+        padding: 14px 14px 11px 14px;
         margin-top: 0.2rem;
-        margin-bottom: 12px;
+        margin-bottom: 10px;
         box-shadow: 0 4px 16px rgba(0,0,0,0.03);
     }
     .sm-hero-title {
-        font-size: 1.15rem;
+        font-size: 1.08rem;
         font-weight: 700;
-        margin-bottom: 0.15rem;
+        margin-bottom: 0.1rem;
     }
     .sm-hero-sub {
         color: #6b6b6b;
-        font-size: 0.92rem;
-        line-height: 1.55;
+        font-size: 0.88rem;
+        line-height: 1.45;
     }
     .sm-card {
         background: #ffffff;
         border: 1px solid #eee5db;
         border-radius: 18px;
-        padding: 15px 14px;
-        margin-bottom: 12px;
+        padding: 14px 13px;
+        margin-bottom: 10px;
         box-shadow: 0 2px 10px rgba(0,0,0,0.03);
     }
     .sm-card-soft {
@@ -89,32 +89,33 @@ st.markdown(
         border: 1px solid #efdfcd;
     }
     .sm-title {
-        font-size: 0.98rem;
+        font-size: 0.95rem;
         font-weight: 700;
-        margin-bottom: 0.55rem;
+        margin-bottom: 0.45rem;
     }
     .sm-sub {
         color: #6b6b6b;
-        font-size: 0.9rem;
-        line-height: 1.55;
+        font-size: 0.86rem;
+        line-height: 1.45;
     }
     .sm-text {
-        line-height: 1.7;
-        font-size: 0.95rem;
+        line-height: 1.65;
+        font-size: 0.92rem;
     }
     .sm-label {
         display: inline-block;
         background: #faf5ee;
         border: 1px solid #eadfd1;
         border-radius: 999px;
-        padding: 5px 10px;
-        margin: 3px 6px 3px 0;
-        font-size: 0.82rem;
+        padding: 4px 9px;
+        margin: 2px 5px 2px 0;
+        font-size: 0.78rem;
     }
     .sm-menu-row {
-        padding: 8px 0;
+        padding: 7px 0;
         border-bottom: 1px dashed #eee7dd;
-        line-height: 1.7;
+        line-height: 1.6;
+        font-size: 0.92rem;
     }
     .sm-menu-row:last-child {
         border-bottom: none;
@@ -127,96 +128,102 @@ st.markdown(
     .sm-grid {
         display: grid;
         grid-template-columns: 1fr 1fr;
-        gap: 12px;
+        gap: 10px;
     }
     .sm-mini-card {
         background: #fffdf9;
         border: 1px solid #eee7dc;
-        border-radius: 16px;
-        padding: 13px 12px;
+        border-radius: 14px;
+        padding: 12px 11px;
     }
     .sm-mini-title {
-        font-size: 0.86rem;
+        font-size: 0.8rem;
         color: #666666;
-        margin-bottom: 0.35rem;
+        margin-bottom: 0.25rem;
     }
     .sm-mini-main {
-        font-size: 1.15rem;
+        font-size: 1.05rem;
         font-weight: 700;
-        margin-bottom: 0.2rem;
+        margin-bottom: 0.15rem;
     }
     .sm-mini-sub {
-        font-size: 0.86rem;
+        font-size: 0.82rem;
         color: #666666;
-        line-height: 1.45;
+        line-height: 1.4;
     }
     .sm-note {
         background: #fffaf5;
         border: 1px dashed #ead7bf;
         border-radius: 14px;
-        padding: 11px 12px;
-        margin: 8px 0 12px 0;
+        padding: 10px 11px;
+        margin: 8px 0 10px 0;
         color: #6d6152;
-        font-size: 0.88rem;
-        line-height: 1.65;
+        font-size: 0.84rem;
+        line-height: 1.55;
     }
     .sm-use-card {
         background: #fffdf9;
         border: 1px solid #eee3d7;
-        border-radius: 20px;
-        padding: 12px;
+        border-radius: 18px;
+        padding: 10px;
         box-shadow: 0 2px 10px rgba(0,0,0,0.03);
-        margin-bottom: 12px;
+        margin-bottom: 10px;
         min-height: 100%;
         display: flex;
         flex-direction: column;
         justify-content: space-between;
     }
     .sm-use-title {
-        font-size: 0.98rem;
+        font-size: 0.92rem;
         font-weight: 700;
         text-align: center;
-        margin-top: 0.55rem;
-        margin-bottom: 0.2rem;
+        margin-top: 0.45rem;
+        margin-bottom: 0.15rem;
     }
     .sm-use-sub {
-        font-size: 0.85rem;
+        font-size: 0.8rem;
         color: #6f6f6f;
-        line-height: 1.5;
+        line-height: 1.4;
         text-align: center;
-        min-height: 3.1em;
-        margin-bottom: 0.7rem;
+        min-height: 2.8em;
+        margin-bottom: 0.55rem;
     }
     .sm-img-wrap {
-        border-radius: 16px;
+        border-radius: 14px;
         overflow: hidden;
     }
     .sm-compact-grid {
         display: grid;
         grid-template-columns: 1fr 1fr;
-        gap: 10px;
-        margin-top: 10px;
+        gap: 8px;
+        margin-top: 8px;
     }
     .sm-compact-box {
         background: #fffdf9;
         border: 1px solid #eee6da;
-        border-radius: 14px;
-        padding: 10px 11px;
+        border-radius: 12px;
+        padding: 9px 10px;
     }
     .sm-compact-head {
-        font-size: 0.82rem;
+        font-size: 0.78rem;
         color: #746a60;
-        margin-bottom: 0.2rem;
+        margin-bottom: 0.15rem;
     }
     .sm-compact-body {
-        font-size: 0.9rem;
-        line-height: 1.55;
+        font-size: 0.84rem;
+        line-height: 1.45;
     }
     .stButton > button {
-        border-radius: 14px !important;
-        min-height: 44px;
+        border-radius: 12px !important;
+        min-height: 42px;
         border: 1px solid #e7d8c8 !important;
         width: 100%;
+        font-size: 0.92rem !important;
+    }
+    h3 {
+        margin-top: 0.5rem !important;
+        margin-bottom: 0.55rem !important;
+        font-size: 1rem !important;
     }
     @media (max-width: 640px) {
         .sm-grid {
@@ -251,9 +258,9 @@ def render_status_card(status: dict):
     st.markdown(
         f"""
         <div class="sm-card {card_class}">
-            <div class="sm-title">{icon} 今日の記録状況</div>
+            <div class="sm-title">{icon} 今日の記録</div>
             <div class="sm-text"><b>{status["label"]}</b></div>
-            <div class="sm-sub" style="margin-top:8px;">{status["detail"]}</div>
+            <div class="sm-sub" style="margin-top:6px;">{status["detail"]}</div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -268,7 +275,7 @@ def render_streak_card(streak: dict):
         <div class="sm-card {card_class}">
             <div class="sm-title">{icon} 連続記録</div>
             <div class="sm-text"><b>{streak["label"]}</b></div>
-            <div class="sm-sub" style="margin-top:8px;">{streak["detail"]}</div>
+            <div class="sm-sub" style="margin-top:6px;">{streak["detail"]}</div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -279,7 +286,7 @@ def render_focus_card(focus: dict):
     st.markdown(
         f"""
         <div class="sm-card sm-focus-card">
-            <div class="sm-title">🧭 今整えたいポイント</div>
+            <div class="sm-title">🧭 今のポイント</div>
             <div class="sm-text">{focus["body"].replace(chr(10), "<br>")}</div>
         </div>
         """,
@@ -291,7 +298,7 @@ def render_week_goal_card(goal: dict):
     st.markdown(
         f"""
         <div class="sm-card sm-goal-card">
-            <div class="sm-title">🎯 {goal["title"]}</div>
+            <div class="sm-title">🎯 今週の目標</div>
             <div class="sm-text">{goal["body"].replace(chr(10), "<br>")}</div>
         </div>
         """,
@@ -304,7 +311,6 @@ def render_compact_today_card(advice: dict, exercise: dict):
     st.markdown('<div class="sm-title">🌿 今日のおすすめ</div>', unsafe_allow_html=True)
     st.markdown(
         f"""
-        <div class="sm-sub">まずは今日はこれだけ意識すれば十分です。</div>
         <div class="sm-compact-grid">
             <div class="sm-compact-box">
                 <div class="sm-compact-head">食事</div>
@@ -312,14 +318,14 @@ def render_compact_today_card(advice: dict, exercise: dict):
             </div>
             <div class="sm-compact-box">
                 <div class="sm-compact-head">運動</div>
-                <div class="sm-compact-body">{exercise["title"]}：{exercise["body"]}</div>
+                <div class="sm-compact-body">{exercise["title"]}</div>
             </div>
             <div class="sm-compact-box">
                 <div class="sm-compact-head">ひとこと</div>
                 <div class="sm-compact-body">{advice["ひとこと"]}</div>
             </div>
             <div class="sm-compact-box">
-                <div class="sm-compact-head">強度の目安</div>
+                <div class="sm-compact-head">強度</div>
                 <div class="sm-compact-body">{exercise["level_text"]}</div>
             </div>
         </div>
@@ -335,7 +341,7 @@ def render_progress_card(summary: dict):
         <div class="sm-card">
             <div class="sm-title">📊 最新の記録</div>
             <div class="sm-sub">最新記録日：{summary["latest_date"]}</div>
-            <div class="sm-grid" style="margin-top:12px;">
+            <div class="sm-grid" style="margin-top:10px;">
                 <div class="sm-mini-card">
                     <div class="sm-mini-title">体重</div>
                     <div class="sm-mini-main">{summary["latest_weight"]:.1f} kg</div>
@@ -356,12 +362,9 @@ def render_progress_card(summary: dict):
 def render_week_menu_card(menu_list: list[dict], now):
     rows = []
     today_idx = now.weekday()
-
     for idx, item in enumerate(menu_list):
         mark = " ← 今日" if idx == today_idx else ""
-        rows.append(
-            f'<div class="sm-menu-row"><span class="sm-day">{item["day"]}</span> {item["menu"]}{mark}</div>'
-        )
+        rows.append(f'<div class="sm-menu-row"><span class="sm-day">{item["day"]}</span> {item["menu"]}{mark}</div>')
 
     st.markdown('<div class="sm-card sm-card-soft">', unsafe_allow_html=True)
     show_image_if_exists("assets/home_icons/plan.png")
@@ -424,13 +427,13 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-st.subheader(f"{nickname}さん、今日どうしますか？" if nickname else "今日どうしますか？")
+st.subheader(f"{nickname}さん、今日は何から始めますか？" if nickname else "今日は何から始めますか？")
 
 st.markdown(
     f"""
     <span class="sm-label">利用タイプ：{settings['user_type']}</span>
     <span class="sm-label">活動量：{settings['activity_level']}</span>
-    <span class="sm-label">食事スタイル：{settings['food_style']}</span>
+    <span class="sm-label">食事：{settings['food_style']}</span>
     """,
     unsafe_allow_html=True,
 )
@@ -442,7 +445,7 @@ with col1:
     render_nav_card(
         "assets/home_icons/photo.png",
         "写真で記録",
-        "写真から下書きやバランス確認をしたい時",
+        "写真からサッと残す",
     )
     if st.button("📷 写真で記録", use_container_width=True, key="go_photo"):
         st.switch_page("pages/4_写真で記録.py")
@@ -451,7 +454,7 @@ with col2:
     render_nav_card(
         "assets/home_icons/diet.png",
         "記録する",
-        "体重や食事、体調を入力して残したい時",
+        "数値やメモを入力する",
     )
     if st.button("📝 記録する", use_container_width=True, key="go_log"):
         st.switch_page("pages/2_記録する.py")
@@ -461,7 +464,7 @@ with col3:
     render_nav_card(
         "assets/home_icons/advice.png",
         "相談する",
-        "食事や運動をその場で相談したい時",
+        "食事や運動を相談する",
     )
     if st.button("💬 相談する", use_container_width=True, key="go_advice"):
         st.switch_page("pages/3_相談する.py")
@@ -470,7 +473,7 @@ with col4:
     render_nav_card(
         "assets/home_icons/settings.png",
         "設定",
-        "体質や目標、使い方を整えたい時",
+        "体質や目標を整える",
     )
     if st.button("⚙️ 設定", use_container_width=True, key="go_settings"):
         st.switch_page("pages/1_設定.py")
@@ -479,7 +482,7 @@ st.markdown(
     """
     <div class="sm-note">
     写真でサッと残したい時は「写真で記録」、
-    数値やメモまでしっかり入れたい時は「記録する」がおすすめです。
+    しっかり入力したい時は「記録する」がおすすめです。
     </div>
     """,
     unsafe_allow_html=True,
