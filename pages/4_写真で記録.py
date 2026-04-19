@@ -9,55 +9,153 @@ from app_core import (
 
 require_login()
 
+st.set_page_config(page_title="写真で記録｜ShufuMate", page_icon="📷", layout="centered")
+
 st.title("📷 写真で記録")
-st.caption("食前チェックや食後記録に使う写真をまとめるページです。")
+st.caption("写真を使って、食事の評価や記録をかんたんに残します。")
 
 user_id = get_user_id()
 
-tab1, tab2 = st.tabs(["🍽 食事写真", "⚖ 体重計写真"])
+tab1, tab2, tab3 = st.tabs(
+    ["🍽 この食事を評価", "📝 食べたものを記録", "⚖ 体重計を記録"]
+)
 
-# -----------------------------
-# 食事写真
-# -----------------------------
+# =========================================================
+# 1. この食事を評価
+# =========================================================
 with tab1:
-    st.subheader("食事写真で記録")
-    st.caption("まずは写真を残して、必要なら内容を補足する形にします。")
+    st.subheader("この食事を評価")
+    st.caption("食べる前の食事を見て、バランスや整えポイントを確認するための入口です。")
 
-    meal_type = st.radio(
+    eval_meal_type = st.radio(
+        "食事区分",
+        ["朝ごはん", "昼ごはん", "夜ごはん", "間食"],
+        horizontal=True,
+        key="eval_meal_type",
+    )
+
+    eval_camera = st.camera_input("食事の写真を撮る", key="eval_camera_input")
+    eval_upload = st.file_uploader(
+        "食事写真をアップロード",
+        type=["jpg", "jpeg", "png"],
+        key="eval_photo_upload",
+    )
+
+    eval_note = st.text_area(
+        "補足（任意）",
+        placeholder="例：今日はむくみあり / 外食予定 / ヨガ前 / しっかり食べたい など",
+        height=100,
+        key="eval_note",
+    )
+
+    selected_eval_image = eval_camera if eval_camera is not None else eval_upload
+
+    if selected_eval_image is not None:
+        st.image(selected_eval_image, caption="評価したい食事", use_container_width=True)
+
+    if st.button("この食事を見てみる", use_container_width=True, key="preview_eval_button"):
+        st.session_state["meal_eval_result"] = {
+            "title": f"{eval_meal_type}の評価",
+            "body": (
+                f"写真をもとに、{eval_meal_type}を評価する入口です。\n\n"
+                "現段階では文言と流れを整えた土台版です。\n"
+                "次の差し替えで、写真から\n"
+                "・主食\n"
+                "・たんぱく質\n"
+                "・野菜\n"
+                "・汁物\n"
+                "・今のあなたに合う整えポイント\n"
+                "を返すようにします。"
+            ),
+            "memo": eval_note.strip(),
+        }
+
+    if "meal_eval_result" in st.session_state:
+        result = st.session_state["meal_eval_result"]
+        st.markdown("### 評価結果")
+        st.info(result["title"])
+        st.markdown(result["body"].replace("\n", "  \n"))
+        if result["memo"]:
+            st.caption(f"補足メモ：{result['memo']}")
+
+# =========================================================
+# 2. 食べたものを記録
+# =========================================================
+with tab2:
+    st.subheader("食べたものを記録")
+    st.caption("食後の写真やメモを使って、食事記録をかんたんに残します。")
+
+    log_meal_type = st.radio(
         "食事区分",
         ["朝", "昼", "夜", "間食"],
         horizontal=True,
+        key="log_meal_type",
     )
 
-    meal_camera = st.camera_input("食事を撮る", key="meal_camera_input")
-
-    meal_upload = st.file_uploader(
+    log_camera = st.camera_input("食べたものを撮る", key="log_camera_input")
+    log_upload = st.file_uploader(
         "食事写真をアップロード",
         type=["jpg", "jpeg", "png"],
-        key="meal_photo_upload",
+        key="log_photo_upload",
     )
 
-    meal_note = st.text_area(
+    breakfast_text = st.text_area(
+        "朝",
+        placeholder="例：納豆ごはん、味噌汁、ゆで卵",
+        height=80,
+        key="photo_log_breakfast",
+    )
+    lunch_text = st.text_area(
+        "昼",
+        placeholder="例：鮭おにぎり、味噌汁、サラダチキン",
+        height=80,
+        key="photo_log_lunch",
+    )
+    dinner_text = st.text_area(
+        "夜",
+        placeholder="例：焼き魚、味噌汁、サラダ、ごはん少なめ",
+        height=80,
+        key="photo_log_dinner",
+    )
+    snack_text = st.text_area(
+        "間食",
+        placeholder="例：ヨーグルト、チョコ2個、なし",
+        height=80,
+        key="photo_log_snack",
+    )
+
+    log_note = st.text_area(
         "補足メモ（任意）",
-        placeholder="例：鮭定食、お弁当、パスタなど",
-        height=100,
+        placeholder="例：外食 / お弁当 / 軽め / 運動前後 など",
+        height=90,
+        key="photo_log_note",
     )
 
-    if meal_camera is not None:
-        st.image(meal_camera, caption="撮影した写真", use_container_width=True)
+    selected_log_image = log_camera if log_camera is not None else log_upload
 
-    if meal_upload is not None:
-        st.image(meal_upload, caption="アップロードした写真", use_container_width=True)
+    if selected_log_image is not None:
+        st.image(selected_log_image, caption="記録する食事写真", use_container_width=True)
 
-    if st.button("この食事を仮記録する", use_container_width=True, key="save_meal_photo_log"):
-        meal_memo = f"{meal_type}: 写真で記録"
-        if meal_note.strip():
-            meal_memo += f"\n補足: {meal_note.strip()}"
+    st.caption("食べる時間の目安：朝は起きてから2時間以内、間食は夕方まで、夜は寝る直前を避けると整えやすいです。")
+
+    if st.button("食べたものを記録する", use_container_width=True, key="save_photo_meal_log"):
+        lines = [
+            f"朝: {breakfast_text.strip()}",
+            f"昼: {lunch_text.strip()}",
+            f"夜: {dinner_text.strip()}",
+            f"間食: {snack_text.strip()}",
+        ]
+
+        if log_note.strip():
+            lines.append("")
+            lines.append(f"補足: {log_note.strip()}")
+
+        meal_memo = "\n".join(lines)
 
         save_data = {
             "log_date": jst_today_str(),
-            "weight": 0,
-            "body_fat": 0,
+            "weight": 0.0,
+            "body_fat": 0.0,
             "meal_memo": meal_memo,
             "exercise_memo": "",
             "condition_note": "",
@@ -67,19 +165,18 @@ with tab1:
 
         try:
             save_diet_log(user_id, save_data)
-            st.success("食事写真の記録を保存しました")
+            st.success("食事記録を保存しました")
         except Exception as e:
             st.error(f"保存に失敗しました: {e}")
 
-# -----------------------------
-# 体重計写真
-# -----------------------------
-with tab2:
-    st.subheader("体重計写真で記録")
-    st.caption("まずは写真保存と手入力補助から始めます。")
+# =========================================================
+# 3. 体重計を記録
+# =========================================================
+with tab3:
+    st.subheader("体重計を記録")
+    st.caption("体重計の写真と数値を使って、今日の記録に残します。")
 
     scale_camera = st.camera_input("体重計を撮る", key="scale_camera_input")
-
     scale_upload = st.file_uploader(
         "体重計写真をアップロード",
         type=["jpg", "jpeg", "png"],
@@ -87,6 +184,7 @@ with tab2:
     )
 
     col1, col2 = st.columns(2)
+
     with col1:
         weight = st.number_input(
             "体重(kg)",
@@ -95,7 +193,9 @@ with tab2:
             value=0.0,
             step=0.1,
             format="%.1f",
+            key="scale_weight_input",
         )
+
     with col2:
         body_fat = st.number_input(
             "体脂肪(%)",
@@ -104,21 +204,22 @@ with tab2:
             value=0.0,
             step=0.1,
             format="%.1f",
+            key="scale_bodyfat_input",
         )
 
     scale_note = st.text_area(
         "補足メモ（任意）",
-        placeholder="例：朝一、入浴後など",
+        placeholder="例：朝いち / 入浴後 / いつもの体重計と差がある など",
         height=100,
+        key="scale_note_input",
     )
 
-    if scale_camera is not None:
-        st.image(scale_camera, caption="撮影した体重計写真", use_container_width=True)
+    selected_scale_image = scale_camera if scale_camera is not None else scale_upload
 
-    if scale_upload is not None:
-        st.image(scale_upload, caption="アップロードした体重計写真", use_container_width=True)
+    if selected_scale_image is not None:
+        st.image(selected_scale_image, caption="体重計写真", use_container_width=True)
 
-    if st.button("この数値で今日の記録を保存", use_container_width=True, key="save_scale_log"):
+    if st.button("この数値で記録する", use_container_width=True, key="save_scale_log"):
         save_data = {
             "log_date": jst_today_str(),
             "weight": float(weight),
@@ -137,4 +238,4 @@ with tab2:
             st.error(f"保存に失敗しました: {e}")
 
 st.divider()
-st.caption(f"記録日: {jst_today().strftime('%Y/%m/%d')}")
+st.caption(f"記録日：{jst_today().strftime('%Y/%m/%d')}")
