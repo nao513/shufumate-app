@@ -3,7 +3,6 @@ from pathlib import Path
 from app_core import (
     WEEKDAY_JP,
     require_login,
-    get_user_id,
     logout_user,
     load_user_settings,
     load_current_user_profile,
@@ -161,6 +160,33 @@ st.markdown(
         font-size: 0.9rem;
         line-height: 1.7;
     }
+    .sm-nav-card {
+        background: #fffdf9;
+        border: 1px solid #eee3d7;
+        border-radius: 20px;
+        padding: 12px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.03);
+        margin-bottom: 10px;
+    }
+    .sm-nav-title {
+        font-size: 0.98rem;
+        font-weight: 700;
+        margin-top: 0.55rem;
+        margin-bottom: 0.2rem;
+        text-align: center;
+    }
+    .sm-nav-sub {
+        font-size: 0.86rem;
+        color: #6f6f6f;
+        line-height: 1.5;
+        text-align: center;
+        min-height: 2.8em;
+    }
+    .stButton > button {
+        border-radius: 14px !important;
+        min-height: 44px;
+        border: 1px solid #e7d8c8 !important;
+    }
     @media (max-width: 640px) {
         .sm-grid {
             grid-template-columns: 1fr;
@@ -188,7 +214,6 @@ def show_logo():
 def render_status_card(status: dict):
     card_class = "sm-status-ok" if status["is_logged"] else "sm-status-ng"
     icon = "✅" if status["is_logged"] else "🕒"
-
     st.markdown(
         f"""
         <div class="sm-card {card_class}">
@@ -204,7 +229,6 @@ def render_status_card(status: dict):
 def render_streak_card(streak: dict):
     card_class = "sm-streak-on" if streak["is_active"] else "sm-streak-off"
     icon = "🔥" if streak["is_active"] else "📝"
-
     st.markdown(
         f"""
         <div class="sm-card {card_class}">
@@ -322,14 +346,37 @@ def render_exercise_card(exercise: dict):
     )
 
 
-user_id = get_user_id()
+def render_nav_card(image_path: str, title: str, subtitle: str):
+    st.markdown('<div class="sm-nav-card">', unsafe_allow_html=True)
+    show_image_if_exists(image_path)
+    st.markdown(f'<div class="sm-nav-title">{title}</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="sm-nav-sub">{subtitle}</div>', unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
 
-settings = load_user_settings(user_id)
+
+settings = load_user_settings("")
 profile = load_current_user_profile()
-latest_log = load_latest_log(user_id)
-progress = get_home_progress_summary(user_id)
-today_status = get_today_log_status(user_id)
-streak = get_log_streak_summary(user_id)
+user_id = profile["user_id"] if profile else None
+
+settings = load_user_settings(user_id) if user_id else settings
+latest_log = load_latest_log(user_id) if user_id else None
+progress = get_home_progress_summary(user_id) if user_id else {
+    "latest_date": "未記録",
+    "latest_weight": 0.0,
+    "latest_body_fat": 0.0,
+    "weight_text": "",
+    "body_fat_text": "",
+}
+today_status = get_today_log_status(user_id) if user_id else {
+    "is_logged": False,
+    "label": "未記録",
+    "detail": "",
+}
+streak = get_log_streak_summary(user_id) if user_id else {
+    "is_active": False,
+    "label": "記録なし",
+    "detail": "",
+}
 week_goal = get_week_goal(settings, progress)
 focus = get_support_focus_summary(settings, latest_log)
 
@@ -397,26 +444,38 @@ st.markdown("### つかう")
 
 col1, col2 = st.columns(2)
 with col1:
-    if Path("assets/home_icons/photo.png").exists():
-        st.image("assets/home_icons/photo.png", use_container_width=True)
+    render_nav_card(
+        "assets/home_icons/photo.png",
+        "写真で記録",
+        "写真から下書きやバランス確認をしたい時",
+    )
     if st.button("📷 写真で記録", use_container_width=True):
         st.switch_page("pages/4_写真で記録.py")
 
 with col2:
-    if Path("assets/home_icons/settings.png").exists():
-        st.image("assets/home_icons/settings.png", use_container_width=True)
+    render_nav_card(
+        "assets/home_icons/settings.png",
+        "設定",
+        "体質や目標、使い方を整えたい時",
+    )
     if st.button("⚙️ 設定", use_container_width=True):
         st.switch_page("pages/1_設定.py")
 
 col3, col4 = st.columns(2)
 with col3:
-    if Path("assets/home_icons/diet.png").exists():
-        st.image("assets/home_icons/diet.png", use_container_width=True)
+    render_nav_card(
+        "assets/home_icons/diet.png",
+        "記録する",
+        "体重や食事、体調を入力して残したい時",
+    )
     if st.button("📝 記録する", use_container_width=True):
         st.switch_page("pages/2_記録する.py")
 
 with col4:
-    if Path("assets/home_icons/advice.png").exists():
-        st.image("assets/home_icons/advice.png", use_container_width=True)
+    render_nav_card(
+        "assets/home_icons/advice.png",
+        "相談する",
+        "食事や運動をその場で相談したい時",
+    )
     if st.button("💬 相談する", use_container_width=True):
         st.switch_page("pages/3_相談する.py")
