@@ -49,9 +49,11 @@ def uploaded_file_to_data_url(uploaded_file) -> str:
     return f"data:{mime_type};base64,{b64}"
 
 
-def read_meal_text_from_image(uploaded_file, meal_type: str) -> str:
+def read_meal_text_from_image(uploaded_file, meal_type_hint: str = "") -> str:
     client = get_openai_client()
     image_data_url = uploaded_file_to_data_url(uploaded_file)
+
+    hint_text = f"参考の食事区分ヒント: {meal_type_hint}" if meal_type_hint else "食事区分ヒントなし"
 
     prompt = f"""
 あなたは主婦向け食事記録アプリの補助AIです。
@@ -64,7 +66,7 @@ def read_meal_text_from_image(uploaded_file, meal_type: str) -> str:
 - 分からないものは無理に断定しない
 - 量や栄養評価は書かない
 - 出力は食事内容の1行だけ
-- 対象の食事区分は「{meal_type}」
+- {hint_text}
 
 出力例:
 しらすおにぎり、ゆで卵、わかめときのこの味噌汁、ブルーベリー
@@ -85,14 +87,44 @@ def read_meal_text_from_image(uploaded_file, meal_type: str) -> str:
     return (response.output_text or "").strip()
 
 
-def guess_meal_slot(meal_type_label: str) -> str:
-    mapping = {
-        "朝ごはん": "朝",
-        "昼ごはん": "昼",
-        "夜ごはん": "夜",
-        "間食": "間食",
-    }
-    return mapping.get(meal_type_label, "夜")
+def guess_meal_slot_from_image(uploaded_file) -> str:
+    client = get_openai_client()
+    image_data_url = uploaded_file_to_data_url(uploaded_file)
+
+    prompt = """
+あなたは主婦向け食事記録アプリの補助AIです。
+画像を見て、次の4択から最も近い食事区分を1つだけ返してください。
+
+選択肢:
+朝
+昼
+夜
+間食
+
+条件:
+- 出力は上の4つのうち1語だけ
+- 説明は不要
+- 飲み物だけ、デザート、お菓子、軽食なら「間食」寄りで考えてよい
+- 一般的な時間帯の印象で推定してよい
+"""
+
+    response = client.responses.create(
+        model="gpt-5.4",
+        input=[
+            {
+                "role": "user",
+                "content": [
+                    {"type": "input_text", "text": prompt},
+                    {"type": "input_image", "image_url": image_data_url},
+                ],
+            }
+        ],
+    )
+
+    slot = (response.output_text or "").strip()
+    if slot not in ["朝", "昼", "夜", "間食"]:
+        return "夜"
+    return slot
 
 
 def preset_text_by_type(meal_type: str, meal_text: str) -> tuple[str, str, str, str]:
@@ -259,13 +291,24 @@ with tab2:
 
     st.markdown("### 食べたもの")
 
-    log_target_slot = st.radio(
-        "下書きを入れる場所",
-        ["朝", "昼", "夜", "間食"],
+    mode = st.radio(
+        "下書きの入れ方",
+        ["自分で選ぶ", "AIにまかせる"],
         horizontal=True,
-        index=2,
-        key="log_target_slot",
+        key="log_fill_mode",
     )
+
+    if mode == "自分で選ぶ":
+        log_target_slot = st.radio(
+            "下書きを入れる場所",
+            ["朝", "昼", "夜", "間食"],
+            horizontal=True,
+            index=2,
+            key="log_target_slot",
+        )
+    else:
+        st.caption("AIが写真から 朝 / 昼 / 夜 / 間食 を推定して入れます。")
+        log_target_slot = None
 
     if st.button("📷 写真から下書きする", use_container_width=True, key="read_log_meal_from_photo"):
         if selected_log_image is None:
@@ -273,11 +316,21 @@ with tab2:
         else:
             try:
                 with st.spinner("写真から食事内容を読み取っています..."):
-                    meal_draft = read_meal_text_from_image(selected_log_image, f"{log_target_slot}の記録")
-                apply_draft_to_log_fields(log_target_slot, meal_draft)
-                st.success(f"{log_target_slot}の欄に下書きを入れました。必要なら直してください。")
+                    if mode == "AIにまかせる":
+                        guessed_slot = guess_meal_slot_from_image(selected_log_image)
+                        meal_draft = read_meal_text_from_image(selected_log_image, f"{guessed_slot}の記録")
+                        apply_draft_to_log_fields(guessed_slot, meal_draft)
+                        st.session_state["last_guessed_slot"] = guessed_slot
+                        st.success(f"AIが「{guessed_slot}」と判断して下書きを入れました。必要なら直してください。")
+                    else:
+                        meal_draft = read_meal_text_from_image(selected_log_image, f"{log_target_slot}の記録")
+                        apply_draft_to_log_fields(log_target_slot, meal_draft)
+                        st.success(f"{log_target_slot}の欄に下書きを入れました。必要なら直してください。")
             except Exception as e:
                 st.error(f"写真の読み取りに失敗しました: {e}")
+
+    if st.session_state.get("last_guessed_slot"):
+        st.caption(f"直近のAI判定：{st.session_state['last_guessed_slot']}")
 
     breakfast_text = st.text_area(
         "朝",
