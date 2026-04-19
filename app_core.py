@@ -377,22 +377,22 @@ def create_user(login_id: str, password: str, nickname: str, birth_date: date | 
 
     settings_ws = get_settings_sheet()
     settings_ws.append_row(
-    [
-        user_id,
-        nickname,
-        age if age is not None else "",
-        160.0,
-        50.0,
-        48.0,
-        30.0,
-        28.0,
-        "ふつう",
-        "バランス重視",
-        "自分だけ向け",
-        "やさしく",
-        now_str,
-    ]
-)
+        [
+            user_id,
+            nickname,
+            age if age is not None else "",
+            160.0,
+            50.0,
+            48.0,
+            30.0,
+            28.0,
+            "ふつう",
+            "バランス重視",
+            "自分だけ向け",
+            "やさしく",
+            now_str,
+        ]
+    )
 
     clear_sheet_caches()
 
@@ -607,6 +607,7 @@ def change_birth_date(user_id: str, current_password: str, new_birth_date):
             to_str(current_settings.get("activity_level", "ふつう")) or "ふつう",
             to_str(current_settings.get("food_style", "バランス重視")) or "バランス重視",
             to_str(current_settings.get("user_type", "自分だけ向け")) or "自分だけ向け",
+            to_str(current_settings.get("advice_tone", "やさしく")) or "やさしく",
             jst_now().strftime("%Y-%m-%d %H:%M:%S"),
         ]
 
@@ -643,6 +644,7 @@ def load_user_settings(user_id: str) -> dict:
                 "activity_level": to_str(record.get("activity_level", "ふつう")) or "ふつう",
                 "food_style": to_str(record.get("food_style", "バランス重視")) or "バランス重視",
                 "user_type": to_str(record.get("user_type", "自分だけ向け")) or "自分だけ向け",
+                "advice_tone": to_str(record.get("advice_tone", "やさしく")) or "やさしく",
             }
 
     return {
@@ -656,6 +658,7 @@ def load_user_settings(user_id: str) -> dict:
         "activity_level": "ふつう",
         "food_style": "バランス重視",
         "user_type": "自分だけ向け",
+        "advice_tone": "やさしく",
     }
 
 
@@ -680,6 +683,7 @@ def save_user_settings(user_id: str, data: dict):
         data["activity_level"],
         data["food_style"],
         data["user_type"],
+        data.get("advice_tone", "やさしく"),
         jst_now().strftime("%Y-%m-%d %H:%M:%S"),
     ]
 
@@ -691,7 +695,6 @@ def save_user_settings(user_id: str, data: dict):
     else:
         ws.append_row(row_data)
 
-    # Users.nickname も同期
     if current_user:
         users_ws = get_users_sheet()
         user_row_index = find_user_row_by_user_id(users_ws, user_id)
@@ -933,34 +936,50 @@ def get_home_progress_summary(user_id: str) -> dict:
 # =========================
 # ホーム提案
 # =========================
+def tone_short_message(text: str, tone: str) -> str:
+    tone = to_str(tone).strip() or "やさしく"
+
+    if tone == "しっかり":
+        return f"{text} 今日は意識して整えましょう。"
+
+    if tone == "淡々と":
+        return text
+
+    return f"{text} あせらず進めば大丈夫です。"
+
+
 def get_today_advice(settings: dict) -> dict:
     user_type = settings["user_type"]
     food_style = settings["food_style"]
+    advice_tone = settings.get("advice_tone", "やさしく")
 
     if user_type == "自分＋家族向け":
-        return {
+        advice = {
             "食事": f"家族も満足しやすく、自分は重くなりすぎない組み立てがおすすめです。食事スタイルは「{food_style}」を軸に考えます。",
             "運動": "すきま時間の軽い運動で十分です。家事の合間に5〜10分でもOKです。",
             "ひとこと": "全部を完璧にしなくて大丈夫です。",
         }
-    if user_type == "節約重視":
-        return {
+    elif user_type == "節約重視":
+        advice = {
             "食事": f"使い回ししやすい食材で組み立てる日がおすすめです。食事スタイルは「{food_style}」を軸に考えます。",
             "運動": "家でできる軽い運動を優先しましょう。お金をかけずに続ける形でOKです。",
             "ひとこと": "無理なく続けられる形がいちばん強いです。",
         }
-    if user_type == "忙しい日向け":
-        return {
+    elif user_type == "忙しい日向け":
+        advice = {
             "食事": f"時短・洗い物少なめの献立がおすすめです。食事スタイルは「{food_style}」を軸に考えます。",
             "運動": "今日は5分だけでも十分です。ゼロにしないことを優先します。",
             "ひとこと": "今日は回すこと優先で大丈夫です。",
         }
+    else:
+        advice = {
+            "食事": f"軽めに整えながら、無理のない食事がおすすめです。食事スタイルは「{food_style}」を軸に考えます。",
+            "運動": "短時間でも、自分のための運動時間を少し取りましょう。",
+            "ひとこと": "今日は自分優先で大丈夫です。",
+        }
 
-    return {
-        "食事": f"軽めに整えながら、無理のない食事がおすすめです。食事スタイルは「{food_style}」を軸に考えます。",
-        "運動": "短時間でも、自分のための運動時間を少し取りましょう。",
-        "ひとこと": "今日は自分優先で大丈夫です。",
-    }
+    advice["ひとこと"] = tone_short_message(advice["ひとこと"], advice_tone)
+    return advice
 
 
 def get_week_menu(settings: dict) -> list[dict]:
@@ -1066,6 +1085,18 @@ def normalize_question(text: str) -> str:
     )
 
 
+def apply_advice_tone(text: str, tone: str) -> str:
+    tone = to_str(tone).strip() or "やさしく"
+
+    if tone == "しっかり":
+        return f"今日は少し意識して整えましょう。\n\n{text}\n\n次の1回をきちんと整える意識で進めるのがおすすめです。"
+
+    if tone == "淡々と":
+        return text
+
+    return f"大丈夫です。無理なく整えていきましょう。\n\n{text}\n\nできるところからで十分です。"
+
+
 def build_food_answer(question: str, settings: dict) -> str:
     q = normalize_question(question)
     base = get_user_type_advice(settings["user_type"])
@@ -1084,7 +1115,7 @@ def build_food_answer(question: str, settings: dict) -> str:
     elif any(k in q for k in ["食べすぎ", "食べ過ぎ", "食べてしま", "食べた後", "食べ過ぎた"]):
         answer = "食べすぎた日は、次の食事で極端に抜かず、汁物・たんぱく質・野菜で整えるのが安全です。翌日に軽く戻す意識で十分です。"
     elif any(k in q for k in ["甘い", "おやつ", "間食", "スイーツ"]):
-        answer = "間食するなら、量を決めて早めの時間に。ヨーグルト、ナッツ少量, チーズ、ゆで卵などに置き換えると整えやすいです。"
+        answer = "間食するなら、量を決めて早めの時間に。ヨーグルト、ナッツ少量、チーズ、ゆで卵などに置き換えると整えやすいです。"
     elif any(k in q for k in ["家族", "子ども", "夫", "みんな"]):
         answer = "家族向けなら、主菜をしっかり作って、自分は汁物や野菜を先に入れると調整しやすいです。取り分け前に自分の量を決めると崩れにくいです。"
     elif any(k in q for k in ["時短", "簡単", "すぐ", "忙しい"]):
@@ -1174,12 +1205,14 @@ def generate_answer(category: str, question: str, settings: dict) -> str:
         return "相談内容を入力してください。短くても大丈夫です。"
 
     if category == "食事":
-        return build_food_answer(question, settings)
-    if category == "運動":
-        return build_exercise_answer(question, settings)
-    if category == "体調":
-        return build_condition_answer(question, settings)
-    if category == "外食調整":
-        return build_eating_out_answer(question, settings)
+        answer = build_food_answer(question, settings)
+    elif category == "運動":
+        answer = build_exercise_answer(question, settings)
+    elif category == "体調":
+        answer = build_condition_answer(question, settings)
+    elif category == "外食調整":
+        answer = build_eating_out_answer(question, settings)
+    else:
+        answer = f"相談内容：{question}\n\nカテゴリを選んで相談してください。"
 
-    return f"相談内容：{question}\n\nカテゴリを選んで相談してください。"
+    return apply_advice_tone(answer, settings.get("advice_tone", "やさしく"))
