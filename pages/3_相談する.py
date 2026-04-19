@@ -5,28 +5,30 @@ from app_core import (
     get_user_id,
     load_user_settings,
     load_current_user_profile,
+    load_latest_log,
+    get_support_focus_summary,
     generate_answer,
 )
 
 require_login()
 
 st.title("💬 相談する")
-st.caption("食事・運動・体調・外食の相談に答えます")
+st.caption("体質・今日の状態・現在の設定をもとに提案します")
 
 user_id = get_user_id()
-
-try:
-    settings = load_user_settings(user_id)
-    profile = load_current_user_profile()
-except Exception as e:
-    st.error(f"設定の読込に失敗しました: {e}")
-    st.stop()
+settings = load_user_settings(user_id)
+profile = load_current_user_profile()
+latest_log = load_latest_log(user_id)
+focus = get_support_focus_summary(settings, latest_log)
 
 nickname = profile["nickname"].strip() if profile else settings["nickname"].strip()
-if nickname:
-    st.info(f"{nickname}さん向けに、現在の設定をもとに提案します。")
-else:
-    st.info("現在の設定をもとに提案します。")
+st.info(f"{nickname}さん向けに提案します。" if nickname else "現在の設定をもとに提案します。")
+
+st.markdown("**今整えたいポイント**")
+st.write(" / ".join(focus["points"]) if focus["points"] else "基本の整え")
+
+if focus["today_conditions"]:
+    st.caption("今日の状態：" + " / ".join(focus["today_conditions"]))
 
 category = st.radio(
     "相談カテゴリ",
@@ -35,9 +37,9 @@ category = st.radio(
 )
 
 example_text = {
-    "食事": "例：運動前に何を食べたらいい？ 今日は夜何を食べるのがおすすめ？",
-    "運動": "例：今日は疲れてるけど何をしたらいい？ 5分だけ動くなら？",
-    "体調": "例：むくみが気になる。だるい日はどうしたらいい？",
+    "食事": "例：今日は何を食べたら整いやすい？ 夜ごはんはどうする？",
+    "運動": "例：今日はだるいけど何をしたらいい？ 5分だけ動くなら？",
+    "体調": "例：むくみが気になる。寝不足の日はどうしたらいい？",
     "外食調整": "例：今日パスタ外食です。どう選べばいい？ 焼肉のときの調整は？",
 }[category]
 
@@ -48,11 +50,7 @@ question = st.text_area(
 )
 
 if st.button("相談する", use_container_width=True):
-    try:
-        answer = generate_answer(category, question, settings)
-        st.session_state["last_answer"] = answer
-    except Exception as e:
-        st.error(f"回答の生成に失敗しました: {e}")
+    st.session_state["last_answer"] = generate_answer(category, question, settings, latest_log)
 
 if "last_answer" in st.session_state:
     st.subheader("回答")
@@ -63,8 +61,7 @@ st.subheader("いまの設定")
 st.write(f"利用タイプ：{settings['user_type']}")
 st.write(f"活動量：{settings['activity_level']}")
 st.write(f"食事スタイル：{settings['food_style']}")
-
-if profile and profile.get("age") is not None:
-    st.write(f"年齢：{profile['age']}歳")
+st.write(f"体質・傾向：{' / '.join(settings['constitution_traits']) if settings['constitution_traits'] else '未設定'}")
+st.write(f"アドバイスの言い方：{settings['advice_tone']}")
 
 st.caption("※ この相談機能は簡易版です。医療判断が必要な内容は医療機関に相談してください。")
