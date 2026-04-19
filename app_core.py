@@ -975,3 +975,62 @@ def generate_answer(category: str, question: str, settings: dict) -> str:
         return build_eating_out_answer(question, settings)
 
     return f"相談内容：{question}\n\nカテゴリを選んで相談してください。"
+
+def find_user_by_user_id(user_id: str) -> dict | None:
+    records = read_users_records()
+    for record in records:
+        if to_str(record.get("user_id", "")) == user_id and to_str(record.get("is_active", "1")) != "0":
+            return record
+    return None
+
+
+def change_login_id(user_id: str, current_password: str, new_login_id: str):
+    new_login_id = new_login_id.strip()
+
+    if not user_id:
+        raise ValueError("ユーザー情報が見つかりません。")
+    if not current_password:
+        raise ValueError("現在のパスワードを入力してください。")
+    if not new_login_id:
+        raise ValueError("新しいログインIDを入力してください。")
+
+    current_user = find_user_by_user_id(user_id)
+    if not current_user:
+        raise ValueError("現在のユーザーが見つかりません。")
+
+    current_login_id = to_str(current_user.get("login_id", "")).strip()
+    if new_login_id == current_login_id:
+        raise ValueError("新しいログインIDが現在のものと同じです。")
+
+    existing = find_user_by_login_id(new_login_id)
+    if existing and to_str(existing.get("user_id", "")) != user_id:
+        raise ValueError("そのログインIDは既に使われています。")
+
+    salt = to_str(current_user.get("password_salt", ""))
+    password_hash = to_str(current_user.get("password_hash", ""))
+
+    if not verify_password(current_password, salt, password_hash):
+        raise ValueError("現在のパスワードが違います。")
+
+    ws = get_users_sheet()
+    row_index = find_user_row_by_user_id(ws, user_id)
+    if not row_index:
+        raise ValueError("Usersシートの更新行が見つかりません。")
+
+    row_data = [
+        user_id,
+        new_login_id,
+        password_hash,
+        salt,
+        to_str(current_user.get("nickname", "")),
+        to_str(current_user.get("birth_date", "")),
+        to_str(current_user.get("created_at", "")),
+        jst_now().strftime("%Y-%m-%d %H:%M:%S"),
+        to_str(current_user.get("is_active", "1")) or "1",
+    ]
+
+    end_col = chr(64 + len(USERS_HEADERS))
+    ws.update(f"A{row_index}:{end_col}{row_index}", [row_data])
+
+    st.session_state["auth_login_id"] = new_login_id
+    clear_sheet_caches()
