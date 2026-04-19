@@ -335,9 +335,9 @@ def get_user_id() -> str:
 
 
 # =========================
-# 共通行検索
+# 行検索
 # =========================
-def find_user_row_by_user_id(ws, user_id: str):
+def find_row_by_user_id(ws, user_id: str):
     values = ws.get_all_values()
     if len(values) <= 1:
         return None
@@ -356,8 +356,7 @@ def find_user_by_login_id(login_id: str) -> dict | None:
     if not login_id:
         return None
 
-    records = read_users_records()
-    for record in records:
+    for record in read_users_records():
         if (
             to_str(record.get("login_id", "")).strip() == login_id
             and to_str(record.get("is_active", "1")).strip() != "0"
@@ -367,8 +366,7 @@ def find_user_by_login_id(login_id: str) -> dict | None:
 
 
 def find_user_by_user_id(user_id: str) -> dict | None:
-    records = read_users_records()
-    for record in records:
+    for record in read_users_records():
         if (
             to_str(record.get("user_id", "")) == user_id
             and to_str(record.get("is_active", "1")).strip() != "0"
@@ -390,11 +388,7 @@ def create_user(login_id: str, password: str, nickname: str, birth_date: date | 
     if not nickname:
         raise ValueError("ニックネームを入力してください。")
 
-    if isinstance(birth_date, date):
-        birth_date_str = birth_date.strftime("%Y-%m-%d")
-    else:
-        birth_date_str = to_str(birth_date).strip()
-
+    birth_date_str = birth_date.strftime("%Y-%m-%d") if isinstance(birth_date, date) else to_str(birth_date).strip()
     if not birth_date_str:
         raise ValueError("生年月日を入力してください。")
 
@@ -461,10 +455,7 @@ def verify_login(login_id: str, password: str) -> dict | None:
     if not salt or not password_hash:
         return None
 
-    if verify_password(password, salt, password_hash):
-        return user_record
-
-    return None
+    return user_record if verify_password(password, salt, password_hash) else None
 
 
 def load_current_user_profile() -> dict | None:
@@ -489,7 +480,7 @@ def load_current_user_profile() -> dict | None:
 
 def _update_user_row(user_id: str, row_data: list):
     ws = get_users_sheet()
-    row_index = find_user_row_by_user_id(ws, user_id)
+    row_index = find_row_by_user_id(ws, user_id)
     if not row_index:
         raise ValueError("Usersシートの更新行が見つかりません。")
 
@@ -500,8 +491,6 @@ def _update_user_row(user_id: str, row_data: list):
 def change_login_id(user_id: str, current_password: str, new_login_id: str):
     new_login_id = new_login_id.strip()
 
-    if not user_id:
-        raise ValueError("ユーザー情報が見つかりません。")
     if not current_password:
         raise ValueError("現在のパスワードを入力してください。")
     if not new_login_id:
@@ -521,7 +510,6 @@ def change_login_id(user_id: str, current_password: str, new_login_id: str):
 
     salt = to_str(current_user.get("password_salt", ""))
     password_hash = to_str(current_user.get("password_hash", ""))
-
     if not verify_password(current_password, salt, password_hash):
         raise ValueError("現在のパスワードが違います。")
 
@@ -543,8 +531,6 @@ def change_login_id(user_id: str, current_password: str, new_login_id: str):
 
 
 def change_password(user_id: str, current_password: str, new_password: str, new_password_confirm: str):
-    if not user_id:
-        raise ValueError("ユーザー情報が見つかりません。")
     if not current_password:
         raise ValueError("現在のパスワードを入力してください。")
     if not new_password:
@@ -560,7 +546,6 @@ def change_password(user_id: str, current_password: str, new_password: str, new_
 
     old_salt = to_str(current_user.get("password_salt", ""))
     old_password_hash = to_str(current_user.get("password_hash", ""))
-
     if not verify_password(current_password, old_salt, old_password_hash):
         raise ValueError("現在のパスワードが違います。")
 
@@ -583,19 +568,68 @@ def change_password(user_id: str, current_password: str, new_password: str, new_
     clear_sheet_caches()
 
 
+def change_birth_date(user_id: str, current_password: str, new_birth_date):
+    current_user = find_user_by_user_id(user_id)
+    if not current_user:
+        raise ValueError("現在のユーザーが見つかりません。")
+
+    password_salt = to_str(current_user.get("password_salt", ""))
+    password_hash = to_str(current_user.get("password_hash", ""))
+    if not verify_password(current_password, password_salt, password_hash):
+        raise ValueError("現在のパスワードが違います。")
+
+    birth_date_str = new_birth_date.strftime("%Y-%m-%d") if isinstance(new_birth_date, date) else to_str(new_birth_date).strip()
+    if not birth_date_str:
+        raise ValueError("生年月日を入力してください。")
+
+    new_age = calculate_age_from_birth_date(birth_date_str)
+    if new_age is None:
+        raise ValueError("生年月日が正しくありません。")
+
+    updated_user_row = [
+        user_id,
+        to_str(current_user.get("login_id", "")).strip(),
+        password_hash,
+        password_salt,
+        to_str(current_user.get("nickname", "")).strip(),
+        birth_date_str,
+        to_str(current_user.get("created_at", "")).strip(),
+        jst_now().strftime("%Y-%m-%d %H:%M:%S"),
+        to_str(current_user.get("is_active", "1")).strip() or "1",
+    ]
+    _update_user_row(user_id, updated_user_row)
+
+    settings = load_user_settings(user_id)
+    save_user_settings(
+        user_id,
+        {
+            "nickname": settings["nickname"],
+            "height_cm": settings["height_cm"],
+            "current_weight": settings["current_weight"],
+            "target_weight": settings["target_weight"],
+            "current_body_fat": settings["current_body_fat"],
+            "target_body_fat": settings["target_body_fat"],
+            "activity_level": settings["activity_level"],
+            "food_style": settings["food_style"],
+            "user_type": settings["user_type"],
+            "advice_tone": settings["advice_tone"],
+            "constitution_traits": settings["constitution_traits"],
+        },
+    )
+
+    clear_sheet_caches()
+
+
 # =========================
 # Settings
 # =========================
 def load_user_settings(user_id: str) -> dict:
-    records = read_settings_records()
     profile = load_current_user_profile()
     profile_nickname = profile["nickname"] if profile else ""
     auto_age = profile["age"] if profile and profile.get("age") is not None else None
 
-    for record in records:
-        if str(record.get("user_id", "")) == user_id:
-            fallback_age = to_int(record.get("age", 49), 49)
-
+    for record in read_settings_records():
+        if to_str(record.get("user_id", "")) == user_id:
             activity_level = to_str(record.get("activity_level", "ふつう")) or "ふつう"
             if activity_level not in ACTIVITY_LEVEL_OPTIONS:
                 activity_level = "ふつう"
@@ -619,7 +653,7 @@ def load_user_settings(user_id: str) -> dict:
 
             return {
                 "nickname": profile_nickname or to_str(record.get("nickname", "")),
-                "age": auto_age if auto_age is not None else fallback_age,
+                "age": auto_age if auto_age is not None else to_int(record.get("age", 49), 49),
                 "height_cm": to_float(record.get("height_cm", 160.0), 160.0),
                 "current_weight": to_float(record.get("current_weight", 50.0), 50.0),
                 "target_weight": to_float(record.get("target_weight", 48.0), 48.0),
@@ -653,9 +687,7 @@ def save_user_settings(user_id: str, data: dict):
     profile = load_current_user_profile()
     current_user = find_user_by_user_id(user_id)
 
-    age = None
-    if profile and profile.get("user_id") == user_id:
-        age = profile.get("age")
+    age = profile.get("age") if profile and profile.get("user_id") == user_id else ""
 
     activity_level = data.get("activity_level", "ふつう")
     if activity_level not in ACTIVITY_LEVEL_OPTIONS:
@@ -681,7 +713,7 @@ def save_user_settings(user_id: str, data: dict):
     row_data = [
         user_id,
         data["nickname"],
-        age if age is not None else "",
+        age,
         data["height_cm"],
         data["current_weight"],
         data["target_weight"],
@@ -695,8 +727,7 @@ def save_user_settings(user_id: str, data: dict):
         jst_now().strftime("%Y-%m-%d %H:%M:%S"),
     ]
 
-    row_index = find_user_row_by_user_id(ws, user_id)
-
+    row_index = find_row_by_user_id(ws, user_id)
     if row_index:
         end_col = chr(64 + len(SETTINGS_HEADERS))
         ws.update(f"A{row_index}:{end_col}{row_index}", [row_data])
@@ -717,79 +748,6 @@ def save_user_settings(user_id: str, data: dict):
         ]
         _update_user_row(user_id, updated_user_row)
         st.session_state["auth_nickname"] = data["nickname"]
-
-    clear_sheet_caches()
-
-
-def change_birth_date(user_id: str, current_password: str, new_birth_date):
-    if not user_id:
-        raise ValueError("ユーザー情報が見つかりません。")
-    if not current_password:
-        raise ValueError("現在のパスワードを入力してください。")
-
-    current_user = find_user_by_user_id(user_id)
-    if not current_user:
-        raise ValueError("現在のユーザーが見つかりません。")
-
-    password_salt = to_str(current_user.get("password_salt", ""))
-    password_hash = to_str(current_user.get("password_hash", ""))
-
-    if not verify_password(current_password, password_salt, password_hash):
-        raise ValueError("現在のパスワードが違います。")
-
-    if isinstance(new_birth_date, date):
-        birth_date_str = new_birth_date.strftime("%Y-%m-%d")
-    else:
-        birth_date_str = to_str(new_birth_date).strip()
-
-    if not birth_date_str:
-        raise ValueError("生年月日を入力してください。")
-
-    new_age = calculate_age_from_birth_date(birth_date_str)
-    if new_age is None:
-        raise ValueError("生年月日が正しくありません。")
-
-    updated_user_row = [
-        user_id,
-        to_str(current_user.get("login_id", "")).strip(),
-        password_hash,
-        password_salt,
-        to_str(current_user.get("nickname", "")).strip(),
-        birth_date_str,
-        to_str(current_user.get("created_at", "")).strip(),
-        jst_now().strftime("%Y-%m-%d %H:%M:%S"),
-        to_str(current_user.get("is_active", "1")).strip() or "1",
-    ]
-    _update_user_row(user_id, updated_user_row)
-
-    settings_ws = get_settings_sheet()
-    settings_row_index = find_user_row_by_user_id(settings_ws, user_id)
-
-    if settings_row_index:
-        current_settings = load_user_settings(user_id)
-
-        updated_settings_row = [
-            user_id,
-            to_str(current_settings.get("nickname", "")).strip(),
-            new_age,
-            current_settings.get("height_cm", 160.0),
-            current_settings.get("current_weight", 50.0),
-            current_settings.get("target_weight", 48.0),
-            current_settings.get("current_body_fat", 30.0),
-            current_settings.get("target_body_fat", 28.0),
-            to_str(current_settings.get("activity_level", "ふつう")) or "ふつう",
-            to_str(current_settings.get("food_style", "バランス重視")) or "バランス重視",
-            to_str(current_settings.get("user_type", "自分だけ向け")) or "自分だけ向け",
-            to_str(current_settings.get("advice_tone", "やさしく")) or "やさしく",
-            join_multi_value(current_settings.get("constitution_traits", [])),
-            jst_now().strftime("%Y-%m-%d %H:%M:%S"),
-        ]
-
-        end_col = chr(64 + len(SETTINGS_HEADERS))
-        settings_ws.update(
-            f"A{settings_row_index}:{end_col}{settings_row_index}",
-            [updated_settings_row],
-        )
 
     clear_sheet_caches()
 
@@ -821,17 +779,15 @@ def save_diet_log(user_id: str, data: dict):
 
 
 def load_latest_log(user_id: str) -> dict | None:
-    records = read_dietlog_records()
-    user_logs = [r for r in records if str(r.get("user_id", "")) == user_id]
+    user_logs = [r for r in read_dietlog_records() if to_str(r.get("user_id", "")) == user_id]
     if not user_logs:
         return None
 
-    def sort_key(x):
-        return (to_str(x.get("log_date", "")), to_str(x.get("created_at", "")))
-
-    user_logs.sort(key=sort_key, reverse=True)
+    user_logs.sort(
+        key=lambda x: (to_str(x.get("log_date", "")), to_str(x.get("created_at", ""))),
+        reverse=True,
+    )
     latest = user_logs[0]
-
     latest["today_conditions"] = normalize_multi_value(
         latest.get("today_conditions", ""),
         TODAY_CONDITION_OPTIONS,
@@ -860,9 +816,7 @@ def get_initial_log_values(user_id: str) -> dict:
 
 
 def load_recent_logs(user_id: str, limit: int = 10) -> pd.DataFrame:
-    records = read_dietlog_records()
-    user_logs = [r for r in records if str(r.get("user_id", "")) == user_id]
-
+    user_logs = [r for r in read_dietlog_records() if to_str(r.get("user_id", "")) == user_id]
     if not user_logs:
         return pd.DataFrame()
 
@@ -892,25 +846,14 @@ def load_recent_logs(user_id: str, limit: int = 10) -> pd.DataFrame:
         }
     )
 
-    show_cols = [
-        "日付",
-        "体重(kg)",
-        "体脂肪(%)",
-        "今日の状態",
-        "食事メモ",
-        "運動メモ",
-        "体調メモ",
-        "気分メモ",
-    ]
+    show_cols = ["日付", "体重(kg)", "体脂肪(%)", "今日の状態", "食事メモ", "運動メモ", "体調メモ", "気分メモ"]
     show_cols = [c for c in show_cols if c in df.columns]
 
     return df[show_cols].head(limit)
 
 
 def load_log_chart_df(user_id: str) -> pd.DataFrame:
-    records = read_dietlog_records()
-    user_logs = [r for r in records if str(r.get("user_id", "")) == user_id]
-
+    user_logs = [r for r in read_dietlog_records() if to_str(r.get("user_id", "")) == user_id]
     if not user_logs:
         return pd.DataFrame()
 
@@ -924,14 +867,10 @@ def load_log_chart_df(user_id: str) -> pd.DataFrame:
     df["body_fat_num"] = pd.to_numeric(df.get("body_fat"), errors="coerce")
 
     df = df.dropna(subset=["log_date_sort"])
-    df = df.sort_values(
-        by=["log_date_sort", "created_at_sort"],
-        ascending=[True, True],
-        na_position="last",
-    )
+    df = df.sort_values(by=["log_date_sort", "created_at_sort"], ascending=[True, True], na_position="last")
     df = df.drop_duplicates(subset=["log_date"], keep="last")
 
-    chart_df = pd.DataFrame(
+    return pd.DataFrame(
         {
             "日付": df["log_date_sort"],
             "体重(kg)": df["weight_num"],
@@ -939,18 +878,12 @@ def load_log_chart_df(user_id: str) -> pd.DataFrame:
         }
     ).set_index("日付")
 
-    return chart_df
-
 
 def get_today_log_status(user_id: str) -> dict:
     today = jst_today_str()
-    records = read_dietlog_records()
-
     today_logs = [
-        r
-        for r in records
-        if str(r.get("user_id", "")) == user_id
-        and to_str(r.get("log_date", "")) == today
+        r for r in read_dietlog_records()
+        if to_str(r.get("user_id", "")) == user_id and to_str(r.get("log_date", "")) == today
     ]
 
     if not today_logs:
@@ -962,7 +895,6 @@ def get_today_log_status(user_id: str) -> dict:
 
     today_logs.sort(key=lambda x: to_str(x.get("created_at", "")), reverse=True)
     created_at = to_str(today_logs[0].get("created_at", ""))
-
     time_text = created_at[11:16] if len(created_at) >= 16 else ""
     detail = f"今日の記録は保存済みです（最終保存 {time_text}）" if time_text else "今日の記録は保存済みです。"
 
@@ -1019,7 +951,7 @@ def get_home_progress_summary(user_id: str) -> dict:
 
 
 # =========================
-# 不足しやすい目安 / 状態ロジック
+# 整えポイント
 # =========================
 FOCUS_LABELS = {
     "protein": "たんぱく質",
@@ -1155,7 +1087,7 @@ def get_support_focus_summary(settings: dict, latest_like: dict | None = None) -
 
 
 # =========================
-# ホーム表示用
+# ホーム用
 # =========================
 def get_week_goal(settings: dict, summary: dict) -> dict:
     user_type = to_str(settings.get("user_type", "自分だけ向け")) or "自分だけ向け"
@@ -1189,8 +1121,7 @@ def get_week_goal(settings: dict, summary: dict) -> dict:
 
 
 def get_log_streak_summary(user_id: str) -> dict:
-    records = read_dietlog_records()
-    user_logs = [r for r in records if str(r.get("user_id", "")) == user_id]
+    user_logs = [r for r in read_dietlog_records() if to_str(r.get("user_id", "")) == user_id]
 
     log_dates = set()
     for row in user_logs:
@@ -1198,8 +1129,7 @@ def get_log_streak_summary(user_id: str) -> dict:
         if not log_date_str:
             continue
         try:
-            d = datetime.strptime(log_date_str, "%Y-%m-%d").date()
-            log_dates.add(d)
+            log_dates.add(datetime.strptime(log_date_str, "%Y-%m-%d").date())
         except Exception:
             continue
 
@@ -1366,7 +1296,7 @@ def get_week_menu(settings: dict) -> list[dict]:
 
 
 # =========================
-# 相談ロジック
+# 相談
 # =========================
 def get_user_type_advice(user_type: str) -> str:
     if user_type == "自分＋家族向け":
@@ -1400,235 +1330,6 @@ def apply_advice_tone(text: str, tone: str) -> str:
     return f"大丈夫です。無理なく整えていきましょう。\n\n{text}\n\nできるところからで十分です。"
 
 
-MEAL_PROPOSAL_LIBRARY = {
-    "dinner": {
-        "hydration": [
-            {
-                "menu": "鮭のホイル焼き＋豆腐とわかめの味噌汁＋ほうれん草のおひたし＋ごはん少なめ",
-                "reason": "汁物と野菜を入れやすく、夜でも重くなりにくい組み合わせです。",
-            },
-            {
-                "menu": "鶏むね肉と白菜の生姜スープ煮＋冷ややっこ＋ごはん少なめ",
-                "reason": "水分をとりやすく、体も冷やしすぎにくい夕飯です。",
-            },
-            {
-                "menu": "豚しゃぶサラダ＋きのこスープ＋雑穀ごはん少なめ",
-                "reason": "外食後やむくみが気になる日にも整えやすいです。",
-            },
-        ],
-        "rest": [
-            {
-                "menu": "鶏だんごと野菜のスープ＋卵焼き＋ごはん少なめ",
-                "reason": "疲れている日でも食べやすく、回復寄りに整えやすいです。",
-            },
-            {
-                "menu": "鮭の塩焼き＋豆腐の味噌汁＋やわらかい野菜のおかず",
-                "reason": "重たすぎず、休息を優先したい日に向いています。",
-            },
-            {
-                "menu": "親子煮＋具だくさん味噌汁＋ごはん少なめ",
-                "reason": "家族も食べやすく、たんぱく質もとりやすい夕飯です。",
-            },
-        ],
-        "protein": [
-            {
-                "menu": "鶏むね肉の照り焼き＋豆腐味噌汁＋ブロッコリー＋ごはん少なめ",
-                "reason": "たんぱく質をしっかり入れつつ、夜に重くなりすぎにくいです。",
-            },
-            {
-                "menu": "鮭のムニエル＋野菜スープ＋温野菜",
-                "reason": "魚でたんぱく質をとりたい日に向いています。",
-            },
-            {
-                "menu": "豆腐ハンバーグ＋きのこスープ＋サラダ",
-                "reason": "家族向けにも使いやすく、整えやすい定番です。",
-            },
-        ],
-        "vegetables": [
-            {
-                "menu": "八宝菜＋中華スープ＋ごはん少なめ",
-                "reason": "野菜をまとめてとりやすく、家族も食べやすいです。",
-            },
-            {
-                "menu": "野菜たっぷり豚汁＋焼き魚＋ごはん少なめ",
-                "reason": "汁物で野菜を入れやすく、整えやすい夕飯です。",
-            },
-            {
-                "menu": "鶏むね肉と野菜の蒸し料理＋味噌汁",
-                "reason": "夜を軽めにしつつ、野菜量を確保しやすいです。",
-            },
-        ],
-        "warm_care": [
-            {
-                "menu": "鶏と根菜の煮物＋味噌汁＋ごはん少なめ",
-                "reason": "体を冷やしすぎず、落ち着いた夕飯にしやすいです。",
-            },
-            {
-                "menu": "鮭ときのこのホイル焼き＋豆腐味噌汁",
-                "reason": "温かい物中心で整えたい日に向いています。",
-            },
-            {
-                "menu": "豚汁＋卵焼き＋青菜のおひたし",
-                "reason": "温かく食べやすく、家族にも出しやすいです。",
-            },
-        ],
-        "digestive_care": [
-            {
-                "menu": "湯どうふ＋白身魚の焼き物＋やわらか野菜の味噌汁",
-                "reason": "胃腸に負担をかけにくく、夜にやさしい組み合わせです。",
-            },
-            {
-                "menu": "鶏ささみと野菜のスープ＋卵とじ",
-                "reason": "食べすぎた日や胃腸がゆらぐ日に向いています。",
-            },
-            {
-                "menu": "雑炊＋温野菜少し＋豆腐",
-                "reason": "重たい物を避けたい日に整えやすいです。",
-            },
-        ],
-        "activity": [
-            {
-                "menu": "鶏むね肉ソテー＋サラダ＋味噌汁＋ごはん少なめ",
-                "reason": "軽く動けそうな日に、重すぎずバランスをとりやすいです。",
-            },
-            {
-                "menu": "鮭＋具だくさん味噌汁＋ひじき煮",
-                "reason": "食事と活動のバランスをとりやすい定番です。",
-            },
-            {
-                "menu": "豚しゃぶ＋温野菜＋スープ",
-                "reason": "動いた日にも取り入れやすい夕飯です。",
-            },
-        ],
-        "default": [
-            {
-                "menu": "焼き魚＋味噌汁＋温野菜＋ごはん少なめ",
-                "reason": "迷った日に組みやすい基本の夕飯です。",
-            },
-            {
-                "menu": "豆腐ハンバーグ＋サラダ＋スープ",
-                "reason": "家族向けにも使いやすく、重くなりにくいです。",
-            },
-            {
-                "menu": "鶏むね肉と野菜炒め＋汁物",
-                "reason": "たんぱく質と野菜をまとめやすいです。",
-            },
-        ],
-    },
-    "lunch": {
-        "default": [
-            {
-                "menu": "おにぎり＋味噌汁＋ゆで卵＋サラダ",
-                "reason": "午後に崩れにくい、軽めで安定しやすい昼ごはんです。",
-            },
-            {
-                "menu": "鮭ごはん＋具だくさんスープ",
-                "reason": "主食とたんぱく質を入れやすいです。",
-            },
-            {
-                "menu": "丼もの＋野菜スープ",
-                "reason": "忙しい日でも整えやすい組み合わせです。",
-            },
-        ]
-    },
-    "breakfast": {
-        "default": [
-            {
-                "menu": "納豆ごはん＋味噌汁＋卵",
-                "reason": "朝に必要な基本を入れやすいです。",
-            },
-            {
-                "menu": "トースト＋ヨーグルト＋ゆで卵",
-                "reason": "忙しい朝でも組みやすいです。",
-            },
-            {
-                "menu": "おにぎり＋味噌汁",
-                "reason": "軽く済ませたい朝にも向いています。",
-            },
-        ]
-    },
-}
-
-
-def detect_meal_timing(question: str) -> str:
-    q = normalize_question(question)
-
-    if any(k in q for k in ["夕飯", "夕食", "晩ごはん", "夜ご飯", "夜ごはん"]):
-        return "dinner"
-    if any(k in q for k in ["昼飯", "昼食", "昼ごはん", "ランチ"]):
-        return "lunch"
-    if any(k in q for k in ["朝飯", "朝食", "朝ごはん"]):
-        return "breakfast"
-
-    return "dinner"
-
-
-def get_primary_focus_key(settings: dict, latest_log: dict | None = None) -> str:
-    support = get_support_focus_summary(settings, latest_log)
-    point_map = {
-        "たんぱく質": "protein",
-        "野菜・食物繊維": "vegetables",
-        "水分": "hydration",
-        "休息": "rest",
-        "軽い活動": "activity",
-        "体を冷やしすぎないこと": "warm_care",
-        "胃腸にやさしい食事": "digestive_care",
-    }
-
-    if support["points"]:
-        first_point = support["points"][0]
-        return point_map.get(first_point, "protein")
-
-    return "protein"
-
-
-def get_meal_proposals(question: str, settings: dict, latest_log: dict | None = None) -> list[dict]:
-    meal_timing = detect_meal_timing(question)
-    primary_focus = get_primary_focus_key(settings, latest_log)
-
-    timing_library = MEAL_PROPOSAL_LIBRARY.get(meal_timing, {})
-    proposals = timing_library.get(primary_focus)
-
-    if not proposals:
-        proposals = timing_library.get("default", [])
-
-    if not proposals:
-        proposals = MEAL_PROPOSAL_LIBRARY["dinner"]["default"]
-
-    return proposals[:3]
-
-
-def format_meal_proposals(question: str, settings: dict, latest_log: dict | None = None) -> str:
-    meal_timing = detect_meal_timing(question)
-    timing_label = {
-        "breakfast": "朝ごはん",
-        "lunch": "昼ごはん",
-        "dinner": "夕飯",
-    }.get(meal_timing, "食事")
-
-    support = get_support_focus_summary(settings, latest_log)
-    proposals = get_meal_proposals(question, settings, latest_log)
-
-    lines = []
-    lines.append(f"【今日の{timing_label}候補】")
-
-    for i, item in enumerate(proposals, start=1):
-        lines.append(f"{i}. {item['menu']}")
-        lines.append(f"   向いている理由：{item['reason']}")
-
-    if support["points"]:
-        lines.append("")
-        lines.append("今整えたいポイント：" + " / ".join(support["points"]))
-
-    if support["food_tip"]:
-        lines.append("食事の目安：" + support["food_tip"])
-
-    lines.append("")
-    lines.append("迷ったら1番目の候補から選ぶと組み立てやすいです。")
-
-    return "\n".join(lines)
-
-
 def build_food_answer(question: str, settings: dict, latest_log: dict | None = None) -> str:
     q = normalize_question(question)
     base = get_user_type_advice(settings["user_type"])
@@ -1636,41 +1337,14 @@ def build_food_answer(question: str, settings: dict, latest_log: dict | None = N
     support = get_support_focus_summary(settings, latest_log)
     context = f"今整えたいポイント：{' / '.join(support['points'])}" if support["points"] else ""
 
-    wants_specific_menu = any(
-        k in q for k in [
-            "提案", "メニュー", "献立", "何食べ", "何を食べ",
-            "夕飯", "夕食", "晩ごはん", "夜ご飯", "夜ごはん",
-            "朝ごはん", "昼ごはん", "ランチ"
-        ]
-    )
-
-    if wants_specific_menu:
+    if any(k in q for k in ["提案", "メニュー", "献立", "何食べ", "何を食べ", "夕飯", "夕食", "朝ごはん", "昼ごはん", "ランチ"]):
         parts = [f"相談内容：{question}", base, style]
         if context:
             parts.append(context)
         parts.append(format_meal_proposals(question, settings, latest_log))
         return "\n\n".join(parts)
 
-    if any(k in q for k in ["運動前", "トレーニング前", "ヨガ前", "ピラティス前"]):
-        answer = "運動前は、食べすぎずにエネルギーになる物がおすすめです。おにぎり半分〜1個、バナナ、ヨーグルト、ゆで卵などが合わせやすいです。"
-    elif any(k in q for k in ["運動後", "トレーニング後", "ヨガ後", "ピラティス後"]):
-        answer = "運動後は、たんぱく質と炭水化物を少し入れると整えやすいです。例：味噌汁＋ごはん少し＋卵、サラダチキン＋おにぎりなど。"
-    elif any(k in q for k in ["朝", "あさ", "朝ごはん", "朝食"]):
-        answer = "朝は、たんぱく質＋炭水化物を少し入れるのがおすすめです。納豆ごはん、ゆで卵とトースト、ヨーグルトとバナナなどが組みやすいです。"
-    elif any(k in q for k in ["昼", "ひる", "昼ごはん", "昼食", "ランチ"]):
-        answer = "昼は、主食を抜きすぎず、たんぱく質を入れると午後に崩れにくいです。おにぎり＋味噌汁＋サラダチキンのような組み合わせが安定します。"
-    elif any(k in q for k in ["夜", "よる", "夕飯", "夕食"]):
-        answer = "夜は、脂っこい物を重ねすぎず、主菜＋汁物＋野菜を意識すると整えやすいです。ごはんは食べすぎない量で十分です。"
-    elif any(k in q for k in ["食べすぎ", "食べ過ぎ", "食べてしま", "食べた後", "食べ過ぎた"]):
-        answer = "食べすぎた日は、次の食事で極端に抜かず、汁物・たんぱく質・野菜で整えるのが安全です。翌日に軽く戻す意識で十分です。"
-    elif any(k in q for k in ["甘い", "おやつ", "間食", "スイーツ"]):
-        answer = "間食するなら、量を決めて早めの時間に。ヨーグルト、ナッツ少量、チーズ、ゆで卵などに置き換えると整えやすいです。"
-    elif any(k in q for k in ["家族", "子ども", "夫", "みんな"]):
-        answer = "家族向けなら、主菜をしっかり作って、自分は汁物や野菜を先に入れると調整しやすいです。取り分け前に自分の量を決めると崩れにくいです。"
-    elif any(k in q for k in ["時短", "簡単", "すぐ", "忙しい"]):
-        answer = "忙しい日は、丼もの＋汁物、鮭＋ごはん＋即席味噌汁、豆腐＋卵＋ごはんなどの時短型が続けやすいです。"
-    else:
-        answer = "食事は、主食を極端に抜かず、たんぱく質を毎食少し入れると安定しやすいです。迷ったら『汁物＋たんぱく質＋主食少し＋野菜』で考えると組みやすいです。"
+    answer = "食事は、主食を極端に抜かず、たんぱく質を毎食少し入れると安定しやすいです。迷ったら『汁物＋たんぱく質＋主食少し＋野菜』で考えると組みやすいです。"
 
     parts = [f"相談内容：{question}", base, style]
     if context:
@@ -1690,14 +1364,6 @@ def build_exercise_answer(question: str, settings: dict, latest_log: dict | None
 
     if any(k in q for k in ["5分", "5ぷん", "短時間", "忙しい", "時間がない"]):
         answer = "今日は5分で十分です。肩回し1分、前もも伸ばし1分、股関節まわし1分、軽いスクワット1分、深呼吸1分でOKです。"
-    elif any(k in q for k in ["朝", "あさ"]):
-        answer = "朝は、背伸び・肩回し・股関節ほぐしなど、起こす系の動きがおすすめです。"
-    elif any(k in q for k in ["夜", "よる"]):
-        answer = "夜は、がんばる運動より、ストレッチ・呼吸・やさしいヨガの方が整いやすいです。"
-    elif any(k in q for k in ["歩く", "ウォーキング", "散歩"]):
-        answer = "歩く日は、10〜20分でも十分です。少し腕を振って歩くと体が温まりやすいです。"
-    elif any(k in q for k in ["筋トレ", "筋肉", "引き締め", "二の腕", "お腹", "脚"]):
-        answer = "引き締め目的なら、スクワット・壁腕立て・ヒップリフト・膝つきプランクなど、自宅でできる基本種目を少しずつ続けるのがおすすめです。"
     elif any(k in q for k in ["疲れ", "だるい", "しんどい"]):
         answer = "疲れている日は、追い込むより、ストレッチ・肩回し・軽い散歩のような回復寄りの動きが合います。"
     else:
@@ -1729,12 +1395,6 @@ def build_condition_answer(question: str, settings: dict, latest_log: dict | Non
         answer = "むくみやだるさがある日は、冷たい物を重ねすぎず、水分をこまめに取り、足首を回したり軽く歩いたりすると整えやすいです。"
     elif any(k in q for k in ["疲れ", "つかれ", "しんどい"]):
         answer = "疲れが強い日は、無理に頑張る日ではなく回復優先でOKです。食事は抜かず、汁物・たんぱく質・炭水化物を少し入れてください。"
-    elif any(k in q for k in ["便秘", "お腹", "はら"]):
-        answer = "お腹の調子が気になる日は、水分、温かい汁物、発酵食品、歩行や体をねじる軽い動きが合いやすいです。"
-    elif any(k in q for k in ["眠い", "寝不足", "睡眠"]):
-        answer = "寝不足の日は、激しい運動より、日中に軽く体を動かして夜に整える方がおすすめです。カフェインや甘い物のとりすぎに注意してください。"
-    elif any(k in q for k in ["頭痛", "頭が痛い"]):
-        answer = "頭痛がある日は、無理な運動は避けて、水分・休息・刺激を減らす方向で整えるのがおすすめです。つらい時は医療機関を優先してください。"
     else:
         answer = "体調が揺れている日は、食事を極端に減らさず、温かい物と軽い運動で整える考え方がおすすめです。"
 
@@ -1748,25 +1408,10 @@ def build_condition_answer(question: str, settings: dict, latest_log: dict | Non
 
 
 def build_eating_out_answer(question: str, settings: dict, latest_log: dict | None = None) -> str:
-    q = normalize_question(question)
     base = get_user_type_advice(settings["user_type"])
     support = get_support_focus_summary(settings, latest_log)
     context = f"今整えたいポイント：{' / '.join(support['points'])}" if support["points"] else ""
-
-    if any(k in q for k in ["焼肉", "肉"]):
-        answer = "焼肉なら、最初にサラダやスープを入れて、ごはんは食べすぎない量に。脂の多い肉ばかり重ねず、赤身や鶏も混ぜると整えやすいです。"
-    elif any(k in q for k in ["パスタ", "イタリアン"]):
-        answer = "パスタなら、クリーム系が続く日は避けて、サラダやスープを一緒に。取り分けできるなら量調整しやすいです。"
-    elif any(k in q for k in ["ラーメン"]):
-        answer = "ラーメンは、スープを全部飲まない、餃子やチャーハンを重ねすぎない、次の食事で野菜と汁物を意識、の3つで調整しやすいです。"
-    elif any(k in q for k in ["寿司"]):
-        answer = "寿司は比較的選びやすいです。揚げ物や甘い物を重ねすぎず、汁物を足すと整えやすいです。"
-    elif any(k in q for k in ["居酒屋", "飲み会", "会食"]):
-        answer = "居酒屋や会食では、最初にサラダ・枝豆・冷奴などを入れて、揚げ物と締めを重ねすぎないのが整えやすいです。"
-    elif any(k in q for k in ["食べすぎ", "外食後"]):
-        answer = "外食後は、翌日に極端に抜かず、朝か昼で汁物・たんぱく質・野菜を意識してください。軽く歩く程度で十分です。"
-    else:
-        answer = "外食は『主菜を決める → 汁物かサラダを足す → 主食を食べすぎない』で考えると整えやすいです。"
+    answer = "外食は『主菜を決める → 汁物かサラダを足す → 主食を食べすぎない』で考えると整えやすいです。"
 
     parts = [f"相談内容：{question}", base]
     if context:
@@ -1779,7 +1424,6 @@ def build_eating_out_answer(question: str, settings: dict, latest_log: dict | No
 
 def generate_answer(category: str, question: str, settings: dict, latest_log: dict | None = None) -> str:
     question = question.strip()
-
     if not question:
         return "相談内容を入力してください。短くても大丈夫です。"
 
@@ -1866,7 +1510,7 @@ def build_log_feedback(user_id: str, save_data: dict) -> dict:
 
 
 # =========================
-# 食事評価ロジック
+# 食事評価
 # =========================
 MEAL_TYPE_LABELS = {
     "朝ごはん": "朝ごはん",
@@ -1916,10 +1560,6 @@ SALTY_WORDS = [
 ]
 
 
-def _contains_any(text: str, words: list[str]) -> bool:
-    return any(word in text for word in words)
-
-
 def _count_hits(text: str, words: list[str]) -> int:
     count = 0
     for word in words:
@@ -1962,13 +1602,8 @@ def parse_meal_sections_from_text(meal_memo: str) -> dict:
     return result
 
 
-def get_meal_flow_context_text(
-    meal_type: str,
-    current_meal_text: str,
-    latest_log: dict | None = None,
-) -> str:
+def get_meal_flow_context_text(meal_type: str, current_meal_text: str, latest_log: dict | None = None) -> str:
     meal_label = MEAL_TYPE_LABELS.get(meal_type, meal_type)
-
     if latest_log is None:
         return ""
 
@@ -1991,8 +1626,7 @@ def get_meal_flow_context_text(
     lines = []
 
     if meal_label == "朝ごはん":
-        if sections.get("朝"):
-            lines.append("朝はこの内容で見ます。")
+        lines.append("朝はこの内容で見ます。")
         if not sections.get("昼"):
             lines.append("昼は、たんぱく質か汁物を少し足せると流れが整いやすいです。")
         if not sections.get("夜"):
@@ -2007,15 +1641,12 @@ def get_meal_flow_context_text(
     elif meal_label == "夜ごはん":
         if sections.get("朝") or sections.get("昼"):
             lines.append("朝昼の流れも見て、夜で1日を整える形で考えます。")
-
             day_text = " ".join([sections.get("朝", ""), sections.get("昼", "")])
 
             if _count_hits(day_text, SALTY_WORDS) >= 3:
                 lines.append("今日は塩分が少したまりやすい流れなので、夜は薄味寄りが合いやすいです。")
-
             if _count_hits(day_text, PROTEIN_WORDS) == 0:
                 lines.append("今日はここまでたんぱく質が少なめなので、夜で少し補えると良いです。")
-
             if _count_hits(day_text, VEGETABLE_WORDS) <= 1:
                 lines.append("今日は野菜や食物繊維が少なめなので、夜で足すとまとまりやすいです。")
 
@@ -2059,26 +1690,20 @@ def build_food_evaluation_from_text(
         score += 4
     if protein_count >= 2:
         score += 3
-
     if vegetable_count >= 1:
         score += 4
     if vegetable_count >= 3:
         score += 3
-
     if fruit_count >= 1:
         score += 2
-
     if soup_count >= 1:
         score += 3
-
     if carb_count >= 1:
         score += 2
-
     if heavy_count >= 1:
         score -= 4
     if heavy_count >= 2:
         score -= 3
-
     if salty_count >= 2:
         score -= 2
     if salty_count >= 4:
@@ -2146,20 +1771,11 @@ def build_food_evaluation_from_text(
         concern_points.append("大きな弱点はありません。今日はこのままでもかなり整っています。")
 
     if not improve_points:
-        if support["food_tip"]:
-            improve_points.append(support["food_tip"])
-        else:
-            improve_points.append("次の食事で汁物か野菜を少し足すと、さらにまとまりやすいです。")
+        improve_points.append(support["food_tip"] if support["food_tip"] else "次の食事で汁物か野菜を少し足すと、さらにまとまりやすいです。")
 
-    flow_text = get_meal_flow_context_text(
-        meal_type=meal_type,
-        current_meal_text=text,
-        latest_log=latest_log,
-    )
+    flow_text = get_meal_flow_context_text(meal_type=meal_type, current_meal_text=text, latest_log=latest_log)
 
-    intro = f"{meal_label}としては {score_text} くらいです。"
-
-    lines = [intro]
+    lines = [f"{meal_label}としては {score_text} くらいです。"]
 
     if flow_text:
         lines.append("")
