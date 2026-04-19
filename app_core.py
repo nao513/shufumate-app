@@ -1809,10 +1809,21 @@ def build_food_evaluation_from_text(
         else:
             improve_points.append("次の食事で汁物か野菜を少し足すと、さらにまとまりやすいです。")
 
+    flow_text = get_meal_flow_context_text(
+        meal_type=meal_type,
+        current_meal_text=text,
+        latest_log=latest_log,
+    )
+
     intro = f"{meal_label}としては {score_text} くらいです。"
 
-    lines = [intro, ""]
+    lines = [intro]
 
+    if flow_text:
+        lines.append("")
+        lines.append(flow_text)
+
+    lines.append("")
     lines.append("良いところ")
     for item in good_points[:5]:
         lines.append(f"・{item}")
@@ -1843,7 +1854,6 @@ def build_food_evaluation_from_text(
         "score_text": score_text,
         "score_value": score,
     }
-
 def parse_meal_sections_from_text(meal_memo: str) -> dict:
     text = to_str(meal_memo)
     result = {"朝": "", "昼": "", "夜": "", "間食": ""}
@@ -1876,3 +1886,65 @@ def parse_meal_sections_from_text(meal_memo: str) -> dict:
                     result[current_key] = line
 
     return result
+
+def get_meal_flow_context_text(
+    meal_type: str,
+    current_meal_text: str,
+    latest_log: dict | None = None,
+) -> str:
+    meal_label = MEAL_TYPE_LABELS.get(meal_type, meal_type)
+
+    if latest_log is None:
+        return ""
+
+    sections = parse_meal_sections_from_text(latest_log.get("meal_memo", ""))
+
+    current_key_map = {
+        "朝ごはん": "朝",
+        "昼ごはん": "昼",
+        "夜ごはん": "夜",
+        "間食": "間食",
+        "朝": "朝",
+        "昼": "昼",
+        "夜": "夜",
+    }
+    current_key = current_key_map.get(meal_type, "")
+
+    if current_key:
+        sections[current_key] = current_meal_text.strip()
+
+    lines = []
+
+    if meal_label == "朝ごはん":
+        if sections.get("朝"):
+            lines.append("朝はこの内容で見ます。")
+        if not sections.get("昼"):
+            lines.append("昼は、たんぱく質か汁物を少し足せると流れが整いやすいです。")
+        if not sections.get("夜"):
+            lines.append("夜は重くしすぎず、野菜や汁物を入れると1日がまとまりやすいです。")
+
+    elif meal_label == "昼ごはん":
+        if sections.get("朝"):
+            lines.append("朝からの流れを見て、昼で不足を補う形で考えます。")
+        if not sections.get("夜"):
+            lines.append("夜は薄味・野菜多めにすると整いやすいです。")
+
+    elif meal_label == "夜ごはん":
+        if sections.get("朝") or sections.get("昼"):
+            lines.append("朝昼の流れも見て、夜で1日を整える形で考えます。")
+
+            day_text = " ".join([sections.get("朝", ""), sections.get("昼", "")])
+
+            if _count_hits(day_text, SALTY_WORDS) >= 3:
+                lines.append("今日は塩分が少したまりやすい流れなので、夜は薄味寄りが合いやすいです。")
+
+            if _count_hits(day_text, PROTEIN_WORDS) == 0:
+                lines.append("今日はここまでたんぱく質が少なめなので、夜で少し補えると良いです。")
+
+            if _count_hits(day_text, VEGETABLE_WORDS) <= 1:
+                lines.append("今日は野菜や食物繊維が少なめなので、夜で足すとまとまりやすいです。")
+
+    elif meal_label == "間食":
+        lines.append("間食は、次の食事に響きにくい量と内容にするのがポイントです。")
+
+    return "\n".join(lines)
