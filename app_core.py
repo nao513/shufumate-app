@@ -155,16 +155,31 @@ def to_int(v, default=0) -> int:
 
 
 def parse_multi_value(v) -> list[str]:
-    raw = to_str(v).strip()
-    if not raw:
+    if v is None:
         return []
-    return [item.strip() for item in raw.split(",") if item.strip()]
+
+    if isinstance(v, str):
+        raw = v.strip()
+        if not raw:
+            return []
+        return [item.strip() for item in raw.split(",") if item.strip()]
+
+    if isinstance(v, (list, tuple, set)):
+        return [to_str(item).strip() for item in v if to_str(item).strip()]
+
+    return []
+
+
+def normalize_multi_value(v, allowed_options: list[str]) -> list[str]:
+    items = parse_multi_value(v)
+    return [item for item in items if item in allowed_options]
 
 
 def join_multi_value(items) -> str:
-    if not items:
+    normalized = parse_multi_value(items)
+    if not normalized:
         return ""
-    return ",".join([to_str(item).strip() for item in items if to_str(item).strip()])
+    return ",".join(normalized)
 
 
 # =========================
@@ -341,7 +356,8 @@ def find_user_by_login_id(login_id: str) -> dict | None:
     if not login_id:
         return None
 
-    for record in read_users_records():
+    records = read_users_records()
+    for record in records:
         if (
             to_str(record.get("login_id", "")).strip() == login_id
             and to_str(record.get("is_active", "1")).strip() != "0"
@@ -351,7 +367,8 @@ def find_user_by_login_id(login_id: str) -> dict | None:
 
 
 def find_user_by_user_id(user_id: str) -> dict | None:
-    for record in read_users_records():
+    records = read_users_records()
+    for record in records:
         if (
             to_str(record.get("user_id", "")) == user_id
             and to_str(record.get("is_active", "1")).strip() != "0"
@@ -373,7 +390,11 @@ def create_user(login_id: str, password: str, nickname: str, birth_date: date | 
     if not nickname:
         raise ValueError("ニックネームを入力してください。")
 
-    birth_date_str = birth_date.strftime("%Y-%m-%d") if isinstance(birth_date, date) else to_str(birth_date).strip()
+    if isinstance(birth_date, date):
+        birth_date_str = birth_date.strftime("%Y-%m-%d")
+    else:
+        birth_date_str = to_str(birth_date).strip()
+
     if not birth_date_str:
         raise ValueError("生年月日を入力してください。")
 
@@ -440,7 +461,10 @@ def verify_login(login_id: str, password: str) -> dict | None:
     if not salt or not password_hash:
         return None
 
-    return user_record if verify_password(password, salt, password_hash) else None
+    if verify_password(password, salt, password_hash):
+        return user_record
+
+    return None
 
 
 def load_current_user_profile() -> dict | None:
@@ -497,6 +521,7 @@ def change_login_id(user_id: str, current_password: str, new_login_id: str):
 
     salt = to_str(current_user.get("password_salt", ""))
     password_hash = to_str(current_user.get("password_hash", ""))
+
     if not verify_password(current_password, salt, password_hash):
         raise ValueError("現在のパスワードが違います。")
 
@@ -505,11 +530,11 @@ def change_login_id(user_id: str, current_password: str, new_login_id: str):
         new_login_id,
         password_hash,
         salt,
-        to_str(current_user.get("nickname", "")).strip(),
-        to_str(current_user.get("birth_date", "")).strip(),
-        to_str(current_user.get("created_at", "")).strip(),
+        to_str(current_user.get("nickname", "")),
+        to_str(current_user.get("birth_date", "")),
+        to_str(current_user.get("created_at", "")),
         jst_now().strftime("%Y-%m-%d %H:%M:%S"),
-        to_str(current_user.get("is_active", "1")).strip() or "1",
+        to_str(current_user.get("is_active", "1")) or "1",
     ]
 
     _update_user_row(user_id, row_data)
@@ -535,6 +560,7 @@ def change_password(user_id: str, current_password: str, new_password: str, new_
 
     old_salt = to_str(current_user.get("password_salt", ""))
     old_password_hash = to_str(current_user.get("password_hash", ""))
+
     if not verify_password(current_password, old_salt, old_password_hash):
         raise ValueError("現在のパスワードが違います。")
 
@@ -570,6 +596,27 @@ def load_user_settings(user_id: str) -> dict:
         if str(record.get("user_id", "")) == user_id:
             fallback_age = to_int(record.get("age", 49), 49)
 
+            activity_level = to_str(record.get("activity_level", "ふつう")) or "ふつう"
+            if activity_level not in ACTIVITY_LEVEL_OPTIONS:
+                activity_level = "ふつう"
+
+            food_style = to_str(record.get("food_style", "バランス重視")) or "バランス重視"
+            if food_style not in FOOD_STYLE_OPTIONS:
+                food_style = "バランス重視"
+
+            user_type = to_str(record.get("user_type", "自分だけ向け")) or "自分だけ向け"
+            if user_type not in USER_TYPE_OPTIONS:
+                user_type = "自分だけ向け"
+
+            advice_tone = to_str(record.get("advice_tone", "やさしく")) or "やさしく"
+            if advice_tone not in ADVICE_TONE_OPTIONS:
+                advice_tone = "やさしく"
+
+            constitution_traits = normalize_multi_value(
+                record.get("constitution_traits", ""),
+                CONSTITUTION_TRAIT_OPTIONS,
+            )
+
             return {
                 "nickname": profile_nickname or to_str(record.get("nickname", "")),
                 "age": auto_age if auto_age is not None else fallback_age,
@@ -578,11 +625,11 @@ def load_user_settings(user_id: str) -> dict:
                 "target_weight": to_float(record.get("target_weight", 48.0), 48.0),
                 "current_body_fat": to_float(record.get("current_body_fat", 30.0), 30.0),
                 "target_body_fat": to_float(record.get("target_body_fat", 28.0), 28.0),
-                "activity_level": to_str(record.get("activity_level", "ふつう")) or "ふつう",
-                "food_style": to_str(record.get("food_style", "バランス重視")) or "バランス重視",
-                "user_type": to_str(record.get("user_type", "自分だけ向け")) or "自分だけ向け",
-                "advice_tone": to_str(record.get("advice_tone", "やさしく")) or "やさしく",
-                "constitution_traits": parse_multi_value(record.get("constitution_traits", "")),
+                "activity_level": activity_level,
+                "food_style": food_style,
+                "user_type": user_type,
+                "advice_tone": advice_tone,
+                "constitution_traits": constitution_traits,
             }
 
     return {
@@ -606,22 +653,45 @@ def save_user_settings(user_id: str, data: dict):
     profile = load_current_user_profile()
     current_user = find_user_by_user_id(user_id)
 
-    age = profile.get("age") if profile and profile.get("user_id") == user_id else ""
+    age = None
+    if profile and profile.get("user_id") == user_id:
+        age = profile.get("age")
+
+    activity_level = data.get("activity_level", "ふつう")
+    if activity_level not in ACTIVITY_LEVEL_OPTIONS:
+        activity_level = "ふつう"
+
+    food_style = data.get("food_style", "バランス重視")
+    if food_style not in FOOD_STYLE_OPTIONS:
+        food_style = "バランス重視"
+
+    user_type = data.get("user_type", "自分だけ向け")
+    if user_type not in USER_TYPE_OPTIONS:
+        user_type = "自分だけ向け"
+
+    advice_tone = data.get("advice_tone", "やさしく")
+    if advice_tone not in ADVICE_TONE_OPTIONS:
+        advice_tone = "やさしく"
+
+    constitution_traits = normalize_multi_value(
+        data.get("constitution_traits", []),
+        CONSTITUTION_TRAIT_OPTIONS,
+    )
 
     row_data = [
         user_id,
         data["nickname"],
-        age,
+        age if age is not None else "",
         data["height_cm"],
         data["current_weight"],
         data["target_weight"],
         data["current_body_fat"],
         data["target_body_fat"],
-        data["activity_level"],
-        data["food_style"],
-        data["user_type"],
-        data.get("advice_tone", "やさしく"),
-        join_multi_value(data.get("constitution_traits", [])),
+        activity_level,
+        food_style,
+        user_type,
+        advice_tone,
+        join_multi_value(constitution_traits),
         jst_now().strftime("%Y-%m-%d %H:%M:%S"),
     ]
 
@@ -663,10 +733,15 @@ def change_birth_date(user_id: str, current_password: str, new_birth_date):
 
     password_salt = to_str(current_user.get("password_salt", ""))
     password_hash = to_str(current_user.get("password_hash", ""))
+
     if not verify_password(current_password, password_salt, password_hash):
         raise ValueError("現在のパスワードが違います。")
 
-    birth_date_str = new_birth_date.strftime("%Y-%m-%d") if isinstance(new_birth_date, date) else to_str(new_birth_date).strip()
+    if isinstance(new_birth_date, date):
+        birth_date_str = new_birth_date.strftime("%Y-%m-%d")
+    else:
+        birth_date_str = to_str(new_birth_date).strip()
+
     if not birth_date_str:
         raise ValueError("生年月日を入力してください。")
 
@@ -723,6 +798,11 @@ def change_birth_date(user_id: str, current_password: str, new_birth_date):
 # DietLogs
 # =========================
 def save_diet_log(user_id: str, data: dict):
+    today_conditions = normalize_multi_value(
+        data.get("today_conditions", []),
+        TODAY_CONDITION_OPTIONS,
+    )
+
     get_dietlogs_sheet().append_row(
         [
             user_id,
@@ -733,7 +813,7 @@ def save_diet_log(user_id: str, data: dict):
             data["exercise_memo"],
             data["condition_note"],
             data["mood_note"],
-            join_multi_value(data.get("today_conditions", [])),
+            join_multi_value(today_conditions),
             jst_now().strftime("%Y-%m-%d %H:%M:%S"),
         ]
     )
@@ -741,15 +821,22 @@ def save_diet_log(user_id: str, data: dict):
 
 
 def load_latest_log(user_id: str) -> dict | None:
-    user_logs = [r for r in read_dietlog_records() if str(r.get("user_id", "")) == user_id]
+    records = read_dietlog_records()
+    user_logs = [r for r in records if str(r.get("user_id", "")) == user_id]
     if not user_logs:
         return None
 
-    user_logs.sort(
-        key=lambda x: (to_str(x.get("log_date", "")), to_str(x.get("created_at", ""))),
-        reverse=True,
+    def sort_key(x):
+        return (to_str(x.get("log_date", "")), to_str(x.get("created_at", "")))
+
+    user_logs.sort(key=sort_key, reverse=True)
+    latest = user_logs[0]
+
+    latest["today_conditions"] = normalize_multi_value(
+        latest.get("today_conditions", ""),
+        TODAY_CONDITION_OPTIONS,
     )
-    return user_logs[0]
+    return latest
 
 
 def get_initial_log_values(user_id: str) -> dict:
@@ -758,7 +845,10 @@ def get_initial_log_values(user_id: str) -> dict:
         return {
             "weight": to_float(latest.get("weight", 50.0), 50.0),
             "body_fat": to_float(latest.get("body_fat", 30.0), 30.0),
-            "today_conditions": parse_multi_value(latest.get("today_conditions", "")),
+            "today_conditions": normalize_multi_value(
+                latest.get("today_conditions", []),
+                TODAY_CONDITION_OPTIONS,
+            ),
         }
 
     settings = load_user_settings(user_id)
@@ -770,7 +860,9 @@ def get_initial_log_values(user_id: str) -> dict:
 
 
 def load_recent_logs(user_id: str, limit: int = 10) -> pd.DataFrame:
-    user_logs = [r for r in read_dietlog_records() if str(r.get("user_id", "")) == user_id]
+    records = read_dietlog_records()
+    user_logs = [r for r in records if str(r.get("user_id", "")) == user_id]
+
     if not user_logs:
         return pd.DataFrame()
 
@@ -800,14 +892,25 @@ def load_recent_logs(user_id: str, limit: int = 10) -> pd.DataFrame:
         }
     )
 
-    show_cols = ["日付", "体重(kg)", "体脂肪(%)", "今日の状態", "食事メモ", "運動メモ", "体調メモ", "気分メモ"]
+    show_cols = [
+        "日付",
+        "体重(kg)",
+        "体脂肪(%)",
+        "今日の状態",
+        "食事メモ",
+        "運動メモ",
+        "体調メモ",
+        "気分メモ",
+    ]
     show_cols = [c for c in show_cols if c in df.columns]
 
     return df[show_cols].head(limit)
 
 
 def load_log_chart_df(user_id: str) -> pd.DataFrame:
-    user_logs = [r for r in read_dietlog_records() if str(r.get("user_id", "")) == user_id]
+    records = read_dietlog_records()
+    user_logs = [r for r in records if str(r.get("user_id", "")) == user_id]
+
     if not user_logs:
         return pd.DataFrame()
 
@@ -828,7 +931,7 @@ def load_log_chart_df(user_id: str) -> pd.DataFrame:
     )
     df = df.drop_duplicates(subset=["log_date"], keep="last")
 
-    return pd.DataFrame(
+    chart_df = pd.DataFrame(
         {
             "日付": df["log_date_sort"],
             "体重(kg)": df["weight_num"],
@@ -836,12 +939,18 @@ def load_log_chart_df(user_id: str) -> pd.DataFrame:
         }
     ).set_index("日付")
 
+    return chart_df
+
 
 def get_today_log_status(user_id: str) -> dict:
     today = jst_today_str()
+    records = read_dietlog_records()
+
     today_logs = [
-        r for r in read_dietlog_records()
-        if str(r.get("user_id", "")) == user_id and to_str(r.get("log_date", "")) == today
+        r
+        for r in records
+        if str(r.get("user_id", "")) == user_id
+        and to_str(r.get("log_date", "")) == today
     ]
 
     if not today_logs:
@@ -853,6 +962,7 @@ def get_today_log_status(user_id: str) -> dict:
 
     today_logs.sort(key=lambda x: to_str(x.get("created_at", "")), reverse=True)
     created_at = to_str(today_logs[0].get("created_at", ""))
+
     time_text = created_at[11:16] if len(created_at) >= 16 else ""
     detail = f"今日の記録は保存済みです（最終保存 {time_text}）" if time_text else "今日の記録は保存済みです。"
 
@@ -885,21 +995,19 @@ def get_home_progress_summary(user_id: str) -> dict:
     weight_diff = round(latest_weight - target_weight, 1)
     body_fat_diff = round(latest_body_fat - target_body_fat, 1)
 
-    weight_text = (
-        f"目標まであと {weight_diff:.1f}kg"
-        if weight_diff > 0
-        else f"目標を {abs(weight_diff):.1f}kg 下回っています"
-        if weight_diff < 0
-        else "体重は目標ぴったりです"
-    )
+    if weight_diff > 0:
+        weight_text = f"目標まであと {weight_diff:.1f}kg"
+    elif weight_diff < 0:
+        weight_text = f"目標を {abs(weight_diff):.1f}kg 下回っています"
+    else:
+        weight_text = "体重は目標ぴったりです"
 
-    body_fat_text = (
-        f"目標まであと {body_fat_diff:.1f}%"
-        if body_fat_diff > 0
-        else f"目標を {abs(body_fat_diff):.1f}% 下回っています"
-        if body_fat_diff < 0
-        else "体脂肪は目標ぴったりです"
-    )
+    if body_fat_diff > 0:
+        body_fat_text = f"目標まであと {body_fat_diff:.1f}%"
+    elif body_fat_diff < 0:
+        body_fat_text = f"目標を {abs(body_fat_diff):.1f}% 下回っています"
+    else:
+        body_fat_text = "体脂肪は目標ぴったりです"
 
     return {
         "latest_date": latest_date,
@@ -911,7 +1019,7 @@ def get_home_progress_summary(user_id: str) -> dict:
 
 
 # =========================
-# 不足しやすい目安 / 体質・今日の状態ロジック
+# 不足しやすい目安 / 状態ロジック
 # =========================
 FOCUS_LABELS = {
     "protein": "たんぱく質",
@@ -944,9 +1052,15 @@ FOCUS_EXERCISE_TIPS = {
 }
 
 
+def _extract_today_conditions(latest_like) -> list[str]:
+    if latest_like is None:
+        return []
+    return normalize_multi_value(latest_like.get("today_conditions", []), TODAY_CONDITION_OPTIONS)
+
+
 def _score_support_focus(settings: dict, today_conditions: list[str]) -> dict:
     scores = {key: 0 for key in FOCUS_LABELS.keys()}
-    traits = settings.get("constitution_traits", []) or []
+    traits = normalize_multi_value(settings.get("constitution_traits", []), CONSTITUTION_TRAIT_OPTIONS)
 
     for trait in traits:
         if trait == "冷えやすい":
@@ -1006,8 +1120,8 @@ def _score_support_focus(settings: dict, today_conditions: list[str]) -> dict:
     return scores
 
 
-def get_support_focus_summary(settings: dict, latest_log: dict | None = None) -> dict:
-    today_conditions = parse_multi_value(latest_log.get("today_conditions", "")) if latest_log else []
+def get_support_focus_summary(settings: dict, latest_like: dict | None = None) -> dict:
+    today_conditions = _extract_today_conditions(latest_like)
     scores = _score_support_focus(settings, today_conditions)
 
     ordered = sorted(scores.items(), key=lambda x: (-x[1], x[0]))
@@ -1020,6 +1134,9 @@ def get_support_focus_summary(settings: dict, latest_log: dict | None = None) ->
     body_lines = []
     if points:
         body_lines.append("今整えたいポイント： " + " / ".join(points))
+    else:
+        body_lines.append("今整えたいポイント： 基本の整え")
+
     if today_conditions:
         body_lines.append("今日の状態： " + " / ".join(today_conditions))
     else:
@@ -1072,15 +1189,17 @@ def get_week_goal(settings: dict, summary: dict) -> dict:
 
 
 def get_log_streak_summary(user_id: str) -> dict:
-    user_logs = [r for r in read_dietlog_records() if str(r.get("user_id", "")) == user_id]
-    log_dates = set()
+    records = read_dietlog_records()
+    user_logs = [r for r in records if str(r.get("user_id", "")) == user_id]
 
+    log_dates = set()
     for row in user_logs:
         log_date_str = to_str(row.get("log_date", "")).strip()
         if not log_date_str:
             continue
         try:
-            log_dates.add(datetime.strptime(log_date_str, "%Y-%m-%d").date())
+            d = datetime.strptime(log_date_str, "%Y-%m-%d").date()
+            log_dates.add(d)
         except Exception:
             continue
 
@@ -1174,15 +1293,16 @@ def get_today_exercise(settings: dict, latest_log: dict | None = None) -> dict:
     activity_level = settings["activity_level"]
     support = get_support_focus_summary(settings, latest_log)
 
-    title = "ヨガ or ピラティス基礎"
-    body = support["exercise_tip"]
-
     if user_type == "忙しい日向け":
         title = "5分ストレッチ"
     elif user_type == "節約重視":
         title = "家トレ"
     elif user_type == "自分＋家族向け":
         title = "散歩 or 軽い全身運動"
+    else:
+        title = "ヨガ or ピラティス基礎"
+
+    body = support["exercise_tip"]
 
     if activity_level == "低い":
         level_text = "活動量は低め設定なので、今日は軽めで十分です。"
@@ -1415,6 +1535,7 @@ def build_eating_out_answer(question: str, settings: dict, latest_log: dict | No
 
 def generate_answer(category: str, question: str, settings: dict, latest_log: dict | None = None) -> str:
     question = question.strip()
+
     if not question:
         return "相談内容を入力してください。短くても大丈夫です。"
 
@@ -1447,7 +1568,6 @@ def build_log_feedback(user_id: str, save_data: dict) -> dict:
     mood_note = to_str(save_data.get("mood_note", "")).strip()
 
     support = get_support_focus_summary(settings, save_data)
-
     lines = []
 
     weight_diff = round(weight - target_weight, 1)
