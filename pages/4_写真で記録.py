@@ -27,54 +27,65 @@ st.markdown(
     <style>
     .block-container {
         max-width: 760px;
-        padding-top: 2.2rem;
-        padding-bottom: 3rem;
+        padding-top: 1.5rem;
+        padding-bottom: 2rem;
     }
     .sm-hero {
         background: linear-gradient(135deg, #fff9f3 0%, #fffdf9 100%);
         border: 1px solid #f0e4d8;
-        border-radius: 22px;
-        padding: 18px 16px 14px 16px;
-        margin-bottom: 16px;
+        border-radius: 20px;
+        padding: 14px 14px 11px 14px;
+        margin-top: 0.2rem;
+        margin-bottom: 10px;
         box-shadow: 0 4px 16px rgba(0,0,0,0.03);
     }
     .sm-hero-title {
-        font-size: 1.2rem;
+        font-size: 1.08rem;
         font-weight: 700;
-        margin-bottom: 0.2rem;
+        margin-bottom: 0.1rem;
     }
     .sm-hero-sub {
         color: #6b6b6b;
-        font-size: 0.93rem;
-        line-height: 1.6;
+        font-size: 0.88rem;
+        line-height: 1.45;
     }
     .sm-card {
         background: #ffffff;
         border: 1px solid #eee5db;
         border-radius: 18px;
-        padding: 16px 14px;
-        margin-bottom: 14px;
+        padding: 14px 13px;
+        margin-bottom: 10px;
         box-shadow: 0 2px 10px rgba(0,0,0,0.03);
     }
     .sm-card-soft {
         background: #fffdf9;
     }
     .sm-title {
-        font-size: 1rem;
+        font-size: 0.95rem;
         font-weight: 700;
-        margin-bottom: 0.5rem;
+        margin-bottom: 0.45rem;
     }
     .sm-sub {
-        color: #6f6f6f;
-        font-size: 0.92rem;
-        line-height: 1.6;
+        color: #6b6b6b;
+        font-size: 0.86rem;
+        line-height: 1.45;
+    }
+    .sm-note {
+        background: #fffaf5;
+        border: 1px dashed #ead7bf;
+        border-radius: 14px;
+        padding: 10px 11px;
+        margin: 8px 0 10px 0;
+        color: #6d6152;
+        font-size: 0.84rem;
+        line-height: 1.55;
     }
     .sm-balance {
         display:inline-block;
         padding: 6px 10px;
         margin: 4px 6px 4px 0;
         border-radius: 999px;
-        font-size: 0.88rem;
+        font-size: 0.84rem;
         border: 1px solid #e4ddd3;
         background: #faf8f5;
     }
@@ -86,15 +97,24 @@ st.markdown(
         background: #faf1f1;
         border-color: #e9caca;
     }
-    .sm-note {
-        background: #fffaf5;
-        border: 1px dashed #ead7bf;
-        border-radius: 14px;
-        padding: 12px;
-        margin: 10px 0 14px 0;
-        color: #6d6152;
-        font-size: 0.9rem;
-        line-height: 1.7;
+    .stButton > button {
+        border-radius: 12px !important;
+        min-height: 42px;
+        border: 1px solid #e7d8c8 !important;
+        width: 100%;
+        font-size: 0.92rem !important;
+    }
+    div[data-testid="stExpander"] {
+        border: 1px solid #eee3d7;
+        border-radius: 16px;
+        overflow: hidden;
+        margin-bottom: 10px;
+        background: #fffdf9;
+    }
+    h3 {
+        margin-top: 0.5rem !important;
+        margin-bottom: 0.55rem !important;
+        font-size: 1rem !important;
     }
     </style>
     """,
@@ -198,7 +218,7 @@ def get_today_meal_history_hint(latest_log_dict: dict | None, today_date_str: st
         else:
             parts.append(f"{slot}は未記録")
 
-    return "今日の記録ヒント: " + " / ".join(parts)
+    return " / ".join(parts)
 
 
 def normalize_multi(v) -> list[str]:
@@ -278,7 +298,7 @@ def guess_meal_slot_from_image(uploaded_file, time_hint: str = "", history_hint:
 
 追加情報:
 - 現在時刻からの参考ヒント: {time_hint}
-- {history_hint}
+- 今日の記録状況: {history_hint}
 
 判断ルール:
 - 出力は上の4つのうち1語だけ
@@ -424,7 +444,7 @@ def suggest_home_item(balance: dict, meal_type_hint: str = "", settings_dict: di
     conditions = get_today_conditions_from_latest_log(latest_log_dict)
 
     if "冷えやすい" in traits and not balance.get("soup", False):
-        return "家にあれば：味噌汁 or 温かいお茶を追加"
+        return "家にあれば：味噌汁 or 温かいお茶"
 
     if ("むくみやすい" in traits or "むくみあり" in conditions) and not balance.get("vegetables", False):
         return "家にあれば：トマト or 野菜を少し"
@@ -439,13 +459,13 @@ def suggest_home_item(balance: dict, meal_type_hint: str = "", settings_dict: di
         return "家にあれば：卵 or 豆腐を1つ"
 
     if not balance.get("vegetables", False):
-        return "家にあれば：野菜を少し or おひたし"
+        return "家にあれば：野菜を少し"
 
     if not balance.get("soup", False):
-        return "家にあれば：味噌汁 or スープを1杯"
+        return "家にあれば：味噌汁 or スープ"
 
     if not balance.get("main_food", False) and meal_type_hint != "間食":
-        return "家にあれば：ごはん少しを追加"
+        return "家にあれば：ごはん少し"
 
     return "家にあるもので無理に足さなくてもOKです"
 
@@ -456,10 +476,8 @@ def suggest_one_reduction(balance: dict, meal_type_hint: str = "", settings_dict
 
     if ("むくみやすい" in traits or "むくみあり" in conditions) and balance.get("heavy", False):
         return "減らすなら：こってり系を少し"
-
     if ("胃腸がゆらぎやすい" in traits or "食べすぎた" in conditions) and balance.get("heavy", False):
         return "減らすなら：量を少し"
-
     if balance.get("fried", False):
         return "減らすなら：揚げ物を少し"
     if balance.get("sweet", False) and meal_type_hint == "間食":
@@ -472,7 +490,6 @@ def suggest_one_reduction(balance: dict, meal_type_hint: str = "", settings_dict
 def build_personal_hint_text(settings_dict: dict | None = None, latest_log_dict: dict | None = None) -> str:
     traits = get_constitution_traits(settings_dict or {})
     conditions = get_today_conditions_from_latest_log(latest_log_dict)
-
     hints = []
 
     if "冷えやすい" in traits:
@@ -494,7 +511,6 @@ def build_personal_hint_text(settings_dict: dict | None = None, latest_log_dict:
 
     if not hints:
         return ""
-
     return " / ".join(hints[:3])
 
 
@@ -522,16 +538,9 @@ def render_balance_badges(balance: dict, meal_type_hint: str = "", settings_dict
     if personal_hint:
         st.markdown(f'<div class="sm-note">反映中：{personal_hint}</div>', unsafe_allow_html=True)
 
-    buy_text = suggest_buy_item(balance, meal_type_hint=meal_type_hint, settings_dict=settings_dict, latest_log_dict=latest_log_dict)
-    home_text = suggest_home_item(balance, meal_type_hint=meal_type_hint, settings_dict=settings_dict, latest_log_dict=latest_log_dict)
-    reduce_text = suggest_one_reduction(balance, meal_type_hint=meal_type_hint, settings_dict=settings_dict, latest_log_dict=latest_log_dict)
-
-    col1, col2 = st.columns(2)
-    with col1:
-        st.info(buy_text)
-        st.info(home_text)
-    with col2:
-        st.warning(reduce_text)
+    st.info(suggest_buy_item(balance, meal_type_hint, settings_dict, latest_log_dict))
+    st.info(suggest_home_item(balance, meal_type_hint, settings_dict, latest_log_dict))
+    st.warning(suggest_one_reduction(balance, meal_type_hint, settings_dict, latest_log_dict))
 
 
 def preset_text_by_type(meal_type: str, meal_text: str) -> tuple[str, str, str, str]:
@@ -563,15 +572,15 @@ def apply_draft_to_log_fields(target_slot: str, meal_draft: str):
         st.session_state["photo_log_snack"] = meal_draft
 
 
-show_saved_illustration("assets/illust/photo_record_top.png", "写真で記録")
+show_saved_illustration("assets/home_icons/photo.png")
 
 st.markdown(
     """
     <div class="sm-hero">
         <div class="sm-hero-title">📷 写真で記録</div>
         <div class="sm-hero-sub">
-            保存してあるイラストを使いながら、写真から食事内容を下書きしたり、
-            バランスを見たり、記録をラクに残せるページです。
+            写真から下書きしたり、バランスを見たりしながら、
+            食事や体重の記録をラクに残せます。
         </div>
     </div>
     """,
@@ -584,9 +593,9 @@ tab1, tab2, tab3 = st.tabs(
 
 with tab1:
     st.markdown('<div class="sm-card sm-card-soft">', unsafe_allow_html=True)
-    show_saved_illustration("assets/illust/meal_eval.png")
+    show_saved_illustration("assets/home_icons/advice.png")
     st.markdown('<div class="sm-title">この食事を評価</div>', unsafe_allow_html=True)
-    st.markdown('<div class="sm-sub">写真と内容の補足から、食事を評価します。</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sm-sub">写真から内容を下書きして、食事バランスを見られます。</div>', unsafe_allow_html=True)
 
     eval_meal_type = st.radio(
         "食事区分",
@@ -601,14 +610,12 @@ with tab1:
         type=["jpg", "jpeg", "png"],
         key="eval_photo_upload",
     )
-
     selected_eval_image = eval_camera if eval_camera is not None else eval_upload
 
     if selected_eval_image is not None:
         st.image(selected_eval_image, caption="評価したい食事", use_container_width=True)
 
     col_a, col_b = st.columns(2)
-
     with col_a:
         if st.button("📷 写真から食事内容を読む", use_container_width=True, key="read_meal_from_photo"):
             if selected_eval_image is None:
@@ -616,8 +623,7 @@ with tab1:
             else:
                 try:
                     with st.spinner("写真から食事内容を読み取っています..."):
-                        meal_draft = read_meal_text_from_image(selected_eval_image, eval_meal_type)
-                    st.session_state["eval_meal_text"] = meal_draft
+                        st.session_state["eval_meal_text"] = read_meal_text_from_image(selected_eval_image, eval_meal_type)
                     st.success("写真から下書きを入れました")
                 except Exception as e:
                     st.error(f"写真の読み取りに失敗しました: {e}")
@@ -628,55 +634,44 @@ with tab1:
                 st.warning("先に写真を撮るか、アップロードしてください。")
             else:
                 try:
-                    with st.spinner("主食・たんぱく質・野菜・汁物を見ています..."):
+                    with st.spinner("バランスを見ています..."):
                         st.session_state["eval_balance_result"] = analyze_meal_balance_from_image(selected_eval_image)
                     st.success("写真から目安を出しました")
                 except Exception as e:
                     st.error(f"バランス確認に失敗しました: {e}")
 
     if "eval_balance_result" in st.session_state:
-        st.markdown("### 写真から見た目安")
-        render_balance_badges(
-            st.session_state["eval_balance_result"],
-            meal_type_hint=eval_meal_type,
-            settings_dict=settings,
-            latest_log_dict=latest_log,
-        )
-
-    st.markdown("### 写真に写っている内容")
-    st.markdown(
-        """
-        <div class="sm-note">
-        写真だけでは伝わりにくい食材や汁物の中身があれば、
-        ここに少し足すと評価が安定します。
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+        with st.expander("写真から見た目安を見る", expanded=True):
+            render_balance_badges(
+                st.session_state["eval_balance_result"],
+                meal_type_hint=eval_meal_type,
+                settings_dict=settings,
+                latest_log_dict=latest_log,
+            )
 
     eval_meal_text = st.text_area(
         "この食事の内容",
-        placeholder="例：しらすおにぎり、ゆで卵、きのことわかめの味噌汁、ブルーベリー",
-        height=120,
+        placeholder="例：しらすおにぎり、ゆで卵、味噌汁、ブルーベリー",
+        height=110,
         key="eval_meal_text",
     )
 
     with st.expander("朝・昼・夜・間食で整理して入力したい場合"):
         default_breakfast, default_lunch, default_dinner, default_snack = preset_text_by_type(
-            eval_meal_type,
-            eval_meal_text,
+            eval_meal_type, eval_meal_text
         )
         st.text_area("朝", value=default_breakfast, height=70, key="eval_breakfast")
         st.text_area("昼", value=default_lunch, height=70, key="eval_lunch")
         st.text_area("夜", value=default_dinner, height=70, key="eval_dinner")
         st.text_area("間食", value=default_snack, height=70, key="eval_snack")
 
-    eval_note = st.text_area(
-        "補足メモ（任意）",
-        placeholder="例：今日はむくみあり / 外食予定 / ヨガ前 / 軽めにしたい など",
-        height=90,
-        key="eval_note",
-    )
+    with st.expander("補足メモを入れる"):
+        eval_note = st.text_area(
+            "補足メモ",
+            placeholder="例：外食予定 / 軽めにしたい / ヨガ前 など",
+            height=90,
+            key="eval_note",
+        )
 
     if st.button("この食事を評価する", use_container_width=True, key="run_meal_eval"):
         sections_text = "\n".join(
@@ -687,9 +682,8 @@ with tab1:
                 f"間食: {st.session_state.get('eval_snack', '').strip()}",
             ]
         )
-
         base_text = eval_meal_text.strip()
-        merged_note = eval_note.strip()
+        merged_note = st.session_state.get("eval_note", "").strip()
         has_section_input = sections_text.replace("朝: ", "").replace("昼: ", "").replace("夜: ", "").replace("間食: ", "").strip()
 
         if has_section_input:
@@ -708,18 +702,16 @@ with tab1:
     st.markdown("</div>", unsafe_allow_html=True)
 
     if "meal_eval_result" in st.session_state:
-        st.markdown('<div class="sm-card">', unsafe_allow_html=True)
-        st.markdown("### 評価結果")
-        result = st.session_state["meal_eval_result"]
-        st.info(result["title"])
-        st.markdown(result["body"].replace("\n", "  \n"))
-        st.markdown("</div>", unsafe_allow_html=True)
+        with st.expander("評価結果を見る", expanded=True):
+            result = st.session_state["meal_eval_result"]
+            st.info(result["title"])
+            st.markdown(result["body"].replace("\n", "  \n"))
 
 with tab2:
     st.markdown('<div class="sm-card sm-card-soft">', unsafe_allow_html=True)
-    show_saved_illustration("assets/illust/meal_log.png")
+    show_saved_illustration("assets/home_icons/diet.png")
     st.markdown('<div class="sm-title">食べたものを記録</div>', unsafe_allow_html=True)
-    st.markdown('<div class="sm-sub">食後の写真やメモを使って、食事記録をかんたんに残します。</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sm-sub">写真から下書きして、朝・昼・夜・間食に記録します。</div>', unsafe_allow_html=True)
 
     log_camera = st.camera_input("食べたものを撮る", key="log_camera_input")
     log_upload = st.file_uploader(
@@ -727,7 +719,6 @@ with tab2:
         type=["jpg", "jpeg", "png"],
         key="log_photo_upload",
     )
-
     selected_log_image = log_camera if log_camera is not None else log_upload
 
     if selected_log_image is not None:
@@ -742,7 +733,7 @@ with tab2:
 
     if mode == "自分で選ぶ":
         log_target_slot = st.radio(
-            "下書きを入れる場所",
+            "入れる場所",
             ["朝", "昼", "夜", "間食"],
             horizontal=True,
             index=2,
@@ -760,7 +751,6 @@ with tab2:
         log_hint_for_balance = st.session_state.get("last_guessed_slot", "")
 
     btn1, btn2 = st.columns(2)
-
     with btn1:
         if st.button("📷 写真から下書きする", use_container_width=True, key="read_log_meal_from_photo"):
             if selected_log_image is None:
@@ -769,21 +759,19 @@ with tab2:
                 try:
                     with st.spinner("写真から食事内容を読み取っています..."):
                         if mode == "AIにまかせる":
-                            time_hint = get_time_hint_label()
-                            history_hint = get_today_meal_history_hint(latest_log, today_str)
                             guessed_slot = guess_meal_slot_from_image(
                                 selected_log_image,
-                                time_hint=time_hint,
-                                history_hint=history_hint,
+                                time_hint=get_time_hint_label(),
+                                history_hint=get_today_meal_history_hint(latest_log, today_str),
                             )
                             meal_draft = read_meal_text_from_image(selected_log_image, f"{guessed_slot}の記録")
                             apply_draft_to_log_fields(guessed_slot, meal_draft)
                             st.session_state["last_guessed_slot"] = guessed_slot
-                            st.success(f"AIが「{guessed_slot}」と判断して下書きを入れました。必要なら直してください。")
+                            st.success(f"AIが「{guessed_slot}」と判断して下書きを入れました。")
                         else:
                             meal_draft = read_meal_text_from_image(selected_log_image, f"{log_target_slot}の記録")
                             apply_draft_to_log_fields(log_target_slot, meal_draft)
-                            st.success(f"{log_target_slot}の欄に下書きを入れました。必要なら直してください。")
+                            st.success(f"{log_target_slot}の欄に下書きを入れました。")
                 except Exception as e:
                     st.error(f"写真の読み取りに失敗しました: {e}")
 
@@ -793,42 +781,40 @@ with tab2:
                 st.warning("先に写真を撮るか、アップロードしてください。")
             else:
                 try:
-                    with st.spinner("主食・たんぱく質・野菜・汁物を見ています..."):
+                    with st.spinner("バランスを見ています..."):
                         st.session_state["log_balance_result"] = analyze_meal_balance_from_image(selected_log_image)
                     st.success("写真から目安を出しました")
                 except Exception as e:
                     st.error(f"バランス確認に失敗しました: {e}")
 
-    if st.session_state.get("last_guessed_slot"):
-        st.caption(f"直近のAI判定：{st.session_state['last_guessed_slot']}")
-
     if "log_balance_result" in st.session_state:
-        st.markdown("### 写真から見た目安")
-        balance_hint = st.session_state.get("last_guessed_slot", log_hint_for_balance)
-        render_balance_badges(
-            st.session_state["log_balance_result"],
-            meal_type_hint=balance_hint,
-            settings_dict=settings,
-            latest_log_dict=latest_log,
+        with st.expander("写真から見た目安を見る", expanded=True):
+            balance_hint = st.session_state.get("last_guessed_slot", log_hint_for_balance)
+            render_balance_badges(
+                st.session_state["log_balance_result"],
+                meal_type_hint=balance_hint,
+                settings_dict=settings,
+                latest_log_dict=latest_log,
+            )
+
+    with st.expander("朝・昼・夜・間食を入力する", expanded=True):
+        breakfast_text = st.text_area("朝", placeholder="例：納豆ごはん、味噌汁", height=80, key="photo_log_breakfast")
+        lunch_text = st.text_area("昼", placeholder="例：鮭おにぎり、味噌汁", height=80, key="photo_log_lunch")
+        dinner_text = st.text_area("夜", placeholder="例：焼き魚、サラダ、ごはん少なめ", height=80, key="photo_log_dinner")
+        snack_text = st.text_area("間食", placeholder="例：ヨーグルト、チョコ2個", height=80, key="photo_log_snack")
+
+    with st.expander("補足メモを入れる"):
+        log_note = st.text_area(
+            "補足メモ",
+            placeholder="例：外食 / 軽め / 運動前後 / 写真あり など",
+            height=90,
+            key="photo_log_note",
         )
-
-    st.markdown("### 食べたもの")
-    breakfast_text = st.text_area("朝", placeholder="例：納豆ごはん、味噌汁、ゆで卵", height=80, key="photo_log_breakfast")
-    lunch_text = st.text_area("昼", placeholder="例：鮭おにぎり、味噌汁、サラダチキン", height=80, key="photo_log_lunch")
-    dinner_text = st.text_area("夜", placeholder="例：焼き魚、味噌汁、サラダ、ごはん少なめ", height=80, key="photo_log_dinner")
-    snack_text = st.text_area("間食", placeholder="例：ヨーグルト、チョコ2個、なし", height=80, key="photo_log_snack")
-
-    log_note = st.text_area(
-        "補足メモ（任意）",
-        placeholder="例：外食 / お弁当 / 軽め / 運動前後 / 写真あり など",
-        height=90,
-        key="photo_log_note",
-    )
 
     st.markdown(
         """
         <div class="sm-note">
-        食べる時間の目安：朝は起きてから2時間以内、間食は夕方まで、
+        朝は起きてから2時間以内、間食は夕方まで、
         夜は寝る直前を避けると整えやすいです。
         </div>
         """,
@@ -837,15 +823,16 @@ with tab2:
 
     if st.button("食べたものを記録する", use_container_width=True, key="save_photo_meal_log"):
         lines = [
-            f"朝: {breakfast_text.strip()}",
-            f"昼: {lunch_text.strip()}",
-            f"夜: {dinner_text.strip()}",
-            f"間食: {snack_text.strip()}",
+            f"朝: {st.session_state.get('photo_log_breakfast', '').strip()}",
+            f"昼: {st.session_state.get('photo_log_lunch', '').strip()}",
+            f"夜: {st.session_state.get('photo_log_dinner', '').strip()}",
+            f"間食: {st.session_state.get('photo_log_snack', '').strip()}",
         ]
 
-        if log_note.strip():
+        log_note_text = st.session_state.get("photo_log_note", "").strip()
+        if log_note_text:
             lines.append("")
-            lines.append(f"補足: {log_note.strip()}")
+            lines.append(f"補足: {log_note_text}")
 
         meal_memo = "\n".join(lines)
 
@@ -870,7 +857,7 @@ with tab2:
 
 with tab3:
     st.markdown('<div class="sm-card sm-card-soft">', unsafe_allow_html=True)
-    show_saved_illustration("assets/illust/scale_record.png")
+    show_saved_illustration("assets/home_icons/settings.png")
     st.markdown('<div class="sm-title">体重計を記録</div>', unsafe_allow_html=True)
     st.markdown('<div class="sm-sub">体重計の写真と数値を使って、今日の記録に残します。</div>', unsafe_allow_html=True)
 
@@ -880,42 +867,41 @@ with tab3:
         type=["jpg", "jpeg", "png"],
         key="scale_photo_upload",
     )
-
     selected_scale_image = scale_camera if scale_camera is not None else scale_upload
 
     if selected_scale_image is not None:
         st.image(selected_scale_image, caption="体重計写真", use_container_width=True)
 
-    col1, col2 = st.columns(2)
+    with st.expander("数値を入力する", expanded=True):
+        col1, col2 = st.columns(2)
+        with col1:
+            weight = st.number_input(
+                "体重(kg)",
+                min_value=0.0,
+                max_value=200.0,
+                value=0.0,
+                step=0.1,
+                format="%.1f",
+                key="scale_weight_input",
+            )
+        with col2:
+            body_fat = st.number_input(
+                "体脂肪(%)",
+                min_value=0.0,
+                max_value=70.0,
+                value=0.0,
+                step=0.1,
+                format="%.1f",
+                key="scale_bodyfat_input",
+            )
 
-    with col1:
-        weight = st.number_input(
-            "体重(kg)",
-            min_value=0.0,
-            max_value=200.0,
-            value=0.0,
-            step=0.1,
-            format="%.1f",
-            key="scale_weight_input",
+    with st.expander("補足メモを入れる"):
+        scale_note = st.text_area(
+            "補足メモ",
+            placeholder="例：朝いち / 入浴後 / いつもの体重計と差がある など",
+            height=100,
+            key="scale_note_input",
         )
-
-    with col2:
-        body_fat = st.number_input(
-            "体脂肪(%)",
-            min_value=0.0,
-            max_value=70.0,
-            value=0.0,
-            step=0.1,
-            format="%.1f",
-            key="scale_bodyfat_input",
-        )
-
-    scale_note = st.text_area(
-        "補足メモ（任意）",
-        placeholder="例：朝いち / 入浴後 / いつもの体重計と差がある など",
-        height=100,
-        key="scale_note_input",
-    )
 
     if st.button("この数値で記録する", use_container_width=True, key="save_scale_log"):
         save_data = {
@@ -924,7 +910,7 @@ with tab3:
             "body_fat": float(body_fat),
             "meal_memo": "",
             "exercise_memo": "",
-            "condition_note": scale_note.strip(),
+            "condition_note": st.session_state.get("scale_note_input", "").strip(),
             "mood_note": "",
             "today_conditions": [],
         }
