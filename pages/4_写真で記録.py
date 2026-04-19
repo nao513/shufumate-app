@@ -6,6 +6,7 @@ from app_core import (
     save_diet_log,
     jst_today_str,
     jst_today,
+    jst_now,
     load_user_settings,
     load_latest_log,
     build_food_evaluation_from_text,
@@ -49,6 +50,17 @@ def uploaded_file_to_data_url(uploaded_file) -> str:
     return f"data:{mime_type};base64,{b64}"
 
 
+def get_time_hint_label() -> str:
+    hour = jst_now().hour
+    if 4 <= hour <= 10:
+        return "朝"
+    if 11 <= hour <= 15:
+        return "昼"
+    if 16 <= hour <= 22:
+        return "夜"
+    return "間食"
+
+
 def read_meal_text_from_image(uploaded_file, meal_type_hint: str = "") -> str:
     client = get_openai_client()
     image_data_url = uploaded_file_to_data_url(uploaded_file)
@@ -87,11 +99,11 @@ def read_meal_text_from_image(uploaded_file, meal_type_hint: str = "") -> str:
     return (response.output_text or "").strip()
 
 
-def guess_meal_slot_from_image(uploaded_file) -> str:
+def guess_meal_slot_from_image(uploaded_file, time_hint: str = "") -> str:
     client = get_openai_client()
     image_data_url = uploaded_file_to_data_url(uploaded_file)
 
-    prompt = """
+    prompt = f"""
 あなたは主婦向け食事記録アプリの補助AIです。
 画像を見て、次の4択から最も近い食事区分を1つだけ返してください。
 
@@ -101,11 +113,15 @@ def guess_meal_slot_from_image(uploaded_file) -> str:
 夜
 間食
 
-条件:
+追加情報:
+- 現在時刻からの参考ヒント: {time_hint}
+
+判断ルール:
 - 出力は上の4つのうち1語だけ
 - 説明は不要
-- 飲み物だけ、デザート、お菓子、軽食なら「間食」寄りで考えてよい
-- 一般的な時間帯の印象で推定してよい
+- 飲み物だけ、デザート、お菓子、軽食なら「間食」寄り
+- 定食、お弁当、しっかりした1食なら「朝・昼・夜」から選ぶ
+- 迷うときは画像内容を優先し、次に時間帯ヒントを参考にする
 """
 
     response = client.responses.create(
@@ -123,7 +139,7 @@ def guess_meal_slot_from_image(uploaded_file) -> str:
 
     slot = (response.output_text or "").strip()
     if slot not in ["朝", "昼", "夜", "間食"]:
-        return "夜"
+        return time_hint if time_hint in ["朝", "昼", "夜", "間食"] else "夜"
     return slot
 
 
@@ -307,7 +323,8 @@ with tab2:
             key="log_target_slot",
         )
     else:
-        st.caption("AIが写真から 朝 / 昼 / 夜 / 間食 を推定して入れます。")
+        time_hint = get_time_hint_label()
+        st.caption(f"AIが写真と時間帯ヒント（今は「{time_hint}」寄り）から推定して入れます。")
         log_target_slot = None
 
     if st.button("📷 写真から下書きする", use_container_width=True, key="read_log_meal_from_photo"):
@@ -317,7 +334,8 @@ with tab2:
             try:
                 with st.spinner("写真から食事内容を読み取っています..."):
                     if mode == "AIにまかせる":
-                        guessed_slot = guess_meal_slot_from_image(selected_log_image)
+                        time_hint = get_time_hint_label()
+                        guessed_slot = guess_meal_slot_from_image(selected_log_image, time_hint=time_hint)
                         meal_draft = read_meal_text_from_image(selected_log_image, f"{guessed_slot}の記録")
                         apply_draft_to_log_fields(guessed_slot, meal_draft)
                         st.session_state["last_guessed_slot"] = guessed_slot
