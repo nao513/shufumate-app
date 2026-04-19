@@ -1,5 +1,6 @@
 import streamlit as st
 from app_core import (
+    require_login,
     get_user_id,
     get_initial_log_values,
     save_diet_log,
@@ -8,6 +9,8 @@ from app_core import (
     jst_today,
     jst_today_str,
 )
+
+require_login()
 
 st.title("📝 記録する")
 st.caption("今日の体重・体脂肪・食事・運動を記録します")
