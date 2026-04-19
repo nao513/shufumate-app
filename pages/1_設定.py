@@ -12,10 +12,11 @@ from app_core import (
     USER_TYPE_OPTIONS,
 )
 
+require_login()
+
 st.title("⚙️ 設定")
 st.caption("提案に使う基本情報を保存します")
 
-require_login()
 user_id = get_user_id()
 
 try:
@@ -26,13 +27,16 @@ except Exception as e:
     st.stop()
 
 nickname_default = profile["nickname"] if profile else settings["nickname"]
-age_text = f"{profile['age']}歳" if profile and profile.get("age") is not None else "不明"
 login_id_text = profile["login_id"] if profile else ""
+birth_date_text = profile["birth_date"] if profile else "未設定"
+age_text = f"{profile['age']}歳" if profile and profile.get("age") is not None else "未設定"
 
 with st.form("settings_form"):
     st.text_input("ログインID", value=login_id_text, disabled=True)
-    nickname = st.text_input("ニックネーム", value=nickname_default)
+    st.text_input("生年月日", value=birth_date_text, disabled=True)
     st.text_input("年齢", value=age_text, disabled=True)
+
+    nickname = st.text_input("ニックネーム", value=nickname_default)
 
     height_cm = st.number_input(
         "身長(cm)",
@@ -127,7 +131,6 @@ if submitted:
 
 st.divider()
 st.subheader("🔑 ログインID変更")
-st.caption("変更には現在のパスワード確認が必要です")
 
 with st.form("change_login_id_form"):
     new_login_id = st.text_input("新しいログインID")
@@ -141,14 +144,13 @@ if change_id_submitted:
             current_password=current_password_for_id,
             new_login_id=new_login_id,
         )
-        st.success("ログインIDを変更しました。次回から新しいIDでログインできます。")
+        st.success("ログインIDを変更しました")
         st.rerun()
     except Exception as e:
         st.error(f"ログインID変更に失敗しました: {e}")
 
 st.divider()
 st.subheader("🔒 パスワード変更")
-st.caption("現在のパスワード確認が必要です")
 
 with st.form("change_password_form"):
     current_password = st.text_input("現在のパスワード", type="password", key="current_password")
@@ -164,7 +166,7 @@ if change_pw_submitted:
             new_password=new_password,
             new_password_confirm=new_password_confirm,
         )
-        st.success("パスワードを変更しました。次回から新しいパスワードでログインできます。")
+        st.success("パスワードを変更しました")
         st.rerun()
     except Exception as e:
         st.error(f"パスワード変更に失敗しました: {e}")
