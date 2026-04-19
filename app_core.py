@@ -1279,3 +1279,38 @@ def build_log_feedback(user_id: str, save_data: dict) -> dict:
         "title": title,
         "body": body,
     }
+
+def get_week_goal(settings: dict, summary: dict) -> dict:
+    user_type = to_str(settings.get("user_type", "自分だけ向け")) or "自分だけ向け"
+    tone = to_str(settings.get("advice_tone", "やさしく")) or "やさしく"
+
+    weight_text = to_str(summary.get("weight_text", ""))
+    body_fat_text = to_str(summary.get("body_fat_text", ""))
+
+    if user_type == "忙しい日向け":
+        title = "今週の目標"
+        body = "完璧を目指さず、まずは記録を続けることを優先しましょう。週3回、5分だけでも動けたら十分です。"
+    elif user_type == "節約重視":
+        title = "今週の目標"
+        body = "食材を使い切る意識で、無理なく整える1週間にしましょう。外食後も次の食事で戻せば大丈夫です。"
+    elif user_type == "自分＋家族向け":
+        title = "今週の目標"
+        body = "家族優先の中でも、自分の量と体調を意識する1週間にしましょう。まずは1日1回、自分のための選択ができれば十分です。"
+    else:
+        title = "今週の目標"
+        body = "体重や体脂肪だけでなく、記録を続けることそのものを目標にしましょう。小さく整える積み重ねがいちばん強いです。"
+
+    if weight_text:
+        body += f"\n\n体重の目安：{weight_text}"
+    if body_fat_text:
+        body += f"\n体脂肪の目安：{body_fat_text}"
+
+    if tone == "しっかり":
+        body += "\n\n今週も流れで過ごさず、1回ずつ整えていきましょう。"
+    elif tone == "やさしく":
+        body += "\n\n今週もあせらず、自分のペースで進めば大丈夫です。"
+
+    return {
+        "title": title,
+        "body": body,
+    }
