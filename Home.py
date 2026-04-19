@@ -30,7 +30,7 @@ st.markdown(
     """
     <style>
     .block-container {
-        padding-top: 2.4rem;
+        padding-top: 2.2rem;
         padding-bottom: 2rem;
         max-width: 760px;
     }
@@ -160,32 +160,42 @@ st.markdown(
         font-size: 0.9rem;
         line-height: 1.7;
     }
-    .sm-nav-card {
+    .sm-use-card {
         background: #fffdf9;
         border: 1px solid #eee3d7;
         border-radius: 20px;
         padding: 12px;
         box-shadow: 0 2px 10px rgba(0,0,0,0.03);
-        margin-bottom: 10px;
+        margin-bottom: 12px;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
     }
-    .sm-nav-title {
-        font-size: 0.98rem;
+    .sm-use-title {
+        font-size: 1rem;
         font-weight: 700;
+        text-align: center;
         margin-top: 0.55rem;
-        margin-bottom: 0.2rem;
-        text-align: center;
+        margin-bottom: 0.25rem;
     }
-    .sm-nav-sub {
-        font-size: 0.86rem;
+    .sm-use-sub {
+        font-size: 0.87rem;
         color: #6f6f6f;
-        line-height: 1.5;
+        line-height: 1.55;
         text-align: center;
-        min-height: 2.8em;
+        min-height: 3.2em;
+        margin-bottom: 0.8rem;
+    }
+    .sm-img-wrap {
+        border-radius: 16px;
+        overflow: hidden;
     }
     .stButton > button {
         border-radius: 14px !important;
         min-height: 44px;
         border: 1px solid #e7d8c8 !important;
+        width: 100%;
     }
     @media (max-width: 640px) {
         .sm-grid {
@@ -347,36 +357,22 @@ def render_exercise_card(exercise: dict):
 
 
 def render_nav_card(image_path: str, title: str, subtitle: str):
-    st.markdown('<div class="sm-nav-card">', unsafe_allow_html=True)
+    st.markdown('<div class="sm-use-card">', unsafe_allow_html=True)
+    st.markdown('<div class="sm-img-wrap">', unsafe_allow_html=True)
     show_image_if_exists(image_path)
-    st.markdown(f'<div class="sm-nav-title">{title}</div>', unsafe_allow_html=True)
-    st.markdown(f'<div class="sm-nav-sub">{subtitle}</div>', unsafe_allow_html=True)
-    st.markdown("</div>", unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="sm-use-title">{title}</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="sm-use-sub">{subtitle}</div>', unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
 
 
-settings = load_user_settings("")
 profile = load_current_user_profile()
-user_id = profile["user_id"] if profile else None
-
-settings = load_user_settings(user_id) if user_id else settings
-latest_log = load_latest_log(user_id) if user_id else None
-progress = get_home_progress_summary(user_id) if user_id else {
-    "latest_date": "未記録",
-    "latest_weight": 0.0,
-    "latest_body_fat": 0.0,
-    "weight_text": "",
-    "body_fat_text": "",
-}
-today_status = get_today_log_status(user_id) if user_id else {
-    "is_logged": False,
-    "label": "未記録",
-    "detail": "",
-}
-streak = get_log_streak_summary(user_id) if user_id else {
-    "is_active": False,
-    "label": "記録なし",
-    "detail": "",
-}
+user_id = profile["user_id"] if profile else ""
+settings = load_user_settings(user_id)
+latest_log = load_latest_log(user_id)
+progress = get_home_progress_summary(user_id)
+today_status = get_today_log_status(user_id)
+streak = get_log_streak_summary(user_id)
 week_goal = get_week_goal(settings, progress)
 focus = get_support_focus_summary(settings, latest_log)
 
@@ -449,7 +445,7 @@ with col1:
         "写真で記録",
         "写真から下書きやバランス確認をしたい時",
     )
-    if st.button("📷 写真で記録", use_container_width=True):
+    if st.button("📷 写真で記録", use_container_width=True, key="go_photo"):
         st.switch_page("pages/4_写真で記録.py")
 
 with col2:
@@ -458,7 +454,7 @@ with col2:
         "設定",
         "体質や目標、使い方を整えたい時",
     )
-    if st.button("⚙️ 設定", use_container_width=True):
+    if st.button("⚙️ 設定", use_container_width=True, key="go_settings"):
         st.switch_page("pages/1_設定.py")
 
 col3, col4 = st.columns(2)
@@ -468,7 +464,7 @@ with col3:
         "記録する",
         "体重や食事、体調を入力して残したい時",
     )
-    if st.button("📝 記録する", use_container_width=True):
+    if st.button("📝 記録する", use_container_width=True, key="go_log"):
         st.switch_page("pages/2_記録する.py")
 
 with col4:
@@ -477,5 +473,5 @@ with col4:
         "相談する",
         "食事や運動をその場で相談したい時",
     )
-    if st.button("💬 相談する", use_container_width=True):
+    if st.button("💬 相談する", use_container_width=True, key="go_advice"):
         st.switch_page("pages/3_相談する.py")
