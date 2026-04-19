@@ -268,8 +268,8 @@ def get_current_user_id() -> str | None:
 
 def require_login():
     if not is_logged_in():
-        st.warning("ログインしてください。")
         st.switch_page("pages/0_ログイン.py")
+        st.stop()
 
 
 # 既存ページ互換用
