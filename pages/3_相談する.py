@@ -1,6 +1,13 @@
 import streamlit as st
-import gspread
-from google.oauth2.service_account import Credentials
+from app_core import (
+    require_login,
+    CATEGORY_OPTIONS,
+    get_user_id,
+    load_user_settings,
+    generate_answer,
+)
+
+require_login()
 
 # =========================
 # 基本設定
