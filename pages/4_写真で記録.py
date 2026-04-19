@@ -12,7 +12,11 @@ from app_core import (
 
 require_login()
 
-st.set_page_config(page_title="写真で記録｜ShufuMate", page_icon="📷", layout="centered")
+st.set_page_config(
+    page_title="写真で記録｜ShufuMate",
+    page_icon="📷",
+    layout="centered",
+)
 
 st.title("📷 写真で記録")
 st.caption("写真を使って、食事の評価や記録をかんたんに残します。")
@@ -141,7 +145,9 @@ with tab1:
         base_text = eval_meal_text.strip()
         merged_note = eval_note.strip()
 
-        if sections_text.replace("朝: ", "").replace("昼: ", "").replace("夜: ", "").replace("間食: ", "").strip():
+        has_section_input = sections_text.replace("朝: ", "").replace("昼: ", "").replace("夜: ", "").replace("間食: ", "").strip()
+
+        if has_section_input:
             if merged_note:
                 merged_note += "\n"
             merged_note += "食事の流れメモ:\n" + sections_text
@@ -159,6 +165,7 @@ with tab1:
         st.markdown("### 評価結果")
         st.info(result["title"])
         st.markdown(result["body"].replace("\n", "  \n"))
+
 
 # =========================================================
 # 2. 食べたものを記録
@@ -244,6 +251,7 @@ with tab2:
             st.success("食事記録を保存しました")
         except Exception as e:
             st.error(f"保存に失敗しました: {e}")
+
 
 # =========================================================
 # 3. 体重計を記録
