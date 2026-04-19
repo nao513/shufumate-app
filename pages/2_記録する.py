@@ -6,6 +6,8 @@ from app_core import (
     save_diet_log,
     load_recent_logs,
     load_log_chart_df,
+    build_log_feedback,
+    TODAY_CONDITION_OPTIONS,
     jst_today,
     jst_today_str,
 )
@@ -13,16 +15,10 @@ from app_core import (
 require_login()
 
 st.title("📝 記録する")
-st.caption("今日の体重・体脂肪・食事・運動を記録します")
+st.caption("今日の体重・体脂肪・状態・食事・運動を記録します")
 
 user_id = get_user_id()
-
-try:
-    initial = get_initial_log_values(user_id)
-except Exception as e:
-    st.error(f"初期値の読込に失敗しました: {e}")
-    st.stop()
-
+initial = get_initial_log_values(user_id)
 today_label = jst_today().strftime("%Y/%m/%d")
 
 with st.form("diet_log_form"):
@@ -44,6 +40,12 @@ with st.form("diet_log_form"):
         value=float(initial["body_fat"]),
         step=0.1,
         format="%.1f",
+    )
+
+    today_conditions = st.multiselect(
+        "今日の状態",
+        TODAY_CONDITION_OPTIONS,
+        default=[],
     )
 
     meal_memo = st.text_area(
@@ -74,41 +76,38 @@ if submitted:
         "exercise_memo": exercise_memo.strip(),
         "condition_note": condition_note.strip(),
         "mood_note": mood_note.strip(),
+        "today_conditions": today_conditions,
     }
 
-    try:
-        save_diet_log(user_id, save_data)
-        st.success("今日の記録を保存しました")
-        st.rerun()
-    except Exception as e:
-        st.error(f"保存に失敗しました: {e}")
+    save_diet_log(user_id, save_data)
+    st.session_state["latest_log_feedback"] = build_log_feedback(user_id, save_data)
+    st.success("今日の記録を保存しました")
+    st.rerun()
+
+if "latest_log_feedback" in st.session_state:
+    feedback = st.session_state["latest_log_feedback"]
+    st.subheader("今日のフィードバック")
+    st.info(feedback["title"])
+    st.markdown(feedback["body"].replace("\n", "  \n"))
 
 st.divider()
 st.subheader("📈 体重・体脂肪の推移")
 
-try:
-    chart_df = load_log_chart_df(user_id)
+chart_df = load_log_chart_df(user_id)
+if chart_df.empty:
+    st.info("まだグラフ表示できる記録がありません")
+else:
+    st.markdown("**体重(kg)**")
+    st.line_chart(chart_df[["体重(kg)"]], use_container_width=True)
 
-    if chart_df.empty:
-        st.info("まだグラフ表示できる記録がありません")
-    else:
-        st.markdown("**体重(kg)**")
-        st.line_chart(chart_df[["体重(kg)"]], use_container_width=True)
-
-        st.markdown("**体脂肪(%)**")
-        st.line_chart(chart_df[["体脂肪(%)"]], use_container_width=True)
-
-except Exception as e:
-    st.error(f"グラフの読込に失敗しました: {e}")
+    st.markdown("**体脂肪(%)**")
+    st.line_chart(chart_df[["体脂肪(%)"]], use_container_width=True)
 
 st.divider()
 st.subheader("最近の記録")
 
-try:
-    recent_logs = load_recent_logs(user_id, limit=10)
-    if recent_logs.empty:
-        st.info("まだ記録がありません")
-    else:
-        st.dataframe(recent_logs, use_container_width=True, hide_index=True)
-except Exception as e:
-    st.error(f"記録一覧の読込に失敗しました: {e}")
+recent_logs = load_recent_logs(user_id, limit=10)
+if recent_logs.empty:
+    st.info("まだ記録がありません")
+else:
+    st.dataframe(recent_logs, use_container_width=True, hide_index=True)
