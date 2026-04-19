@@ -57,6 +57,10 @@ st.markdown(
         margin-bottom: 14px;
         box-shadow: 0 2px 10px rgba(0,0,0,0.03);
     }
+    .sm-account-card {
+        background: #fcfbff;
+        border: 1px solid #e7e0f2;
+    }
     .sm-status-ok {
         background: #f7fcf8;
         border: 1px solid #d9ecde;
@@ -127,9 +131,30 @@ st.markdown(
         color: #666666;
         line-height: 1.5;
     }
+    .sm-account-row {
+        padding: 6px 0;
+        border-bottom: 1px dashed #eeeaf6;
+        line-height: 1.6;
+    }
+    .sm-account-row:last-child {
+        border-bottom: none;
+    }
+    .sm-account-key {
+        display: inline-block;
+        width: 7rem;
+        color: #666666;
+        font-size: 0.92rem;
+    }
+    .sm-account-value {
+        font-weight: 600;
+        font-size: 0.96rem;
+    }
     @media (max-width: 640px) {
         .sm-grid {
             grid-template-columns: 1fr;
+        }
+        .sm-account-key {
+            width: 6.2rem;
         }
     }
     </style>
@@ -147,6 +172,42 @@ def show_logo():
         if logo_path.exists():
             st.image(str(logo_path), use_container_width=True)
             return
+
+
+def render_account_card(profile: dict | None):
+    if not profile:
+        return
+
+    nickname = profile.get("nickname", "") or "未設定"
+    login_id = profile.get("login_id", "") or "未設定"
+    birth_date = profile.get("birth_date", "") or "未設定"
+    age = profile.get("age", None)
+    age_text = f"{age}歳" if age is not None else "未設定"
+
+    st.markdown(
+        f"""
+        <div class="sm-card sm-account-card">
+            <div class="sm-title">👤 アカウント情報</div>
+            <div class="sm-account-row">
+                <span class="sm-account-key">ニックネーム</span>
+                <span class="sm-account-value">{nickname}</span>
+            </div>
+            <div class="sm-account-row">
+                <span class="sm-account-key">ログインID</span>
+                <span class="sm-account-value">{login_id}</span>
+            </div>
+            <div class="sm-account-row">
+                <span class="sm-account-key">生年月日</span>
+                <span class="sm-account-value">{birth_date}</span>
+            </div>
+            <div class="sm-account-row">
+                <span class="sm-account-key">年齢</span>
+                <span class="sm-account-value">{age_text}</span>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 def render_today_advice_card(advice: dict):
@@ -247,6 +308,7 @@ user_id = get_user_id()
 
 try:
     settings = load_user_settings(user_id)
+    profile = load_current_user_profile()
     progress = get_home_progress_summary(user_id)
     today_status = get_today_log_status(user_id)
 except Exception as e:
@@ -254,7 +316,8 @@ except Exception as e:
     st.stop()
 
 now = jst_now()
-nickname = settings["nickname"].strip()
+nickname = profile["nickname"].strip() if profile else settings["nickname"].strip()
+age_text = f"{profile['age']}歳" if profile and profile.get("age") is not None else ""
 today_text = now.strftime("%Y年%m月%d日")
 weekday_text = WEEKDAY_JP[now.weekday()]
 
@@ -262,7 +325,15 @@ advice = get_today_advice(settings)
 week_menu = get_week_menu(settings)
 exercise = get_today_exercise(settings)
 
-show_logo()
+top1, top2 = st.columns([3, 1])
+
+with top1:
+    show_logo()
+
+with top2:
+    if st.button("ログアウト", use_container_width=True):
+        logout_user()
+        st.switch_page("pages/0_ログイン.py")
 
 st.markdown(
     f"""
@@ -274,7 +345,9 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-if nickname:
+if nickname and age_text:
+    st.subheader(f"{nickname}さん（{age_text}）、今日のおすすめです")
+elif nickname:
     st.subheader(f"{nickname}さん、今日のおすすめです")
 else:
     st.subheader("今日のおすすめです")
@@ -288,6 +361,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+render_account_card(profile)
 render_status_card(today_status)
 render_today_advice_card(advice)
 render_progress_card(progress)
