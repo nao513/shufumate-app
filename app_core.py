@@ -2,9 +2,11 @@ import streamlit as st
 import gspread
 import pandas as pd
 from google.oauth2.service_account import Credentials
-from datetime import datetime
+from datetime import datetime, date
 from zoneinfo import ZoneInfo
 from uuid import uuid4
+import hashlib
+import secrets
 
 # =========================
 # タイムゾーン
@@ -27,6 +29,18 @@ def jst_today_str():
 # =========================
 # 定数
 # =========================
+USERS_HEADERS = [
+    "user_id",
+    "login_id",
+    "password_hash",
+    "password_salt",
+    "nickname",
+    "birth_date",
+    "created_at",
+    "updated_at",
+    "is_active",
+]
+
 SETTINGS_HEADERS = [
     "user_id",
     "nickname",
@@ -111,13 +125,40 @@ def to_int(v, default=0) -> int:
 
 
 # =========================
-# ユーザーID
+# 年齢計算
 # =========================
-def get_user_id() -> str:
-    FIXED_USER_ID = "naomi_user"
+def calculate_age_from_birth_date(birth_date_str: str) -> int | None:
+    try:
+        birth = datetime.strptime(birth_date_str, "%Y-%m-%d").date()
+    except Exception:
+        return None
 
-    st.session_state["user_id"] = FIXED_USER_ID
-    return FIXED_USER_ID
+    today = jst_today()
+    age = today.year - birth.year
+    if (today.month, today.day) < (birth.month, birth.day):
+        age -= 1
+    return age
+
+
+# =========================
+# パスワード
+# =========================
+def generate_salt() -> str:
+    return secrets.token_hex(16)
+
+
+def hash_password(password: str, salt: str) -> str:
+    hashed = hashlib.pbkdf2_hmac(
+        "sha256",
+        password.encode("utf-8"),
+        salt.encode("utf-8"),
+        120000,
+    )
+    return hashed.hex()
+
+
+def verify_password(password: str, salt: str, password_hash: str) -> bool:
+    return hash_password(password, salt) == password_hash
 
 
 # =========================
@@ -160,17 +201,27 @@ def get_or_create_sheet(title: str, headers: list[str], rows: int = 200):
     return ws
 
 
+def get_users_sheet():
+    return get_or_create_sheet("Users", USERS_HEADERS, rows=300)
+
+
 def get_settings_sheet():
-    return get_or_create_sheet("Settings", SETTINGS_HEADERS, rows=200)
+    return get_or_create_sheet("Settings", SETTINGS_HEADERS, rows=300)
 
 
 def get_dietlogs_sheet():
-    return get_or_create_sheet("DietLogs", DIETLOG_HEADERS, rows=1000)
+    return get_or_create_sheet("DietLogs", DIETLOG_HEADERS, rows=2000)
 
 
 # =========================
 # 読み取りキャッシュ
 # =========================
+@st.cache_data(ttl=30, show_spinner=False)
+def read_users_records():
+    ws = get_users_sheet()
+    return ws.get_all_records()
+
+
 @st.cache_data(ttl=30, show_spinner=False)
 def read_settings_records():
     ws = get_settings_sheet()
@@ -184,14 +235,70 @@ def read_dietlog_records():
 
 
 def clear_sheet_caches():
+    read_users_records.clear()
     read_settings_records.clear()
     read_dietlog_records.clear()
 
 
 # =========================
-# Settings保存・読込
+# セッション管理
 # =========================
-def find_user_row(ws, user_id: str):
+def login_user(user_record: dict):
+    st.session_state["is_logged_in"] = True
+    st.session_state["auth_user_id"] = to_str(user_record.get("user_id", ""))
+    st.session_state["auth_login_id"] = to_str(user_record.get("login_id", ""))
+    st.session_state["auth_nickname"] = to_str(user_record.get("nickname", ""))
+
+
+def logout_user():
+    for key in ["is_logged_in", "auth_user_id", "auth_login_id", "auth_nickname"]:
+        if key in st.session_state:
+            del st.session_state[key]
+
+
+def is_logged_in() -> bool:
+    return bool(st.session_state.get("is_logged_in", False))
+
+
+def get_current_user_id() -> str | None:
+    if not is_logged_in():
+        return None
+    return to_str(st.session_state.get("auth_user_id", "")) or None
+
+
+def require_login():
+    if not is_logged_in():
+        st.warning("ログインしてください。")
+        st.switch_page("pages/0_ログイン.py")
+
+
+# 既存ページ互換用
+def get_user_id() -> str:
+    user_id = get_current_user_id()
+    if not user_id:
+        raise RuntimeError("ログインが必要です。")
+    return user_id
+
+
+# =========================
+# Users
+# =========================
+def find_user_by_login_id(login_id: str) -> dict | None:
+    login_id = login_id.strip()
+    if not login_id:
+        return None
+
+    records = read_users_records()
+    for record in records:
+        if (
+            to_str(record.get("login_id", "")).strip() == login_id
+            and to_str(record.get("is_active", "1")) != "0"
+        ):
+            return record
+    return None
+
+
+def find_user_row_by_user_id(ws, user_id: str):
     values = ws.get_all_values()
     if len(values) <= 1:
         return None
@@ -202,14 +309,139 @@ def find_user_row(ws, user_id: str):
     return None
 
 
+def create_user(login_id: str, password: str, nickname: str, birth_date: date | str):
+    login_id = login_id.strip()
+    nickname = nickname.strip()
+
+    if not login_id:
+        raise ValueError("ログインIDを入力してください。")
+    if not password:
+        raise ValueError("パスワードを入力してください。")
+    if len(password) < 4:
+        raise ValueError("パスワードは4文字以上にしてください。")
+    if not nickname:
+        raise ValueError("ニックネームを入力してください。")
+
+    if isinstance(birth_date, date):
+        birth_date_str = birth_date.strftime("%Y-%m-%d")
+    else:
+        birth_date_str = to_str(birth_date).strip()
+
+    if not birth_date_str:
+        raise ValueError("生年月日を入力してください。")
+
+    if find_user_by_login_id(login_id):
+        raise ValueError("そのログインIDは既に使われています。")
+
+    user_id = uuid4().hex
+    salt = generate_salt()
+    password_hash = hash_password(password, salt)
+    now_str = jst_now().strftime("%Y-%m-%d %H:%M:%S")
+
+    users_ws = get_users_sheet()
+    users_ws.append_row(
+        [
+            user_id,
+            login_id,
+            password_hash,
+            salt,
+            nickname,
+            birth_date_str,
+            now_str,
+            now_str,
+            "1",
+        ]
+    )
+
+    # 初期Settings作成
+    age = calculate_age_from_birth_date(birth_date_str)
+    settings_ws = get_settings_sheet()
+    settings_ws.append_row(
+        [
+            user_id,
+            nickname,
+            age if age is not None else "",
+            160.0,
+            50.0,
+            48.0,
+            30.0,
+            28.0,
+            "ふつう",
+            "バランス重視",
+            "自分だけ向け",
+            now_str,
+        ]
+    )
+
+    clear_sheet_caches()
+
+    return {
+        "user_id": user_id,
+        "login_id": login_id,
+        "nickname": nickname,
+        "birth_date": birth_date_str,
+    }
+
+
+def verify_login(login_id: str, password: str) -> dict | None:
+    user_record = find_user_by_login_id(login_id)
+    if not user_record:
+        return None
+
+    salt = to_str(user_record.get("password_salt", ""))
+    password_hash = to_str(user_record.get("password_hash", ""))
+
+    if not salt or not password_hash:
+        return None
+
+    if verify_password(password, salt, password_hash):
+        return user_record
+
+    return None
+
+
+def load_current_user_profile() -> dict | None:
+    user_id = get_current_user_id()
+    if not user_id:
+        return None
+
+    records = read_users_records()
+    for record in records:
+        if to_str(record.get("user_id", "")) == user_id:
+            age = calculate_age_from_birth_date(to_str(record.get("birth_date", "")))
+            return {
+                "user_id": to_str(record.get("user_id", "")),
+                "login_id": to_str(record.get("login_id", "")),
+                "nickname": to_str(record.get("nickname", "")),
+                "birth_date": to_str(record.get("birth_date", "")),
+                "age": age,
+            }
+    return None
+
+
+# =========================
+# Settings保存・読込
+# =========================
 def load_user_settings(user_id: str) -> dict:
     records = read_settings_records()
 
     for record in records:
         if str(record.get("user_id", "")) == user_id:
+            profile = None
+            try:
+                profile = load_current_user_profile()
+            except Exception:
+                profile = None
+
+            auto_age = None
+            if profile and profile.get("user_id") == user_id:
+                auto_age = profile.get("age")
+
+            fallback_age = to_int(record.get("age", 49), 49)
+
             return {
                 "nickname": to_str(record.get("nickname", "")),
-                "age": to_int(record.get("age", 49), 49),
+                "age": auto_age if auto_age is not None else fallback_age,
                 "height_cm": to_float(record.get("height_cm", 160.0), 160.0),
                 "current_weight": to_float(record.get("current_weight", 50.0), 50.0),
                 "target_weight": to_float(record.get("target_weight", 48.0), 48.0),
@@ -220,9 +452,18 @@ def load_user_settings(user_id: str) -> dict:
                 "user_type": to_str(record.get("user_type", "自分だけ向け")) or "自分だけ向け",
             }
 
+    profile = None
+    try:
+        profile = load_current_user_profile()
+    except Exception:
+        profile = None
+
+    nickname = profile["nickname"] if profile else ""
+    age = profile["age"] if profile and profile.get("age") is not None else 49
+
     return {
-        "nickname": "",
-        "age": 49,
+        "nickname": nickname,
+        "age": age,
         "height_cm": 160.0,
         "current_weight": 50.0,
         "target_weight": 48.0,
@@ -236,10 +477,16 @@ def load_user_settings(user_id: str) -> dict:
 
 def save_user_settings(user_id: str, data: dict):
     ws = get_settings_sheet()
+
+    profile = load_current_user_profile()
+    age = None
+    if profile and profile.get("user_id") == user_id:
+        age = profile.get("age")
+
     row_data = [
         user_id,
         data["nickname"],
-        data["age"],
+        age if age is not None else data.get("age", ""),
         data["height_cm"],
         data["current_weight"],
         data["target_weight"],
@@ -251,7 +498,7 @@ def save_user_settings(user_id: str, data: dict):
         jst_now().strftime("%Y-%m-%d %H:%M:%S"),
     ]
 
-    row_index = find_user_row(ws, user_id)
+    row_index = find_user_row_by_user_id(ws, user_id)
 
     if row_index:
         end_col = chr(64 + len(SETTINGS_HEADERS))
@@ -384,6 +631,95 @@ def load_log_chart_df(user_id: str) -> pd.DataFrame:
     ).set_index("日付")
 
     return chart_df
+
+
+def get_today_log_status(user_id: str) -> dict:
+    today = jst_today_str()
+    records = read_dietlog_records()
+
+    today_logs = [
+        r
+        for r in records
+        if str(r.get("user_id", "")) == user_id
+        and to_str(r.get("log_date", "")) == today
+    ]
+
+    if not today_logs:
+        return {
+            "is_logged": False,
+            "label": "今日はまだ未記録です",
+            "detail": "体重・体脂肪・食事・運動を記録できます。",
+        }
+
+    def sort_key(x):
+        return to_str(x.get("created_at", ""))
+
+    today_logs.sort(key=sort_key, reverse=True)
+    latest = today_logs[0]
+    created_at = to_str(latest.get("created_at", ""))
+
+    time_text = ""
+    if len(created_at) >= 16:
+        time_text = created_at[11:16]
+
+    if time_text:
+        detail = f"今日の記録は保存済みです（最終保存 {time_text}）"
+    else:
+        detail = "今日の記録は保存済みです。"
+
+    return {
+        "is_logged": True,
+        "label": "今日は記録済みです",
+        "detail": detail,
+    }
+
+
+# =========================
+# ホーム用サマリー
+# =========================
+def get_home_progress_summary(user_id: str) -> dict:
+    settings = load_user_settings(user_id)
+    latest = load_latest_log(user_id)
+
+    current_weight = settings["current_weight"]
+    target_weight = settings["target_weight"]
+    current_body_fat = settings["current_body_fat"]
+    target_body_fat = settings["target_body_fat"]
+
+    latest_date = "未記録"
+
+    if latest:
+        latest_date = to_str(latest.get("log_date", "未記録")) or "未記録"
+        latest_weight = to_float(latest.get("weight", current_weight), current_weight)
+        latest_body_fat = to_float(latest.get("body_fat", current_body_fat), current_body_fat)
+    else:
+        latest_weight = current_weight
+        latest_body_fat = current_body_fat
+
+    weight_diff = round(latest_weight - target_weight, 1)
+    body_fat_diff = round(latest_body_fat - target_body_fat, 1)
+
+    if weight_diff > 0:
+        weight_text = f"目標まであと {weight_diff:.1f}kg"
+    elif weight_diff < 0:
+        weight_text = f"目標を {abs(weight_diff):.1f}kg 下回っています"
+    else:
+        weight_text = "体重は目標ぴったりです"
+
+    if body_fat_diff > 0:
+        body_fat_text = f"目標まであと {body_fat_diff:.1f}%"
+    elif body_fat_diff < 0:
+        body_fat_text = f"目標を {abs(body_fat_diff):.1f}% 下回っています"
+    else:
+        body_fat_text = "体脂肪は目標ぴったりです"
+
+    return {
+        "latest_date": latest_date,
+        "latest_weight": latest_weight,
+        "latest_body_fat": latest_body_fat,
+        "weight_text": weight_text,
+        "body_fat_text": body_fat_text,
+    }
 
 
 # =========================
@@ -639,131 +975,3 @@ def generate_answer(category: str, question: str, settings: dict) -> str:
         return build_eating_out_answer(question, settings)
 
     return f"相談内容：{question}\n\nカテゴリを選んで相談してください。"
-
-
-# =========================
-# ホーム用サマリー
-# =========================
-def get_home_progress_summary(user_id: str) -> dict:
-    settings = load_user_settings(user_id)
-    latest = load_latest_log(user_id)
-
-    current_weight = settings["current_weight"]
-    target_weight = settings["target_weight"]
-    current_body_fat = settings["current_body_fat"]
-    target_body_fat = settings["target_body_fat"]
-
-    latest_date = "未記録"
-
-    if latest:
-        latest_date = to_str(latest.get("log_date", "未記録")) or "未記録"
-        latest_weight = to_float(latest.get("weight", current_weight), current_weight)
-        latest_body_fat = to_float(latest.get("body_fat", current_body_fat), current_body_fat)
-    else:
-        latest_weight = current_weight
-        latest_body_fat = current_body_fat
-
-    weight_diff = round(latest_weight - target_weight, 1)
-    body_fat_diff = round(latest_body_fat - target_body_fat, 1)
-
-    if weight_diff > 0:
-        weight_text = f"目標まであと {weight_diff:.1f}kg"
-    elif weight_diff < 0:
-        weight_text = f"目標を {abs(weight_diff):.1f}kg 下回っています"
-    else:
-        weight_text = "体重は目標ぴったりです"
-
-    if body_fat_diff > 0:
-        body_fat_text = f"目標まであと {body_fat_diff:.1f}%"
-    elif body_fat_diff < 0:
-        body_fat_text = f"目標を {abs(body_fat_diff):.1f}% 下回っています"
-    else:
-        body_fat_text = "体脂肪は目標ぴったりです"
-
-    return {
-        "latest_date": latest_date,
-        "latest_weight": latest_weight,
-        "latest_body_fat": latest_body_fat,
-        "weight_text": weight_text,
-        "body_fat_text": body_fat_text,
-    }
-
-def get_today_log_status(user_id: str) -> dict:
-    today = jst_today_str()
-    records = read_dietlog_records()
-
-    today_logs = [
-        r for r in records
-        if str(r.get("user_id", "")) == user_id
-        and to_str(r.get("log_date", "")) == today
-    ]
-
-    if not today_logs:
-        return {
-            "is_logged": False,
-            "label": "今日はまだ未記録です",
-            "detail": "体重・体脂肪・食事・運動を記録できます。",
-        }
-
-    def sort_key(x):
-        created_at = to_str(x.get("created_at", ""))
-        return created_at
-
-    today_logs.sort(key=sort_key, reverse=True)
-    latest = today_logs[0]
-    created_at = to_str(latest.get("created_at", ""))
-
-    time_text = ""
-    if len(created_at) >= 16:
-        time_text = created_at[11:16]
-
-    if time_text:
-        detail = f"今日の記録は保存済みです（最終保存 {time_text}）"
-    else:
-        detail = "今日の記録は保存済みです。"
-
-    return {
-        "is_logged": True,
-        "label": "今日は記録済みです",
-        "detail": detail,
-    }
-
-def get_today_log_status(user_id: str) -> dict:
-    today = jst_today_str()
-    records = read_dietlog_records()
-
-    today_logs = [
-        r for r in records
-        if str(r.get("user_id", "")) == user_id
-        and to_str(r.get("log_date", "")) == today
-    ]
-
-    if not today_logs:
-        return {
-            "is_logged": False,
-            "label": "今日はまだ未記録です",
-            "detail": "体重・体脂肪・食事・運動を記録できます。",
-        }
-
-    def sort_key(x):
-        created_at = to_str(x.get("created_at", ""))
-        return created_at
-
-    today_logs.sort(key=sort_key, reverse=True)
-    latest = today_logs[0]
-    created_at = to_str(latest.get("created_at", ""))
-
-    time_text = ""
-    if len(created_at) >= 16:
-        time_text = created_at[11:16]
-
-    if time_text:
-        detail = f"今日の記録は保存済みです（最終保存 {time_text}）"
-    else:
-        detail = "今日の記録は保存済みです。"
-
-    return {
-        "is_logged": True,
-        "label": "今日は記録済みです",
-        "detail": detail,
-    }
