@@ -1216,3 +1216,66 @@ def generate_answer(category: str, question: str, settings: dict) -> str:
         answer = f"相談内容：{question}\n\nカテゴリを選んで相談してください。"
 
     return apply_advice_tone(answer, settings.get("advice_tone", "やさしく"))
+
+def build_log_feedback(user_id: str, save_data: dict) -> dict:
+    settings = load_user_settings(user_id)
+    tone = to_str(settings.get("advice_tone", "やさしく")) or "やさしく"
+
+    weight = to_float(save_data.get("weight"), settings.get("current_weight", 0.0))
+    body_fat = to_float(save_data.get("body_fat"), settings.get("current_body_fat", 0.0))
+    target_weight = to_float(settings.get("target_weight", 0.0), 0.0)
+    target_body_fat = to_float(settings.get("target_body_fat", 0.0), 0.0)
+
+    meal_memo = to_str(save_data.get("meal_memo", "")).strip()
+    exercise_memo = to_str(save_data.get("exercise_memo", "")).strip()
+    condition_note = to_str(save_data.get("condition_note", "")).strip()
+    mood_note = to_str(save_data.get("mood_note", "")).strip()
+
+    lines = []
+
+    weight_diff = round(weight - target_weight, 1)
+    if weight_diff <= 0:
+        lines.append(f"体重は目標圏内です（{weight:.1f}kg）。")
+    elif weight_diff <= 1.0:
+        lines.append(f"体重は目標まであと {weight_diff:.1f}kg です。近い位置です。")
+    else:
+        lines.append(f"体重は目標まであと {weight_diff:.1f}kg です。")
+
+    body_fat_diff = round(body_fat - target_body_fat, 1)
+    if body_fat_diff <= 0:
+        lines.append(f"体脂肪は目標圏内です（{body_fat:.1f}%）。")
+    elif body_fat_diff <= 1.0:
+        lines.append(f"体脂肪は目標まであと {body_fat_diff:.1f}% です。")
+    else:
+        lines.append(f"体脂肪は目標まであと {body_fat_diff:.1f}% です。")
+
+    if meal_memo and exercise_memo:
+        lines.append("食事と運動の両方を記録できています。振り返りやすい状態です。")
+    elif meal_memo:
+        lines.append("食事記録があります。運動も一言あると、あとで見返しやすくなります。")
+    elif exercise_memo:
+        lines.append("運動記録があります。食事も一言あると、流れが見やすくなります。")
+    else:
+        lines.append("今日は数値中心の記録です。食事か運動を一言残すと振り返りやすくなります。")
+
+    if condition_note or mood_note:
+        lines.append("体調や気分も残せているので、変化を追いやすいです。")
+
+    if tone == "しっかり":
+        title = "記録完了"
+        closing = "次回も数値だけでなく、内容まで整えていきましょう。"
+    elif tone == "淡々と":
+        title = "記録を保存しました"
+        closing = ""
+    else:
+        title = "今日の記録を保存しました"
+        closing = "この調子で少しずつ整えていけば大丈夫です。"
+
+    body = "\n".join(lines)
+    if closing:
+        body += f"\n\n{closing}"
+
+    return {
+        "title": title,
+        "body": body,
+    }
