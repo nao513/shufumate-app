@@ -77,16 +77,22 @@ def read_meal_text_from_image(uploaded_file, meal_type: str) -> str:
                 "role": "user",
                 "content": [
                     {"type": "input_text", "text": prompt},
-                    {
-                        "type": "input_image",
-                        "image_url": image_data_url,
-                    },
+                    {"type": "input_image", "image_url": image_data_url},
                 ],
             }
         ],
     )
-    text = (response.output_text or "").strip()
-    return text
+    return (response.output_text or "").strip()
+
+
+def guess_meal_slot(meal_type_label: str) -> str:
+    mapping = {
+        "朝ごはん": "朝",
+        "昼ごはん": "昼",
+        "夜ごはん": "夜",
+        "間食": "間食",
+    }
+    return mapping.get(meal_type_label, "夜")
 
 
 def preset_text_by_type(meal_type: str, meal_text: str) -> tuple[str, str, str, str]:
@@ -105,6 +111,17 @@ def preset_text_by_type(meal_type: str, meal_text: str) -> tuple[str, str, str, 
         snack = meal_text
 
     return breakfast, lunch, dinner, snack
+
+
+def apply_draft_to_log_fields(target_slot: str, meal_draft: str):
+    if target_slot == "朝":
+        st.session_state["photo_log_breakfast"] = meal_draft
+    elif target_slot == "昼":
+        st.session_state["photo_log_lunch"] = meal_draft
+    elif target_slot == "夜":
+        st.session_state["photo_log_dinner"] = meal_draft
+    elif target_slot == "間食":
+        st.session_state["photo_log_snack"] = meal_draft
 
 
 tab1, tab2, tab3 = st.tabs(
@@ -175,30 +192,10 @@ with tab1:
             eval_meal_text,
         )
 
-        st.text_area(
-            "朝",
-            value=default_breakfast,
-            height=70,
-            key="eval_breakfast",
-        )
-        st.text_area(
-            "昼",
-            value=default_lunch,
-            height=70,
-            key="eval_lunch",
-        )
-        st.text_area(
-            "夜",
-            value=default_dinner,
-            height=70,
-            key="eval_dinner",
-        )
-        st.text_area(
-            "間食",
-            value=default_snack,
-            height=70,
-            key="eval_snack",
-        )
+        st.text_area("朝", value=default_breakfast, height=70, key="eval_breakfast")
+        st.text_area("昼", value=default_lunch, height=70, key="eval_lunch")
+        st.text_area("夜", value=default_dinner, height=70, key="eval_dinner")
+        st.text_area("間食", value=default_snack, height=70, key="eval_snack")
 
     eval_note = st.text_area(
         "補足メモ（任意）",
@@ -241,7 +238,6 @@ with tab1:
         st.info(result["title"])
         st.markdown(result["body"].replace("\n", "  \n"))
 
-
 # =========================================================
 # 2. 食べたものを記録
 # =========================================================
@@ -263,15 +259,23 @@ with tab2:
 
     st.markdown("### 食べたもの")
 
+    log_target_slot = st.radio(
+        "下書きを入れる場所",
+        ["朝", "昼", "夜", "間食"],
+        horizontal=True,
+        index=2,
+        key="log_target_slot",
+    )
+
     if st.button("📷 写真から下書きする", use_container_width=True, key="read_log_meal_from_photo"):
         if selected_log_image is None:
             st.warning("先に写真を撮るか、アップロードしてください。")
         else:
             try:
                 with st.spinner("写真から食事内容を読み取っています..."):
-                    meal_draft = read_meal_text_from_image(selected_log_image, "食後記録")
-                st.session_state["photo_log_dinner"] = meal_draft
-                st.success("夜の欄に下書きを入れました。必要なら直してください。")
+                    meal_draft = read_meal_text_from_image(selected_log_image, f"{log_target_slot}の記録")
+                apply_draft_to_log_fields(log_target_slot, meal_draft)
+                st.success(f"{log_target_slot}の欄に下書きを入れました。必要なら直してください。")
             except Exception as e:
                 st.error(f"写真の読み取りに失敗しました: {e}")
 
@@ -339,7 +343,6 @@ with tab2:
             st.success("食事記録を保存しました")
         except Exception as e:
             st.error(f"保存に失敗しました: {e}")
-
 
 # =========================================================
 # 3. 体重計を記録
