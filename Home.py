@@ -31,78 +31,91 @@ st.markdown(
     """
     <style>
     .block-container {
-        padding-top: 3.2rem;
+        padding-top: 2.4rem;
         padding-bottom: 2rem;
         max-width: 760px;
     }
     .sm-hero {
-        background: linear-gradient(135deg, #fffaf5 0%, #fffefe 100%);
-        border: 1px solid #f1e7dc;
+        background: linear-gradient(135deg, #fff9f3 0%, #fffdf9 100%);
+        border: 1px solid #f0e4d8;
         border-radius: 22px;
         padding: 18px 16px 14px 16px;
-        margin-top: 0.5rem;
+        margin-top: 0.4rem;
         margin-bottom: 16px;
-        box-shadow: 0 4px 14px rgba(0,0,0,0.03);
+        box-shadow: 0 4px 16px rgba(0,0,0,0.03);
     }
     .sm-hero-title {
-        font-size: 1.25rem;
+        font-size: 1.2rem;
         font-weight: 700;
         margin-bottom: 0.2rem;
     }
     .sm-hero-sub {
         color: #6b6b6b;
         font-size: 0.94rem;
+        line-height: 1.6;
     }
     .sm-card {
         background: #ffffff;
-        border: 1px solid #ececec;
+        border: 1px solid #eee5db;
         border-radius: 18px;
-        padding: 18px 16px;
+        padding: 16px 14px;
         margin-bottom: 14px;
         box-shadow: 0 2px 10px rgba(0,0,0,0.03);
     }
+    .sm-card-soft {
+        background: #fffdf9;
+    }
     .sm-focus-card {
-        background: #fffdf8;
-        border: 1px solid #efe5d6;
+        background: #fffaf5;
+        border: 1px solid #efdfcd;
     }
     .sm-goal-card {
-        background: #fffdf8;
-        border: 1px solid #efe5d6;
+        background: #fffaf5;
+        border: 1px solid #efdfcd;
     }
     .sm-streak-on {
-        background: #f8fcff;
-        border: 1px solid #dceaf5;
+        background: #f5fbff;
+        border: 1px solid #d9eaf5;
     }
     .sm-streak-off {
         background: #fcfbff;
-        border: 1px solid #e8e3f2;
+        border: 1px solid #e8e2f2;
     }
     .sm-status-ok {
-        background: #f7fcf8;
-        border: 1px solid #d9ecde;
+        background: #f6fcf7;
+        border: 1px solid #d7eadc;
     }
     .sm-status-ng {
         background: #fffaf5;
-        border: 1px solid #f0dfc9;
+        border: 1px solid #efdfcd;
     }
     .sm-title {
-        font-size: 1.02rem;
+        font-size: 1rem;
         font-weight: 700;
-        margin-bottom: 0.75rem;
+        margin-bottom: 0.6rem;
     }
     .sm-sub {
-        color: #666666;
+        color: #6b6b6b;
         font-size: 0.92rem;
-        margin-bottom: 0.25rem;
+        line-height: 1.6;
     }
     .sm-text {
-        line-height: 1.7;
+        line-height: 1.75;
         font-size: 0.96rem;
+    }
+    .sm-label {
+        display: inline-block;
+        background: #faf5ee;
+        border: 1px solid #eadfd1;
+        border-radius: 999px;
+        padding: 5px 10px;
+        margin: 3px 6px 3px 0;
+        font-size: 0.84rem;
     }
     .sm-menu-row {
         padding: 8px 0;
-        border-bottom: 1px dashed #eeeeee;
-        line-height: 1.6;
+        border-bottom: 1px dashed #eee7dd;
+        line-height: 1.7;
     }
     .sm-menu-row:last-child {
         border-bottom: none;
@@ -111,15 +124,6 @@ st.markdown(
         font-weight: 700;
         display: inline-block;
         width: 1.5rem;
-    }
-    .sm-label {
-        display: inline-block;
-        background: #f7f2ec;
-        border: 1px solid #eee2d4;
-        border-radius: 999px;
-        padding: 4px 10px;
-        margin: 2px 6px 2px 0;
-        font-size: 0.84rem;
     }
     .sm-grid {
         display: grid;
@@ -147,6 +151,16 @@ st.markdown(
         color: #666666;
         line-height: 1.5;
     }
+    .sm-note {
+        background: #fffaf5;
+        border: 1px dashed #ead7bf;
+        border-radius: 14px;
+        padding: 12px;
+        margin: 10px 0 14px 0;
+        color: #6d6152;
+        font-size: 0.9rem;
+        line-height: 1.7;
+    }
     @media (max-width: 640px) {
         .sm-grid {
             grid-template-columns: 1fr;
@@ -156,6 +170,12 @@ st.markdown(
     """,
     unsafe_allow_html=True,
 )
+
+
+def show_image_if_exists(path_str: str, caption: str = ""):
+    path = Path(path_str)
+    if path.exists():
+        st.image(str(path), caption=caption if caption else None, use_container_width=True)
 
 
 def show_logo():
@@ -222,22 +242,23 @@ def render_week_goal_card(goal: dict):
 
 
 def render_today_advice_card(advice: dict):
+    st.markdown('<div class="sm-card sm-card-soft">', unsafe_allow_html=True)
+    show_image_if_exists("assets/home_icons/advice.png")
     st.markdown(
         f"""
-        <div class="sm-card">
-            <div class="sm-title">🌿 今日のおすすめ</div>
-            <div class="sm-sub"><b>食事</b></div>
-            <div class="sm-text">{advice["食事"]}</div>
-            <br>
-            <div class="sm-sub"><b>運動</b></div>
-            <div class="sm-text">{advice["運動"]}</div>
-            <br>
-            <div class="sm-sub"><b>ひとこと</b></div>
-            <div class="sm-text">{advice["ひとこと"]}</div>
-        </div>
+        <div class="sm-title">🌿 今日のおすすめ</div>
+        <div class="sm-sub"><b>食事</b></div>
+        <div class="sm-text">{advice["食事"]}</div>
+        <br>
+        <div class="sm-sub"><b>運動</b></div>
+        <div class="sm-text">{advice["運動"]}</div>
+        <br>
+        <div class="sm-sub"><b>ひとこと</b></div>
+        <div class="sm-text">{advice["ひとこと"]}</div>
         """,
         unsafe_allow_html=True,
     )
+    st.markdown("</div>", unsafe_allow_html=True)
 
 
 def render_progress_card(summary: dict):
@@ -274,15 +295,16 @@ def render_week_menu_card(menu_list: list[dict], now):
             f'<div class="sm-menu-row"><span class="sm-day">{item["day"]}</span> {item["menu"]}{mark}</div>'
         )
 
+    st.markdown('<div class="sm-card sm-card-soft">', unsafe_allow_html=True)
+    show_image_if_exists("assets/home_icons/plan.png")
     st.markdown(
         f"""
-        <div class="sm-card">
-            <div class="sm-title">🍽 今週の献立</div>
-            {''.join(rows)}
-        </div>
+        <div class="sm-title">🍽 今週の献立</div>
+        {''.join(rows)}
         """,
         unsafe_allow_html=True,
     )
+    st.markdown("</div>", unsafe_allow_html=True)
 
 
 def render_exercise_card(exercise: dict):
@@ -360,23 +382,41 @@ render_progress_card(progress)
 render_week_menu_card(week_menu, now)
 render_exercise_card(exercise)
 
+st.markdown(
+    """
+    <div class="sm-note">
+    今日はどこから始めますか？
+    写真で記録したい時は「写真で記録」、
+    数値やメモを入れたい時は「記録する」がおすすめです。
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
 st.markdown("### つかう")
+
 col1, col2 = st.columns(2)
-
 with col1:
-    if st.button("📝 記録する", use_container_width=True):
-        st.switch_page("pages/2_記録する.py")
-
-with col2:
-    if st.button("💬 相談する", use_container_width=True):
-        st.switch_page("pages/3_相談する.py")
-
-col3, col4 = st.columns(2)
-
-with col3:
+    if Path("assets/home_icons/photo.png").exists():
+        st.image("assets/home_icons/photo.png", use_container_width=True)
     if st.button("📷 写真で記録", use_container_width=True):
         st.switch_page("pages/4_写真で記録.py")
 
-with col4:
+with col2:
+    if Path("assets/home_icons/settings.png").exists():
+        st.image("assets/home_icons/settings.png", use_container_width=True)
     if st.button("⚙️ 設定", use_container_width=True):
         st.switch_page("pages/1_設定.py")
+
+col3, col4 = st.columns(2)
+with col3:
+    if Path("assets/home_icons/diet.png").exists():
+        st.image("assets/home_icons/diet.png", use_container_width=True)
+    if st.button("📝 記録する", use_container_width=True):
+        st.switch_page("pages/2_記録する.py")
+
+with col4:
+    if Path("assets/home_icons/advice.png").exists():
+        st.image("assets/home_icons/advice.png", use_container_width=True)
+    if st.button("💬 相談する", use_container_width=True):
+        st.switch_page("pages/3_相談する.py")
