@@ -191,7 +191,6 @@ st.markdown(
         width: 1.5rem;
     }
 
-    /* 主役ボタン：ハート色オレンジ */
     button[data-testid="stBaseButton-primary"] {
         background: #E49858 !important;
         color: #ffffff !important;
@@ -208,7 +207,6 @@ st.markdown(
         color: #ffffff !important;
     }
 
-    /* サブカードをそのままボタン化 */
     .sub-action-wrap {
         margin-top: 10px;
     }
@@ -335,6 +333,22 @@ def render_progress_card(summary: dict):
     )
 
 
+def render_today_menu_card(today_advice: dict):
+    st.markdown(
+        f"""
+        <div class="section-card">
+            <div class="section-title">🍳 今日のメニュー提案</div>
+            <b>朝ごはん</b><br>
+            <div style="line-height:1.7;color:#403935;">{today_advice["朝食"]}</div>
+            <br>
+            <b>夕ごはん</b><br>
+            <div style="line-height:1.7;color:#403935;">{today_advice["夕食"]}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def render_week_menu_card(menu_list: list[dict], now):
     today_idx = now.weekday()
     rows = []
@@ -347,7 +361,7 @@ def render_week_menu_card(menu_list: list[dict], now):
     st.markdown(
         f"""
         <div class="section-card">
-            <div class="section-title">🍽 今週の献立</div>
+            <div class="section-title">📅 今週の献立メモ</div>
             {''.join(rows)}
         </div>
         """,
@@ -389,6 +403,12 @@ weekday_text = WEEKDAY_JP[now.weekday()]
 advice = get_today_advice(settings)
 week_menu = get_week_menu(settings)
 exercise = get_today_exercise(settings)
+
+# 朝食・夕食の提案例
+today_menu = {
+    "朝食": advice.get("朝食", "ごはん＋たんぱく質＋汁物の軽い朝食がおすすめです。"),
+    "夕食": advice.get("夕食", "主菜＋副菜＋汁物で、重くなりすぎない夕食がおすすめです。"),
+}
 
 top1, top2 = st.columns([3, 1])
 
@@ -477,6 +497,7 @@ with st.expander("⚙️ 設定を開く"):
     st.markdown("</div>", unsafe_allow_html=True)
 
 render_status_card(today_status)
+render_today_menu_card(today_menu)
 render_today_advice_card(advice)
 
 if progress.get("latest_weight") is not None and progress.get("latest_body_fat") is not None:
