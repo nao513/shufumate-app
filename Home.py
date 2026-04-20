@@ -244,7 +244,7 @@ st.markdown(
 
 def show_logo():
     logo_candidates = [
-        Path("assets/top/logo.png"),
+        Path("assets/home_icons/top/top_visual.png"),
         Path("assets/logo.png"),
     ]
     for logo_path in logo_candidates:
