@@ -13,13 +13,12 @@ from app_core import (
     get_home_progress_summary,
     get_today_log_status,
     get_week_goal,
-    get_log_streak_summary,
     jst_now,
 )
 
 st.set_page_config(
     page_title="ShufuMate",
-    page_icon="💻",
+    page_icon="🏠",
     layout="centered",
 )
 
@@ -62,14 +61,6 @@ st.markdown(
     .sm-goal-card {
         background: #fffdf8;
         border: 1px solid #efe5d6;
-    }
-    .sm-streak-on {
-        background: #f8fcff;
-        border: 1px solid #dceaf5;
-    }
-    .sm-streak-off {
-        background: #fcfbff;
-        border: 1px solid #e8e3f2;
     }
     .sm-status-ok {
         background: #f7fcf8;
@@ -198,22 +189,6 @@ def render_status_card(status: dict):
     )
 
 
-def render_streak_card(streak: dict):
-    card_class = "sm-streak-on" if streak["is_active"] else "sm-streak-off"
-    icon = "🔥" if streak["is_active"] else "📝"
-
-    st.markdown(
-        f"""
-        <div class="sm-card {card_class}">
-            <div class="sm-title">{icon} 連続記録</div>
-            <div class="sm-text"><b>{streak["label"]}</b></div>
-            <div class="sm-sub" style="margin-top:8px;">{streak["detail"]}</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-
 def render_week_goal_card(goal: dict):
     st.markdown(
         f"""
@@ -292,7 +267,6 @@ try:
     profile = load_current_user_profile()
     progress = get_home_progress_summary(user_id)
     today_status = get_today_log_status(user_id)
-    streak = get_log_streak_summary(user_id)
     week_goal = get_week_goal(settings, progress)
 except Exception as e:
     st.error(f"設定の読込に失敗しました: {e}")
@@ -320,7 +294,7 @@ with top2:
 st.markdown(
     f"""
     <div class="sm-hero">
-        <div class="sm-hero-title">💻 ホーム</div>
+        <div class="sm-hero-title">🏠 ホーム</div>
         <div class="sm-hero-sub">{today_text}（{weekday_text}）</div>
     </div>
     """,
@@ -342,7 +316,6 @@ st.markdown(
 )
 
 render_status_card(today_status)
-render_streak_card(streak)
 render_week_goal_card(week_goal)
 render_today_advice_card(advice)
 render_progress_card(progress)
