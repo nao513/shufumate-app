@@ -416,37 +416,246 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-col1, col2 = st.columns(2)
-with col1:
-    render_use_card("📷", "写真で記録", "写真からサッと残す")
-    if st.button("📷 開く", use_container_width=True, key="go_photo"):
-        st.switch_page("pages/4_写真で記録.py")
+import streamlit as st
 
-with col2:
-    render_use_card("📝", "記録する", "数値やメモを入力する")
-    if st.button("📝 開く", use_container_width=True, key="go_log"):
+# ==========
+# 追加CSS
+# ==========
+st.markdown("""
+<style>
+.main-hero {
+    background: linear-gradient(135deg, #fff7f0 0%, #f8ede3 100%);
+    border: 1px solid #ead8c8;
+    border-radius: 22px;
+    padding: 20px 18px 18px 18px;
+    margin: 0 0 18px 0;
+    box-shadow: 0 6px 18px rgba(120, 90, 60, 0.08);
+}
+
+.main-hero-title {
+    font-size: 1.35rem;
+    font-weight: 700;
+    color: #5c4432;
+    margin-bottom: 6px;
+}
+
+.main-hero-sub {
+    font-size: 0.95rem;
+    color: #7a6250;
+    margin-bottom: 16px;
+}
+
+.main-cta-box {
+    background: linear-gradient(135deg, #f6cfae 0%, #efb98f 100%);
+    border-radius: 24px;
+    padding: 20px 16px;
+    text-align: center;
+    box-shadow: 0 10px 24px rgba(191, 128, 77, 0.22);
+    border: 1px solid #e6b187;
+    margin-bottom: 8px;
+}
+
+.main-cta-icon {
+    font-size: 2rem;
+    margin-bottom: 6px;
+}
+
+.main-cta-title {
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: #4d3527;
+    margin-bottom: 4px;
+}
+
+.main-cta-sub {
+    font-size: 0.95rem;
+    color: #6a4b38;
+    margin-bottom: 2px;
+}
+
+.main-cta-mini {
+    display: inline-block;
+    margin-top: 8px;
+    background: rgba(255,255,255,0.65);
+    color: #6a4b38;
+    font-size: 0.8rem;
+    padding: 5px 10px;
+    border-radius: 999px;
+    font-weight: 600;
+}
+
+.sub-card {
+    background: #fffaf6;
+    border: 1px solid #ead8c8;
+    border-radius: 18px;
+    padding: 14px 12px;
+    text-align: center;
+    min-height: 120px;
+    box-shadow: 0 2px 8px rgba(120, 90, 60, 0.05);
+    margin-bottom: 8px;
+}
+
+.sub-card-icon {
+    font-size: 1.4rem;
+    margin-bottom: 6px;
+}
+
+.sub-card-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #5c4432;
+    margin-bottom: 4px;
+}
+
+.sub-card-sub {
+    font-size: 0.85rem;
+    color: #7a6250;
+    line-height: 1.5;
+}
+
+.section-card {
+    background: #fffaf6;
+    border: 1px solid #ead8c8;
+    border-radius: 18px;
+    padding: 16px 14px;
+    margin-top: 14px;
+}
+
+.section-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #5c4432;
+    margin-bottom: 8px;
+}
+
+.small-note {
+    font-size: 0.82rem;
+    color: #8a7260;
+    margin-top: 8px;
+}
+</style>
+""", unsafe_allow_html=True)
+
+
+# ==========
+# 状況に応じた一言
+# ==========
+latest_weight = 50.6
+latest_bodyfat = 21.4
+latest_record_date = "2026-04-19"
+
+if latest_record_date:
+    hero_message = "昨日までの記録があります。今日はサッと続きから✨"
+else:
+    hero_message = "今日は何から始めますか？ 迷ったら写真で記録がおすすめです📸"
+
+
+# ==========
+# ヒーロー表示
+# ==========
+st.markdown(f"""
+<div class="main-hero">
+    <div class="main-hero-title">今日は何から始めますか？😊</div>
+    <div class="main-hero-sub">{hero_message}</div>
+    <div class="main-cta-box">
+        <div class="main-cta-icon">📸</div>
+        <div class="main-cta-title">写真で記録</div>
+        <div class="main-cta-sub">たった3秒でOK。まずはここから</div>
+        <div class="main-cta-mini">迷ったらこれ</div>
+    </div>
+</div>
+""", unsafe_allow_html=True)
+
+if st.button("📸 写真で記録をはじめる", use_container_width=True, key="hero_photo_btn"):
+    st.switch_page("pages/4_写真で記録.py")
+
+
+# ==========
+# サブ導線
+# ==========
+col1, col2 = st.columns(2)
+
+with col1:
+    st.markdown("""
+    <div class="sub-card">
+        <div class="sub-card-icon">📝</div>
+        <div class="sub-card-title">記録する</div>
+        <div class="sub-card-sub">数値やメモを<br>しっかり残したい時</div>
+    </div>
+    """, unsafe_allow_html=True)
+    if st.button("📝 記録する", use_container_width=True, key="go_log_new"):
         st.switch_page("pages/2_記録する.py")
 
-col3, col4 = st.columns(2)
-with col3:
-    render_use_card("💬", "相談する", "食事や運動を相談する")
-    if st.button("💬 開く", use_container_width=True, key="go_advice"):
+with col2:
+    st.markdown("""
+    <div class="sub-card">
+        <div class="sub-card-icon">💬</div>
+        <div class="sub-card-title">相談する</div>
+        <div class="sub-card-sub">食事や運動を<br>気軽に相談したい時</div>
+    </div>
+    """, unsafe_allow_html=True)
+    if st.button("💬 相談する", use_container_width=True, key="go_advice_new"):
         st.switch_page("pages/3_相談する.py")
 
-with col4:
-    render_use_card("⚙️", "設定", "体質や目標を整える")
-    if st.button("⚙️ 開く", use_container_width=True, key="go_settings"):
+
+# ==========
+# 設定は目立たせすぎない
+# ==========
+with st.expander("⚙️ 設定を開く"):
+    if st.button("⚙️ 体質や目標を設定する", use_container_width=True, key="go_settings_new"):
         st.switch_page("pages/1_設定.py")
 
-st.markdown(
-    """
-    <div class="sm-note">
-    写真でサッと残したい時は「写真で記録」、
-    しっかり入力したい時は「記録する」がおすすめです。
+
+# ==========
+# 今日の記録状況
+# ==========
+st.markdown("""
+<div class="section-card">
+    <div class="section-title">🕊 今日の記録状況</div>
+    今日はまだ未記録です。<br>
+    まずは写真で記録、しっかり入力したい時は「記録する」がおすすめです。
+</div>
+""", unsafe_allow_html=True)
+
+
+# ==========
+# 今日のおすすめ
+# ==========
+st.markdown("""
+<div class="section-card">
+    <div class="section-title">🌿 今日のおすすめ</div>
+    <b>食事</b><br>
+    家族も満足しやすく、自分は重くなりすぎない献立がおすすめです。<br><br>
+    <b>運動</b><br>
+    すきま時間の軽い運動で十分です。家事の合間に5〜10分でもOKです。<br><br>
+    <b>ひとこと</b><br>
+    全部を完璧にしなくて大丈夫。今日は記録して整えましょう。
+</div>
+""", unsafe_allow_html=True)
+
+
+# ==========
+# 最新の記録
+# ==========
+c1, c2 = st.columns(2)
+with c1:
+    st.markdown(f"""
+    <div class="section-card">
+        <div class="section-title">📊 体重</div>
+        <div style="font-size:1.25rem;font-weight:800;color:#5c4432;">{latest_weight} kg</div>
+        <div class="small-note">最新記録日: {latest_record_date}</div>
     </div>
-    """,
-    unsafe_allow_html=True,
-)
+    """, unsafe_allow_html=True)
+
+with c2:
+    st.markdown(f"""
+    <div class="section-card">
+        <div class="section-title">🫧 体脂肪</div>
+        <div style="font-size:1.25rem;font-weight:800;color:#5c4432;">{latest_bodyfat} %</div>
+        <div class="small-note">無理なく続けるのがいちばんです</div>
+    </div>
+    """, unsafe_allow_html=True)
+
 
 render_status_card(today_status)
 render_today_advice_card(advice)
