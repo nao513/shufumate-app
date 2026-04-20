@@ -85,16 +85,6 @@ def read_meal_text_from_image(uploaded_file, meal_type: str) -> str:
     return (response.output_text or "").strip()
 
 
-def guess_meal_slot(meal_type_label: str) -> str:
-    mapping = {
-        "朝ごはん": "朝",
-        "昼ごはん": "昼",
-        "夜ごはん": "夜",
-        "間食": "間食",
-    }
-    return mapping.get(meal_type_label, "夜")
-
-
 def preset_text_by_type(meal_type: str, meal_text: str) -> tuple[str, str, str, str]:
     breakfast = ""
     lunch = ""
