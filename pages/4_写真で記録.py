@@ -1,5 +1,6 @@
 import streamlit as st
 import base64
+import json
 from app_core import (
     require_login,
     get_user_id,
@@ -181,9 +182,6 @@ def guess_meal_slot_from_image(uploaded_file, time_hint: str = "", history_hint:
 - 迷うときは画像内容を最優先
 - 次に今日の記録状況を見る
 - それでも迷うときは時間帯ヒントを参考にする
-- 今日すでに朝が記録済みなら、同じ内容でない限り朝を選びにくくしてよい
-- 今日すでに昼が記録済みなら、同じ内容でない限り昼を選びにくくしてよい
-- ただし画像が明確なら画像判断を優先する
 """
 
     response = client.responses.create(
@@ -203,6 +201,92 @@ def guess_meal_slot_from_image(uploaded_file, time_hint: str = "", history_hint:
     if slot not in ["朝", "昼", "夜", "間食"]:
         return time_hint if time_hint in ["朝", "昼", "夜", "間食"] else "夜"
     return slot
+
+
+def analyze_meal_balance_from_image(uploaded_file) -> dict:
+    client = get_openai_client()
+    image_data_url = uploaded_file_to_data_url(uploaded_file)
+
+    prompt = """
+あなたは主婦向け食事記録アプリの補助AIです。
+画像を見て、食事バランスの目安をJSONで返してください。
+
+返すキーは必ず以下:
+{
+  "main_food": true or false,
+  "protein": true or false,
+  "vegetables": true or false,
+  "soup": true or false,
+  "comment": "20文字以内の短い一言"
+}
+
+ルール:
+- main_food は ごはん、パン、麺、おにぎりなど
+- protein は 卵、魚、肉、豆腐、納豆、ヨーグルトなど
+- vegetables は サラダ、野菜、副菜、海藻、きのこなど
+- soup は 味噌汁、スープ、汁物
+- comment は短く自然な日本語
+- JSON以外は出力しない
+"""
+
+    response = client.responses.create(
+        model="gpt-5.4",
+        input=[
+            {
+                "role": "user",
+                "content": [
+                    {"type": "input_text", "text": prompt},
+                    {"type": "input_image", "image_url": image_data_url},
+                ],
+            }
+        ],
+    )
+
+    raw = (response.output_text or "").strip()
+
+    try:
+        data = json.loads(raw)
+    except Exception:
+        data = {
+            "main_food": False,
+            "protein": False,
+            "vegetables": False,
+            "soup": False,
+            "comment": "写真から目安を見ました",
+        }
+
+    return {
+        "main_food": bool(data.get("main_food", False)),
+        "protein": bool(data.get("protein", False)),
+        "vegetables": bool(data.get("vegetables", False)),
+        "soup": bool(data.get("soup", False)),
+        "comment": str(data.get("comment", "写真から目安を見ました")).strip(),
+    }
+
+
+def render_balance_badges(balance: dict):
+    labels = [
+        ("主食", balance.get("main_food", False)),
+        ("たんぱく質", balance.get("protein", False)),
+        ("野菜", balance.get("vegetables", False)),
+        ("汁物", balance.get("soup", False)),
+    ]
+
+    html = []
+    for label, ok in labels:
+        bg = "#f0f7f0" if ok else "#faf1f1"
+        bd = "#cfe3cf" if ok else "#e9caca"
+        mark = "あり" if ok else "なし"
+        html.append(
+            f'<span style="display:inline-block;padding:6px 10px;margin:4px 6px 4px 0;'
+            f'border:1px solid {bd};border-radius:999px;background:{bg};font-size:0.9rem;">'
+            f'{label}: {mark}</span>'
+        )
+
+    st.markdown("".join(html), unsafe_allow_html=True)
+    comment = balance.get("comment", "").strip()
+    if comment:
+        st.caption(comment)
 
 
 def preset_text_by_type(meal_type: str, meal_text: str) -> tuple[str, str, str, str]:
@@ -264,30 +348,39 @@ with tab1:
     if selected_eval_image is not None:
         st.image(selected_eval_image, caption="評価したい食事", use_container_width=True)
 
+    col_a, col_b = st.columns(2)
+
+    with col_a:
+        if st.button("📷 写真から食事内容を読む", use_container_width=True, key="read_meal_from_photo"):
+            if selected_eval_image is None:
+                st.warning("先に写真を撮るか、アップロードしてください。")
+            else:
+                try:
+                    with st.spinner("写真から食事内容を読み取っています..."):
+                        meal_draft = read_meal_text_from_image(selected_eval_image, eval_meal_type)
+                    st.session_state["eval_meal_text"] = meal_draft
+                    st.success("写真から下書きを入れました")
+                except Exception as e:
+                    st.error(f"写真の読み取りに失敗しました: {e}")
+
+    with col_b:
+        if st.button("🥗 バランスを見る", use_container_width=True, key="analyze_eval_balance"):
+            if selected_eval_image is None:
+                st.warning("先に写真を撮るか、アップロードしてください。")
+            else:
+                try:
+                    with st.spinner("主食・たんぱく質・野菜・汁物を見ています..."):
+                        st.session_state["eval_balance_result"] = analyze_meal_balance_from_image(selected_eval_image)
+                    st.success("写真から目安を出しました")
+                except Exception as e:
+                    st.error(f"バランス確認に失敗しました: {e}")
+
+    if "eval_balance_result" in st.session_state:
+        st.markdown("### 写真から見た目安")
+        render_balance_badges(st.session_state["eval_balance_result"])
+
     st.markdown("### 写真に写っている内容")
     st.caption("写真だけでは伝わりにくいものを少し足すと、評価が安定します。")
-
-    if st.button("📷 写真から食事内容を読む", use_container_width=True, key="read_meal_from_photo"):
-        if selected_eval_image is None:
-            st.warning("先に写真を撮るか、アップロードしてください。")
-        else:
-            try:
-                with st.spinner("写真から食事内容を読み取っています..."):
-                    meal_draft = read_meal_text_from_image(selected_eval_image, eval_meal_type)
-                st.session_state["eval_meal_text"] = meal_draft
-                st.success("写真から下書きを入れました")
-            except Exception as e:
-                st.error(f"写真の読み取りに失敗しました: {e}")
-
-    quick_col1, quick_col2 = st.columns(2)
-
-    with quick_col1:
-        st.markdown("**よくある食材例**")
-        st.caption("おにぎり / ゆで卵 / 味噌汁 / 納豆 / 豆乳 / 鮭 / しらす / サラダ")
-
-    with quick_col2:
-        st.markdown("**補足すると良いこと**")
-        st.caption("乾燥野菜入り / きのこ入り / 外食 / ヨガ前 / 軽め / 運動後 など")
 
     eval_meal_text = st.text_area(
         "この食事の内容",
@@ -309,7 +402,7 @@ with tab1:
 
     eval_note = st.text_area(
         "補足メモ（任意）",
-        placeholder="例：今日はむくみあり / 外食予定 / ヨガ前 / 軽めにしたい / 朝に果物追加 など",
+        placeholder="例：今日はむくみあり / 外食予定 / ヨガ前 / 軽めにしたい など",
         height=90,
         key="eval_note",
     )
@@ -367,8 +460,6 @@ with tab2:
     if selected_log_image is not None:
         st.image(selected_log_image, caption="記録する食事写真", use_container_width=True)
 
-    st.markdown("### 食べたもの")
-
     mode = st.radio(
         "下書きの入れ方",
         ["自分で選ぶ", "AIにまかせる"],
@@ -391,34 +482,54 @@ with tab2:
         st.caption(history_hint)
         log_target_slot = None
 
-    if st.button("📷 写真から下書きする", use_container_width=True, key="read_log_meal_from_photo"):
-        if selected_log_image is None:
-            st.warning("先に写真を撮るか、アップロードしてください。")
-        else:
-            try:
-                with st.spinner("写真から食事内容を読み取っています..."):
-                    if mode == "AIにまかせる":
-                        time_hint = get_time_hint_label()
-                        history_hint = get_today_meal_history_hint(latest_log, today_str)
-                        guessed_slot = guess_meal_slot_from_image(
-                            selected_log_image,
-                            time_hint=time_hint,
-                            history_hint=history_hint,
-                        )
-                        meal_draft = read_meal_text_from_image(selected_log_image, f"{guessed_slot}の記録")
-                        apply_draft_to_log_fields(guessed_slot, meal_draft)
-                        st.session_state["last_guessed_slot"] = guessed_slot
-                        st.success(f"AIが「{guessed_slot}」と判断して下書きを入れました。必要なら直してください。")
-                    else:
-                        meal_draft = read_meal_text_from_image(selected_log_image, f"{log_target_slot}の記録")
-                        apply_draft_to_log_fields(log_target_slot, meal_draft)
-                        st.success(f"{log_target_slot}の欄に下書きを入れました。必要なら直してください。")
-            except Exception as e:
-                st.error(f"写真の読み取りに失敗しました: {e}")
+    btn1, btn2 = st.columns(2)
+
+    with btn1:
+        if st.button("📷 写真から下書きする", use_container_width=True, key="read_log_meal_from_photo"):
+            if selected_log_image is None:
+                st.warning("先に写真を撮るか、アップロードしてください。")
+            else:
+                try:
+                    with st.spinner("写真から食事内容を読み取っています..."):
+                        if mode == "AIにまかせる":
+                            time_hint = get_time_hint_label()
+                            history_hint = get_today_meal_history_hint(latest_log, today_str)
+                            guessed_slot = guess_meal_slot_from_image(
+                                selected_log_image,
+                                time_hint=time_hint,
+                                history_hint=history_hint,
+                            )
+                            meal_draft = read_meal_text_from_image(selected_log_image, f"{guessed_slot}の記録")
+                            apply_draft_to_log_fields(guessed_slot, meal_draft)
+                            st.session_state["last_guessed_slot"] = guessed_slot
+                            st.success(f"AIが「{guessed_slot}」と判断して下書きを入れました。必要なら直してください。")
+                        else:
+                            meal_draft = read_meal_text_from_image(selected_log_image, f"{log_target_slot}の記録")
+                            apply_draft_to_log_fields(log_target_slot, meal_draft)
+                            st.success(f"{log_target_slot}の欄に下書きを入れました。必要なら直してください。")
+                except Exception as e:
+                    st.error(f"写真の読み取りに失敗しました: {e}")
+
+    with btn2:
+        if st.button("🥗 バランスを見る", use_container_width=True, key="analyze_log_balance"):
+            if selected_log_image is None:
+                st.warning("先に写真を撮るか、アップロードしてください。")
+            else:
+                try:
+                    with st.spinner("主食・たんぱく質・野菜・汁物を見ています..."):
+                        st.session_state["log_balance_result"] = analyze_meal_balance_from_image(selected_log_image)
+                    st.success("写真から目安を出しました")
+                except Exception as e:
+                    st.error(f"バランス確認に失敗しました: {e}")
 
     if st.session_state.get("last_guessed_slot"):
         st.caption(f"直近のAI判定：{st.session_state['last_guessed_slot']}")
 
+    if "log_balance_result" in st.session_state:
+        st.markdown("### 写真から見た目安")
+        render_balance_badges(st.session_state["log_balance_result"])
+
+    st.markdown("### 食べたもの")
     breakfast_text = st.text_area(
         "朝",
         placeholder="例：納豆ごはん、味噌汁、ゆで卵",
