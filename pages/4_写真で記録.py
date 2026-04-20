@@ -1,4 +1,5 @@
 import streamlit as st
+import base64
 from app_core import (
     require_login,
     get_user_id,
@@ -25,9 +26,67 @@ user_id = get_user_id()
 settings = load_user_settings(user_id)
 latest_log = load_latest_log(user_id)
 
-tab1, tab2, tab3 = st.tabs(
-    ["🍽 この食事を評価", "📝 食べたものを記録", "⚖ 体重計を記録"]
-)
+
+def get_openai_client():
+    try:
+        from openai import OpenAI
+    except Exception as e:
+        raise RuntimeError(
+            "openai パッケージが見つかりません。requirements.txt に openai を追加してください。"
+        ) from e
+
+    api_key = st.secrets.get("OPENAI_API_KEY", "")
+    if not api_key:
+        raise RuntimeError("Streamlit Secrets に OPENAI_API_KEY が設定されていません。")
+
+    return OpenAI(api_key=api_key)
+
+
+def uploaded_file_to_data_url(uploaded_file) -> str:
+    mime_type = uploaded_file.type or "image/jpeg"
+    file_bytes = uploaded_file.getvalue()
+    b64 = base64.b64encode(file_bytes).decode("utf-8")
+    return f"data:{mime_type};base64,{b64}"
+
+
+def read_meal_text_from_image(uploaded_file, meal_type: str) -> str:
+    client = get_openai_client()
+    image_data_url = uploaded_file_to_data_url(uploaded_file)
+
+    prompt = f"""
+あなたは主婦向け食事記録アプリの補助AIです。
+画像を見て、食事内容を日本語で短く下書きしてください。
+
+条件:
+- 推定でよいが、見えているもの中心
+- 余計な説明は書かない
+- 箇条書きではなく、読点「、」でつなぐ
+- 分からないものは無理に断定しない
+- 量や栄養評価は書かない
+- 出力は食事内容の1行だけ
+- 対象の食事区分は「{meal_type}」
+
+出力例:
+しらすおにぎり、ゆで卵、わかめときのこの味噌汁、ブルーベリー
+"""
+
+    response = client.responses.create(
+        model="gpt-5.4",
+        input=[
+            {
+                "role": "user",
+                "content": [
+                    {"type": "input_text", "text": prompt},
+                    {
+                        "type": "input_image",
+                        "image_url": image_data_url,
+                    },
+                ],
+            }
+        ],
+    )
+    text = (response.output_text or "").strip()
+    return text
 
 
 def preset_text_by_type(meal_type: str, meal_text: str) -> tuple[str, str, str, str]:
@@ -47,6 +106,10 @@ def preset_text_by_type(meal_type: str, meal_text: str) -> tuple[str, str, str, 
 
     return breakfast, lunch, dinner, snack
 
+
+tab1, tab2, tab3 = st.tabs(
+    ["🍽 この食事を評価", "📝 食べたものを記録", "⚖ 体重計を記録"]
+)
 
 # =========================================================
 # 1. この食事を評価
@@ -77,6 +140,18 @@ with tab1:
     st.markdown("### 写真に写っている内容")
     st.caption("写真だけでは伝わりにくいものを少し足すと、評価が安定します。")
 
+    if st.button("📷 写真から食事内容を読む", use_container_width=True, key="read_meal_from_photo"):
+        if selected_eval_image is None:
+            st.warning("先に写真を撮るか、アップロードしてください。")
+        else:
+            try:
+                with st.spinner("写真から食事内容を読み取っています..."):
+                    meal_draft = read_meal_text_from_image(selected_eval_image, eval_meal_type)
+                st.session_state["eval_meal_text"] = meal_draft
+                st.success("写真から下書きを入れました")
+            except Exception as e:
+                st.error(f"写真の読み取りに失敗しました: {e}")
+
     quick_col1, quick_col2 = st.columns(2)
 
     with quick_col1:
@@ -100,25 +175,25 @@ with tab1:
             eval_meal_text,
         )
 
-        eval_breakfast = st.text_area(
+        st.text_area(
             "朝",
             value=default_breakfast,
             height=70,
             key="eval_breakfast",
         )
-        eval_lunch = st.text_area(
+        st.text_area(
             "昼",
             value=default_lunch,
             height=70,
             key="eval_lunch",
         )
-        eval_dinner = st.text_area(
+        st.text_area(
             "夜",
             value=default_dinner,
             height=70,
             key="eval_dinner",
         )
-        eval_snack = st.text_area(
+        st.text_area(
             "間食",
             value=default_snack,
             height=70,
@@ -187,6 +262,19 @@ with tab2:
         st.image(selected_log_image, caption="記録する食事写真", use_container_width=True)
 
     st.markdown("### 食べたもの")
+
+    if st.button("📷 写真から下書きする", use_container_width=True, key="read_log_meal_from_photo"):
+        if selected_log_image is None:
+            st.warning("先に写真を撮るか、アップロードしてください。")
+        else:
+            try:
+                with st.spinner("写真から食事内容を読み取っています..."):
+                    meal_draft = read_meal_text_from_image(selected_log_image, "食後記録")
+                st.session_state["photo_log_dinner"] = meal_draft
+                st.success("夜の欄に下書きを入れました。必要なら直してください。")
+            except Exception as e:
+                st.error(f"写真の読み取りに失敗しました: {e}")
+
     breakfast_text = st.text_area(
         "朝",
         placeholder="例：納豆ごはん、味噌汁、ゆで卵",
