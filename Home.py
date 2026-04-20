@@ -231,24 +231,23 @@ st.markdown(
         line-height: 1.55;
     }
 
-    .hero-photo-btn div.stButton > button {
-        background: #8b5e3c !important;
-        color: white !important;
-        font-weight: 800 !important;
-        font-size: 1.08rem !important;
-        border: none !important;
-        border-radius: 16px !important;
-        padding: 0.95rem 1rem !important;
-        box-shadow: 0 10px 20px rgba(92, 68, 50, 0.28) !important;
-        transition: all 0.2s ease !important;
-        min-height: 48px !important;
-    }
+    div.stButton > button[kind="primary"] {
+    background: #8b5e3c !important;
+    color: #ffffff !important;
+    font-weight: 800 !important;
+    font-size: 1.08rem !important;
+    border: none !important;
+    border-radius: 16px !important;
+    padding: 0.95rem 1rem !important;
+    min-height: 52px !important;
+    box-shadow: 0 10px 20px rgba(92, 68, 50, 0.28) !important;
+}
 
-    .hero-photo-btn div.stButton > button:hover {
-        background: #744b2f !important;
-        color: white !important;
-        transform: translateY(-1px) !important;
-    }
+div.stButton > button[kind="primary"]:hover {
+    background: #744b2f !important;
+    color: #ffffff !important;
+    transform: translateY(-1px) !important;
+}
 
     .sub-btn div.stButton > button {
         background: #fffaf6 !important;
@@ -469,10 +468,8 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-st.markdown('<div class="hero-photo-btn">', unsafe_allow_html=True)
-if st.button("📸 今すぐ写真で記録する", use_container_width=True, key="hero_photo_btn"):
+if st.button("📸 今すぐ写真で記録する", use_container_width=True, key="hero_photo_btn", type="primary"):
     st.switch_page("pages/4_写真で記録.py")
-st.markdown("</div>", unsafe_allow_html=True)
 
 col1, col2 = st.columns(2)
 
