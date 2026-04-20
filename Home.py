@@ -17,7 +17,6 @@ from app_core import (
 
 st.set_page_config(
     page_title="ShufuMate",
-    page_icon="💻",
     layout="centered",
 )
 
