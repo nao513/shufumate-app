@@ -17,6 +17,7 @@ from app_core import (
 
 st.set_page_config(
     page_title="ShufuMate",
+    page_icon="💻",
     layout="centered",
 )
 
@@ -43,17 +44,10 @@ st.markdown(
         background: linear-gradient(135deg, #faf6f1 0%, #fffdfa 100%);
         border: 1px solid #eadfd3;
         border-radius: 22px;
-        padding: 16px 16px 13px 16px;
-        margin-top: 0.4rem;
-        margin-bottom: 14px;
+        padding: 10px 16px 8px 16px;
+        margin-top: 0.3rem;
+        margin-bottom: 12px;
         box-shadow: 0 4px 14px rgba(0,0,0,0.03);
-    }
-
-    .sm-hero-title {
-        font-size: 1.15rem;
-        font-weight: 700;
-        margin-bottom: 0.15rem;
-        color: #3f3834;
     }
 
     .sm-hero-sub {
@@ -243,7 +237,7 @@ st.markdown(
 
 def show_logo():
     logo_candidates = [
-        Path("assets/home_icons/top/top_visual.png"),
+        Path("assets/top/logo.png"),
         Path("assets/logo.png"),
     ]
     for logo_path in logo_candidates:
@@ -253,7 +247,7 @@ def show_logo():
 
 
 def show_top_visual():
-    visual_path = Path("assets/top/top_visual.png")
+    visual_path = Path("assets/home_icons/top/top_visual.png")
     if visual_path.exists():
         st.markdown('<div class="sm-top-visual">', unsafe_allow_html=True)
         st.image(str(visual_path), use_container_width=True)
@@ -402,7 +396,6 @@ show_top_visual()
 st.markdown(
     f"""
     <div class="sm-hero">
-        <div class="sm-hero-title">💻 ホーム</div>
         <div class="sm-hero-sub">{today_text}（{weekday_text}）</div>
     </div>
     """,
@@ -423,28 +416,26 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-st.markdown("### つかう")
-
 col1, col2 = st.columns(2)
 with col1:
     render_use_card("📷", "写真で記録", "写真からサッと残す")
-    if st.button("📷 写真で記録→ここをクリック", use_container_width=True, key="go_photo"):
+    if st.button("📷 写真で記録", use_container_width=True, key="go_photo"):
         st.switch_page("pages/4_写真で記録.py")
 
 with col2:
     render_use_card("📝", "記録する", "数値やメモを入力する")
-    if st.button("📝 記録する→ここをクリック", use_container_width=True, key="go_log"):
+    if st.button("📝 記録する", use_container_width=True, key="go_log"):
         st.switch_page("pages/2_記録する.py")
 
 col3, col4 = st.columns(2)
 with col3:
     render_use_card("💬", "相談する", "食事や運動を相談する")
-    if st.button("💬 相談する→ここをクリック", use_container_width=True, key="go_advice"):
+    if st.button("💬 相談する", use_container_width=True, key="go_advice"):
         st.switch_page("pages/3_相談する.py")
 
 with col4:
-    render_use_card("⚙️ ", "設定", "体質や目標を整える")
-    if st.button("⚙️ 設定→ここをクリック", use_container_width=True, key="go_settings"):
+    render_use_card("⚙️", "設定", "体質や目標を整える")
+    if st.button("⚙️ 設定", use_container_width=True, key="go_settings"):
         st.switch_page("pages/1_設定.py")
 
 st.markdown(
