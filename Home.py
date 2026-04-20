@@ -86,16 +86,15 @@ st.markdown(
         line-height: 1.6;
     }
 
-    .main-cta-box {
-        background: linear-gradient(135deg, #f6d8bf 0%, #f1ceb0 100%);
-        border-radius: 26px;
-        padding: 26px 18px 20px 18px;
-        text-align: center;
-        box-shadow: 0 6px 14px rgba(191, 128, 77, 0.10);
-        border: 1px solid #e5b98f;
-        margin-top: 8px;
-    }
-
+   .main-cta-box {
+    background: #fffaf6;
+    border-radius: 26px;
+    padding: 26px 18px 20px 18px;
+    text-align: center;
+    box-shadow: 0 2px 8px rgba(120, 90, 60, 0.05);
+    border: 1px solid #ead8c8;
+    margin-top: 8px;
+}
     .main-cta-icon {
         font-size: 2.2rem;
         margin-bottom: 10px;
@@ -231,22 +230,20 @@ st.markdown(
         line-height: 1.55;
     }
 
-    div.stButton > button[kind="primary"] {
+    button[data-testid="stBaseButton-primary"] {
     background: #8b5e3c !important;
     color: #ffffff !important;
     font-weight: 800 !important;
     font-size: 1.08rem !important;
     border: none !important;
     border-radius: 16px !important;
-    padding: 0.95rem 1rem !important;
-    min-height: 52px !important;
+    min-height: 54px !important;
     box-shadow: 0 10px 20px rgba(92, 68, 50, 0.28) !important;
 }
 
-div.stButton > button[kind="primary"]:hover {
+button[data-testid="stBaseButton-primary"]:hover {
     background: #744b2f !important;
     color: #ffffff !important;
-    transform: translateY(-1px) !important;
 }
 
     .sub-btn div.stButton > button {
