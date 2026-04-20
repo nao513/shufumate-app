@@ -419,23 +419,23 @@ st.markdown(
 col1, col2 = st.columns(2)
 with col1:
     render_use_card("📷", "写真で記録", "写真からサッと残す")
-    if st.button("📷 写真で記録", use_container_width=True, key="go_photo"):
+    if st.button("📷 開く", use_container_width=True, key="go_photo"):
         st.switch_page("pages/4_写真で記録.py")
 
 with col2:
     render_use_card("📝", "記録する", "数値やメモを入力する")
-    if st.button("📝 記録する", use_container_width=True, key="go_log"):
+    if st.button("📝 開く", use_container_width=True, key="go_log"):
         st.switch_page("pages/2_記録する.py")
 
 col3, col4 = st.columns(2)
 with col3:
     render_use_card("💬", "相談する", "食事や運動を相談する")
-    if st.button("💬 相談する", use_container_width=True, key="go_advice"):
+    if st.button("💬 開く", use_container_width=True, key="go_advice"):
         st.switch_page("pages/3_相談する.py")
 
 with col4:
     render_use_card("⚙️", "設定", "体質や目標を整える")
-    if st.button("⚙️ 設定", use_container_width=True, key="go_settings"):
+    if st.button("⚙️ 開く", use_container_width=True, key="go_settings"):
         st.switch_page("pages/1_設定.py")
 
 st.markdown(
