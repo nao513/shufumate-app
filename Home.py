@@ -424,7 +424,7 @@ import streamlit as st
 st.markdown("""
 <style>
 .main-hero {
-    background: linear-gradient(135deg, #fff7f0 0%, #f8ede3 100%);
+    background: linear-gradient(135deg, #fff8f2 0%, #f7ede4 100%);
     border: 1px solid #ead8c8;
     border-radius: 24px;
     padding: 22px 18px 20px 18px;
@@ -446,17 +446,17 @@ st.markdown("""
 }
 
 .main-cta-box {
-    background: linear-gradient(135deg, #f4cfb2 0%, #efc29d 100%);
+    background: linear-gradient(135deg, #f6d8bf 0%, #f1ceb0 100%);
     border-radius: 26px;
-    padding: 28px 18px 22px 18px;
+    padding: 26px 18px 20px 18px;
     text-align: center;
-    box-shadow: 0 12px 26px rgba(191, 128, 77, 0.18);
-    border: 1px solid #e2b287;
+    box-shadow: 0 6px 14px rgba(191, 128, 77, 0.10);
+    border: 1px solid #e5b98f;
     margin-top: 8px;
 }
 
 .main-cta-icon {
-    font-size: 2.3rem;
+    font-size: 2.2rem;
     margin-bottom: 10px;
 }
 
@@ -476,7 +476,7 @@ st.markdown("""
 .main-cta-mini {
     display: inline-block;
     margin-top: 4px;
-    margin-bottom: 14px;
+    margin-bottom: 16px;
     background: rgba(255,255,255,0.72);
     color: #6a4b38;
     font-size: 0.82rem;
@@ -536,26 +536,22 @@ st.markdown("""
 }
 
 /* 主役ボタン */
-div.stButton > button[kind="secondary"],
-div.stButton > button {
-    border-radius: 14px;
-}
-
-/* 主役CTA用 */
 .hero-photo-btn div.stButton > button {
     background: #8b5e3c !important;
     color: white !important;
     font-weight: 800 !important;
-    font-size: 1rem !important;
+    font-size: 1.08rem !important;
     border: none !important;
-    border-radius: 14px !important;
-    padding: 0.85rem 1rem !important;
-    box-shadow: 0 8px 18px rgba(92, 68, 50, 0.22) !important;
+    border-radius: 16px !important;
+    padding: 0.95rem 1rem !important;
+    box-shadow: 0 10px 20px rgba(92, 68, 50, 0.28) !important;
+    transition: all 0.2s ease !important;
 }
 
 .hero-photo-btn div.stButton > button:hover {
     background: #744b2f !important;
     color: white !important;
+    transform: translateY(-1px) !important;
 }
 
 /* サブボタン */
