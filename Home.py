@@ -86,15 +86,16 @@ st.markdown(
         line-height: 1.6;
     }
 
-   .main-cta-box {
-    background: #fffaf6;
-    border-radius: 26px;
-    padding: 26px 18px 20px 18px;
-    text-align: center;
-    box-shadow: 0 2px 8px rgba(120, 90, 60, 0.05);
-    border: 1px solid #ead8c8;
-    margin-top: 8px;
-}
+    .main-cta-box {
+        background: #fffaf6;
+        border-radius: 26px;
+        padding: 26px 18px 20px 18px;
+        text-align: center;
+        box-shadow: 0 2px 8px rgba(120, 90, 60, 0.05);
+        border: 1px solid #ead8c8;
+        margin-top: 8px;
+    }
+
     .main-cta-icon {
         font-size: 2.2rem;
         margin-bottom: 10px;
@@ -117,41 +118,12 @@ st.markdown(
         display: inline-block;
         margin-top: 4px;
         margin-bottom: 16px;
-        background: rgba(255,255,255,0.72);
+        background: rgba(255,255,255,0.82);
         color: #6a4b38;
         font-size: 0.82rem;
         padding: 6px 12px;
         border-radius: 999px;
         font-weight: 700;
-    }
-
-    .sub-card {
-        background: #fffaf6;
-        border: 1px solid #ead8c8;
-        border-radius: 18px;
-        padding: 16px 12px;
-        text-align: center;
-        min-height: 125px;
-        box-shadow: 0 2px 8px rgba(120, 90, 60, 0.05);
-        margin-bottom: 8px;
-    }
-
-    .sub-card-icon {
-        font-size: 1.5rem;
-        margin-bottom: 8px;
-    }
-
-    .sub-card-title {
-        font-size: 1.05rem;
-        font-weight: 700;
-        color: #5c4432;
-        margin-bottom: 6px;
-    }
-
-    .sub-card-sub {
-        font-size: 0.88rem;
-        color: #7a6250;
-        line-height: 1.6;
     }
 
     .section-card {
@@ -219,47 +191,47 @@ st.markdown(
         width: 1.5rem;
     }
 
-    .sm-note {
-        background: #fffaf4;
-        border: 1px dashed #e7d5c0;
-        border-radius: 14px;
-        padding: 10px 11px;
-        margin: 6px 0 12px 0;
-        color: #6b6055;
-        font-size: 0.84rem;
-        line-height: 1.55;
+    /* 主役ボタン：ハート色オレンジ */
+    button[data-testid="stBaseButton-primary"] {
+        background: #E49858 !important;
+        color: #ffffff !important;
+        font-weight: 800 !important;
+        font-size: 1.08rem !important;
+        border: none !important;
+        border-radius: 16px !important;
+        min-height: 56px !important;
+        box-shadow: 0 10px 20px rgba(228, 152, 88, 0.32) !important;
     }
 
-    button[data-testid="stBaseButton-primary"] {
-    background: #8b5e3c !important;
-    color: #ffffff !important;
-    font-weight: 800 !important;
-    font-size: 1.08rem !important;
-    border: none !important;
-    border-radius: 16px !important;
-    min-height: 54px !important;
-    box-shadow: 0 10px 20px rgba(92, 68, 50, 0.28) !important;
-}
+    button[data-testid="stBaseButton-primary"]:hover {
+        background: #DA8A47 !important;
+        color: #ffffff !important;
+    }
 
-button[data-testid="stBaseButton-primary"]:hover {
-    background: #744b2f !important;
-    color: #ffffff !important;
-}
+    /* サブカードをそのままボタン化 */
+    .sub-action-wrap {
+        margin-top: 10px;
+    }
 
-    .sub-btn div.stButton > button {
+    .sub-action-wrap div.stButton > button {
         background: #fffaf6 !important;
         color: #5c4432 !important;
-        font-weight: 700 !important;
         border: 1px solid #ead8c8 !important;
-        border-radius: 12px !important;
-        padding: 0.75rem 0.8rem !important;
-        min-height: 42px !important;
+        border-radius: 18px !important;
+        min-height: 170px !important;
+        padding: 1.2rem 1rem !important;
+        box-shadow: 0 2px 8px rgba(120, 90, 60, 0.05) !important;
+        font-weight: 700 !important;
+        font-size: 1rem !important;
+        line-height: 1.9 !important;
+        white-space: pre-line !important;
     }
 
-    .sub-btn div.stButton > button:hover {
-        border-color: #d8b89d !important;
+    .sub-action-wrap div.stButton > button:hover {
+        background: #f8f0e8 !important;
+        border: 1px solid #dcc5b2 !important;
         color: #4d3527 !important;
-        background: #faf5ef !important;
+        transform: translateY(-1px) !important;
     }
 
     .settings-btn div.stButton > button {
@@ -287,6 +259,7 @@ button[data-testid="stBaseButton-primary"]:hover {
     unsafe_allow_html=True,
 )
 
+
 def show_logo():
     logo_candidates = [
         Path("assets/top/logo.png"),
@@ -297,12 +270,14 @@ def show_logo():
             st.image(str(logo_path), use_container_width=True)
             return
 
+
 def show_top_visual():
     visual_path = Path("assets/home_icons/top/top_visual.png")
     if visual_path.exists():
         st.markdown('<div class="sm-top-visual">', unsafe_allow_html=True)
         st.image(str(visual_path), use_container_width=True)
         st.markdown("</div>", unsafe_allow_html=True)
+
 
 def render_status_card(status: dict):
     st.markdown(
@@ -315,6 +290,7 @@ def render_status_card(status: dict):
         """,
         unsafe_allow_html=True,
     )
+
 
 def render_today_advice_card(advice: dict):
     st.markdown(
@@ -333,6 +309,7 @@ def render_today_advice_card(advice: dict):
         """,
         unsafe_allow_html=True,
     )
+
 
 def render_progress_card(summary: dict):
     st.markdown(
@@ -357,6 +334,7 @@ def render_progress_card(summary: dict):
         unsafe_allow_html=True,
     )
 
+
 def render_week_menu_card(menu_list: list[dict], now):
     today_idx = now.weekday()
     rows = []
@@ -376,6 +354,7 @@ def render_week_menu_card(menu_list: list[dict], now):
         unsafe_allow_html=True,
     )
 
+
 def render_exercise_card(exercise: dict):
     st.markdown(
         f"""
@@ -389,6 +368,7 @@ def render_exercise_card(exercise: dict):
         """,
         unsafe_allow_html=True,
     )
+
 
 user_id = get_user_id()
 
@@ -471,34 +451,22 @@ if st.button("📸 今すぐ写真で記録する", use_container_width=True, ke
 col1, col2 = st.columns(2)
 
 with col1:
-    st.markdown(
-        """
-        <div class="sub-card">
-            <div class="sub-card-icon">📝</div>
-            <div class="sub-card-title">記録する</div>
-            <div class="sub-card-sub">数値やメモを<br>しっかり残したい時</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-    st.markdown('<div class="sub-btn">', unsafe_allow_html=True)
-    if st.button("📝 記録する", use_container_width=True, key="go_log_new"):
+    st.markdown('<div class="sub-action-wrap">', unsafe_allow_html=True)
+    if st.button(
+        "📝\n記録する\n数値やメモを\nしっかり残したい時",
+        use_container_width=True,
+        key="go_log_new"
+    ):
         st.switch_page("pages/2_記録する.py")
     st.markdown("</div>", unsafe_allow_html=True)
 
 with col2:
-    st.markdown(
-        """
-        <div class="sub-card">
-            <div class="sub-card-icon">💬</div>
-            <div class="sub-card-title">相談する</div>
-            <div class="sub-card-sub">食事や運動を<br>気軽に相談したい時</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-    st.markdown('<div class="sub-btn">', unsafe_allow_html=True)
-    if st.button("💬 相談する", use_container_width=True, key="go_advice_new"):
+    st.markdown('<div class="sub-action-wrap">', unsafe_allow_html=True)
+    if st.button(
+        "💬\n相談する\n食事や運動を\n気軽に相談したい時",
+        use_container_width=True,
+        key="go_advice_new"
+    ):
         st.switch_page("pages/3_相談する.py")
     st.markdown("</div>", unsafe_allow_html=True)
 
