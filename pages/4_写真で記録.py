@@ -144,7 +144,7 @@ latest_log = load_latest_log(user_id)
 today_str = jst_today_str()
 
 st.markdown(
-    f"""
+    """
     <div class="sm-hero">
         <div class="sm-hero-sub">📷 写真から食事内容を下書きしたり、バランスを見たりしながら、記録をラクに残せます。</div>
     </div>
@@ -537,7 +537,7 @@ with tab1:
     col_a, col_b = st.columns(2)
 
     with col_a:
-        if st.button("📷 写真から食事内容を読む", use_container_width=True, key="read_meal_from_photo"):
+        if st.button("📷 写真から読む", use_container_width=True, key="read_meal_from_photo"):
             if selected_eval_image is None:
                 st.warning("先に写真を撮るか、アップロードしてください。")
             else:
@@ -582,7 +582,7 @@ with tab1:
         st.text_area("間食", value=default_snack, height=70, key="eval_snack")
 
     with st.expander("補足メモを入れる"):
-        eval_note = st.text_area(
+        st.text_area(
             "補足メモ",
             placeholder="例：今日はむくみあり / 外食予定 / ヨガ前 / 軽めにしたい など",
             height=90,
@@ -671,7 +671,7 @@ with tab2:
     btn1, btn2 = st.columns(2)
 
     with btn1:
-        if st.button("📷 写真から下書きする", use_container_width=True, key="read_log_meal_from_photo"):
+        if st.button("📷 写真から下書き", use_container_width=True, key="read_log_meal_from_photo"):
             if selected_log_image is None:
                 st.warning("先に写真を撮るか、アップロードしてください。")
             else:
