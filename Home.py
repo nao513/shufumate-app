@@ -7,7 +7,9 @@ from app_core import (
     logout_user,
     load_user_settings,
     load_current_user_profile,
+    load_latest_log,
     get_today_advice,
+    get_today_shopping_list,
     get_week_menu,
     get_today_exercise,
     get_home_progress_summary,
@@ -27,9 +29,9 @@ st.markdown(
     """
     <style>
     .block-container {
-        padding-top: 1.0rem;
+        padding-top: 1.2rem;
         padding-bottom: 2rem;
-        max-width: 920px;
+        max-width: 760px;
     }
 
     .sm-top-visual {
@@ -40,16 +42,62 @@ st.markdown(
         box-shadow: 0 4px 16px rgba(0,0,0,0.04);
     }
 
-    .sm-date-bar {
-        background: #faf6f1;
+    .sm-hero {
+        background: linear-gradient(135deg, #faf6f1 0%, #fffdfa 100%);
         border: 1px solid #eadfd3;
-        border-radius: 18px;
-        padding: 10px 14px;
+        border-radius: 22px;
+        padding: 10px 16px 8px 16px;
         margin-top: 0.3rem;
         margin-bottom: 12px;
         box-shadow: 0 4px 14px rgba(0,0,0,0.03);
+    }
+
+    .sm-hero-sub {
         color: #6d645d;
         font-size: 0.92rem;
+    }
+
+    .sm-card {
+        background: #ffffff;
+        border: 1px solid #ece4db;
+        border-radius: 18px;
+        padding: 16px 15px;
+        margin-bottom: 12px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.03);
+    }
+
+    .sm-card-soft {
+        background: #fffdf9;
+    }
+
+    .sm-status-ok {
+        background: #f7fbf8;
+        border: 1px solid #d8eadb;
+    }
+
+    .sm-status-ng {
+        background: #fffaf5;
+        border: 1px solid #eedecd;
+    }
+
+    .sm-title {
+        font-size: 1rem;
+        font-weight: 700;
+        margin-bottom: 0.7rem;
+        color: #3f3834;
+    }
+
+    .sm-sub {
+        color: #6d645d;
+        font-size: 0.9rem;
+        margin-bottom: 0.2rem;
+        line-height: 1.5;
+    }
+
+    .sm-text {
+        line-height: 1.7;
+        font-size: 0.95rem;
+        color: #403935;
     }
 
     .sm-label {
@@ -61,85 +109,6 @@ st.markdown(
         margin: 2px 6px 2px 0;
         font-size: 0.82rem;
         color: #554d47;
-    }
-
-    .main-hero {
-        background: linear-gradient(135deg, #fff8f2 0%, #f7ede4 100%);
-        border: 1px solid #ead8c8;
-        border-radius: 24px;
-        padding: 22px 18px 20px 18px;
-        margin: 0 0 18px 0;
-        box-shadow: 0 6px 18px rgba(120, 90, 60, 0.08);
-    }
-
-    .main-hero-title {
-        font-size: 1.45rem;
-        font-weight: 800;
-        color: #5c4432;
-        margin-bottom: 8px;
-    }
-
-    .main-hero-sub {
-        font-size: 1rem;
-        color: #7a6250;
-        margin-bottom: 16px;
-        line-height: 1.6;
-    }
-
-    .main-cta-box {
-        background: #fffaf6;
-        border-radius: 26px;
-        padding: 26px 18px 20px 18px;
-        text-align: center;
-        box-shadow: 0 2px 8px rgba(120, 90, 60, 0.05);
-        border: 1px solid #ead8c8;
-        margin-top: 8px;
-    }
-
-    .main-cta-icon {
-        font-size: 2.2rem;
-        margin-bottom: 10px;
-    }
-
-    .main-cta-title {
-        font-size: 1.55rem;
-        font-weight: 800;
-        color: #4d3527;
-        margin-bottom: 8px;
-    }
-
-    .main-cta-sub {
-        font-size: 1rem;
-        color: #6a4b38;
-        margin-bottom: 10px;
-    }
-
-    .main-cta-mini {
-        display: inline-block;
-        margin-top: 4px;
-        margin-bottom: 16px;
-        background: rgba(255,255,255,0.82);
-        color: #6a4b38;
-        font-size: 0.82rem;
-        padding: 6px 12px;
-        border-radius: 999px;
-        font-weight: 700;
-    }
-
-    .section-card {
-        background: #fffaf6;
-        border: 1px solid #ead8c8;
-        border-radius: 18px;
-        padding: 16px 14px;
-        margin-top: 14px;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.03);
-    }
-
-    .section-title {
-        font-size: 1rem;
-        font-weight: 700;
-        color: #5c4432;
-        margin-bottom: 8px;
     }
 
     .sm-grid {
@@ -191,53 +160,74 @@ st.markdown(
         width: 1.5rem;
     }
 
-    button[data-testid="stBaseButton-primary"] {
-        background: #E49858 !important;
-        color: #ffffff !important;
-        font-weight: 800 !important;
-        font-size: 1.08rem !important;
-        border: none !important;
-        border-radius: 16px !important;
-        min-height: 56px !important;
-        box-shadow: 0 10px 20px rgba(228, 152, 88, 0.32) !important;
+    .sm-use-card {
+        background: #fffdf9;
+        border: 1px solid #ece2d6;
+        border-radius: 18px;
+        padding: 14px 12px;
+        margin-bottom: 12px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.03);
+        min-height: 100%;
     }
 
-    button[data-testid="stBaseButton-primary"]:hover {
-        background: #DA8A47 !important;
-        color: #ffffff !important;
+    .sm-use-icon {
+        font-size: 1.55rem;
+        text-align: center;
+        margin-bottom: 0.4rem;
     }
 
-    .sub-action-wrap {
-        margin-top: 10px;
+    .sm-use-title {
+        font-size: 0.95rem;
+        font-weight: 700;
+        text-align: center;
+        margin-bottom: 0.2rem;
+        color: #3f3834;
     }
 
-    .sub-action-wrap div.stButton > button {
-        background: #fffaf6 !important;
-        color: #5c4432 !important;
-        border: 1px solid #ead8c8 !important;
-        border-radius: 18px !important;
-        min-height: 170px !important;
-        padding: 1.2rem 1rem !important;
-        box-shadow: 0 2px 8px rgba(120, 90, 60, 0.05) !important;
-        font-weight: 700 !important;
-        font-size: 1rem !important;
-        line-height: 1.9 !important;
-        white-space: pre-line !important;
+    .sm-use-sub {
+        font-size: 0.82rem;
+        color: #6d645d;
+        line-height: 1.45;
+        text-align: center;
+        min-height: 2.6em;
+        margin-bottom: 0.55rem;
     }
 
-    .sub-action-wrap div.stButton > button:hover {
-        background: #f8f0e8 !important;
-        border: 1px solid #dcc5b2 !important;
-        color: #4d3527 !important;
-        transform: translateY(-1px) !important;
+    .sm-note {
+        background: #fffaf4;
+        border: 1px dashed #e7d5c0;
+        border-radius: 14px;
+        padding: 10px 11px;
+        margin: 6px 0 12px 0;
+        color: #6b6055;
+        font-size: 0.84rem;
+        line-height: 1.55;
     }
 
-    .settings-btn div.stButton > button {
+    .sm-list {
+        margin: 0;
+        padding-left: 1.1rem;
+        color: #403935;
+        line-height: 1.7;
+    }
+
+    .sm-list li {
+        margin-bottom: 0.3rem;
+    }
+
+    .stButton > button {
+        border-radius: 12px !important;
+        min-height: 42px;
+        border: 1px solid #e2d2c1 !important;
+        width: 100%;
+        font-size: 0.92rem !important;
         background: #fffdfa !important;
         color: #4a4039 !important;
-        border: 1px solid #e2d2c1 !important;
-        border-radius: 12px !important;
-        min-height: 42px !important;
+    }
+
+    .stButton > button:hover {
+        border: 1px solid #d6c2ae !important;
+        background: #faf5ef !important;
     }
 
     h3 {
@@ -277,32 +267,68 @@ def show_top_visual():
         st.markdown("</div>", unsafe_allow_html=True)
 
 
-def render_status_card(status: dict):
+def render_today_advice_card(advice: dict):
     st.markdown(
         f"""
-        <div class="section-card">
-            <div class="section-title">🕊 今日の記録状況</div>
-            <div style="font-weight:700;color:#3f3834;">{status["label"]}</div>
-            <div style="margin-top:8px;color:#6d645d;line-height:1.6;">{status["detail"]}</div>
+        <div class="sm-card sm-card-soft">
+            <div class="sm-title">🌿 今日のおすすめ</div>
+
+            <div class="sm-sub"><b>全体</b></div>
+            <div class="sm-text">{advice.get("食事", "")}</div>
+            <br>
+
+            <div class="sm-sub"><b>朝</b></div>
+            <div class="sm-text">{advice.get("朝", "")}</div>
+            <br>
+
+            <div class="sm-sub"><b>昼</b></div>
+            <div class="sm-text">{advice.get("昼", "")}</div>
+            <br>
+
+            <div class="sm-sub"><b>夜</b></div>
+            <div class="sm-text">{advice.get("夜", "")}</div>
+            <br>
+
+            <div class="sm-sub"><b>運動</b></div>
+            <div class="sm-text">{advice.get("運動", "")}</div>
+            <br>
+
+            <div class="sm-sub"><b>ひとこと</b></div>
+            <div class="sm-text">{advice.get("ひとこと", "")}</div>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
 
-def render_today_advice_card(advice: dict):
+def render_status_card(status: dict):
+    card_class = "sm-status-ok" if status["is_logged"] else "sm-status-ng"
+    icon = "✅" if status["is_logged"] else "🕒"
+
     st.markdown(
         f"""
-        <div class="section-card">
-            <div class="section-title">🌿 今日のおすすめ</div>
-            <b>食事</b><br>
-            <div style="line-height:1.7;color:#403935;">{advice["食事"]}</div>
-            <br>
-            <b>運動</b><br>
-            <div style="line-height:1.7;color:#403935;">{advice["運動"]}</div>
-            <br>
-            <b>ひとこと</b><br>
-            <div style="line-height:1.7;color:#403935;">{advice["ひとこと"]}</div>
+        <div class="sm-card {card_class}">
+            <div class="sm-title">{icon} 今日の記録状況</div>
+            <div class="sm-text"><b>{status["label"]}</b></div>
+            <div class="sm-sub" style="margin-top:8px;">{status["detail"]}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_shopping_card(items: list[str]):
+    if not items:
+        return
+
+    li_html = "".join([f"<li>{item}</li>" for item in items])
+    st.markdown(
+        f"""
+        <div class="sm-card">
+            <div class="sm-title">🛒 今日の買い足し候補</div>
+            <ul class="sm-list">
+                {li_html}
+            </ul>
         </div>
         """,
         unsafe_allow_html=True,
@@ -312,9 +338,9 @@ def render_today_advice_card(advice: dict):
 def render_progress_card(summary: dict):
     st.markdown(
         f"""
-        <div class="section-card">
-            <div class="section-title">📊 最新の記録</div>
-            <div style="color:#6d645d;font-size:0.9rem;">最新記録日：{summary["latest_date"]}</div>
+        <div class="sm-card">
+            <div class="sm-title">📊 最新の記録</div>
+            <div class="sm-sub">最新記録日：{summary["latest_date"]}</div>
             <div class="sm-grid" style="margin-top:12px;">
                 <div class="sm-mini-card">
                     <div class="sm-mini-title">体重</div>
@@ -333,22 +359,6 @@ def render_progress_card(summary: dict):
     )
 
 
-def render_today_menu_card(today_advice: dict):
-    st.markdown(
-        f"""
-        <div class="section-card">
-            <div class="section-title">🍳 今日のメニュー提案</div>
-            <b>朝ごはん</b><br>
-            <div style="line-height:1.7;color:#403935;">{today_advice["朝食"]}</div>
-            <br>
-            <b>夕ごはん</b><br>
-            <div style="line-height:1.7;color:#403935;">{today_advice["夕食"]}</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-
 def render_week_menu_card(menu_list: list[dict], now):
     today_idx = now.weekday()
     rows = []
@@ -360,8 +370,8 @@ def render_week_menu_card(menu_list: list[dict], now):
 
     st.markdown(
         f"""
-        <div class="section-card">
-            <div class="section-title">📅 今週の献立メモ</div>
+        <div class="sm-card">
+            <div class="sm-title">🍽 今週の献立</div>
             {''.join(rows)}
         </div>
         """,
@@ -372,12 +382,25 @@ def render_week_menu_card(menu_list: list[dict], now):
 def render_exercise_card(exercise: dict):
     st.markdown(
         f"""
-        <div class="section-card">
-            <div class="section-title">🏃 今日の運動</div>
-            <div style="font-weight:700;color:#3f3834;margin-bottom:6px;">{exercise["title"]}</div>
-            <div style="line-height:1.7;color:#403935;">{exercise["body"]}</div>
+        <div class="sm-card">
+            <div class="sm-title">🏃 今日の運動</div>
+            <div class="sm-sub"><b>{exercise["title"]}</b></div>
+            <div class="sm-text">{exercise["body"]}</div>
             <br>
-            <div style="line-height:1.7;color:#403935;">{exercise["level_text"]}</div>
+            <div class="sm-text">{exercise["level_text"]}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_use_card(icon: str, title: str, subtitle: str):
+    st.markdown(
+        f"""
+        <div class="sm-use-card">
+            <div class="sm-use-icon">{icon}</div>
+            <div class="sm-use-title">{title}</div>
+            <div class="sm-use-sub">{subtitle}</div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -389,6 +412,7 @@ user_id = get_user_id()
 try:
     settings = load_user_settings(user_id)
     profile = load_current_user_profile()
+    latest_log = load_latest_log(user_id)
     progress = get_home_progress_summary(user_id)
     today_status = get_today_log_status(user_id)
 except Exception as e:
@@ -396,19 +420,14 @@ except Exception as e:
     st.stop()
 
 now = jst_now()
-nickname = profile["nickname"].strip() if profile else settings["nickname"].strip()
+nickname = profile["nickname"].strip() if profile else settings.get("nickname", "").strip()
 today_text = now.strftime("%Y年%m月%d日")
 weekday_text = WEEKDAY_JP[now.weekday()]
 
-advice = get_today_advice(settings)
+advice = get_today_advice(settings, latest_log)
+shopping_items = get_today_shopping_list(settings, latest_log)
 week_menu = get_week_menu(settings)
-exercise = get_today_exercise(settings)
-
-# 朝食・夕食の提案例
-today_menu = {
-    "朝食": advice.get("朝食", "ごはん＋たんぱく質＋汁物の軽い朝食がおすすめです。"),
-    "夕食": advice.get("夕食", "主菜＋副菜＋汁物で、重くなりすぎない夕食がおすすめです。"),
-}
+exercise = get_today_exercise(settings, latest_log)
 
 top1, top2 = st.columns([3, 1])
 
@@ -424,7 +443,9 @@ show_top_visual()
 
 st.markdown(
     f"""
-    <div class="sm-date-bar">{today_text}（{weekday_text}）</div>
+    <div class="sm-hero">
+        <div class="sm-hero-sub">{today_text}（{weekday_text}）</div>
+    </div>
     """,
     unsafe_allow_html=True,
 )
@@ -443,65 +464,41 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-hero_message = (
-    "昨日までの記録があります。今日はサッと続きから✨"
-    if progress.get("latest_date")
-    else "今日は何から始めますか？ 迷ったら写真で記録がおすすめです📸"
-)
+col1, col2 = st.columns(2)
+with col1:
+    render_use_card("📷", "写真で記録", "写真からサッと残す")
+    if st.button("📷 開く", use_container_width=True, key="go_photo"):
+        st.switch_page("pages/4_写真で記録.py")
+
+with col2:
+    render_use_card("📝", "記録する", "数値やメモを入力する")
+    if st.button("📝 開く", use_container_width=True, key="go_log"):
+        st.switch_page("pages/2_記録する.py")
+
+col3, col4 = st.columns(2)
+with col3:
+    render_use_card("💬", "相談する", "食事や運動を相談する")
+    if st.button("💬 開く", use_container_width=True, key="go_advice"):
+        st.switch_page("pages/3_相談する.py")
+
+with col4:
+    render_use_card("⚙️", "設定", "体質や目標を整える")
+    if st.button("⚙️ 開く", use_container_width=True, key="go_settings"):
+        st.switch_page("pages/1_設定.py")
 
 st.markdown(
-    f"""
-    <div class="main-hero">
-        <div class="main-hero-title">今日は何から始めますか？😊</div>
-        <div class="main-hero-sub">{hero_message}</div>
-        <div class="main-cta-box">
-            <div class="main-cta-icon">📸</div>
-            <div class="main-cta-title">写真で記録</div>
-            <div class="main-cta-sub">たった3秒でOK。まずはここから</div>
-            <div class="main-cta-mini">迷ったらこれ</div>
-        </div>
+    """
+    <div class="sm-note">
+    写真でサッと残したい時は「写真で記録」、
+    しっかり入力したい時は「記録する」がおすすめです。
     </div>
     """,
     unsafe_allow_html=True,
 )
 
-if st.button("📸 今すぐ写真で記録する", use_container_width=True, key="hero_photo_btn", type="primary"):
-    st.switch_page("pages/4_写真で記録.py")
-
-col1, col2 = st.columns(2)
-
-with col1:
-    st.markdown('<div class="sub-action-wrap">', unsafe_allow_html=True)
-    if st.button(
-        "📝\n記録する\n数値やメモを\nしっかり残したい時",
-        use_container_width=True,
-        key="go_log_new"
-    ):
-        st.switch_page("pages/2_記録する.py")
-    st.markdown("</div>", unsafe_allow_html=True)
-
-with col2:
-    st.markdown('<div class="sub-action-wrap">', unsafe_allow_html=True)
-    if st.button(
-        "💬\n相談する\n食事や運動を\n気軽に相談したい時",
-        use_container_width=True,
-        key="go_advice_new"
-    ):
-        st.switch_page("pages/3_相談する.py")
-    st.markdown("</div>", unsafe_allow_html=True)
-
-with st.expander("⚙️ 設定を開く"):
-    st.markdown('<div class="settings-btn">', unsafe_allow_html=True)
-    if st.button("⚙️ 体質や目標を設定する", use_container_width=True, key="go_settings_new"):
-        st.switch_page("pages/1_設定.py")
-    st.markdown("</div>", unsafe_allow_html=True)
-
 render_status_card(today_status)
-render_today_menu_card(today_menu)
 render_today_advice_card(advice)
-
-if progress.get("latest_weight") is not None and progress.get("latest_body_fat") is not None:
-    render_progress_card(progress)
-
+render_shopping_card(shopping_items)
+render_progress_card(progress)
 render_week_menu_card(week_menu, now)
 render_exercise_card(exercise)
