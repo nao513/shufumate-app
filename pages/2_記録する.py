@@ -1,309 +1,338 @@
 import streamlit as st
-from datetime import datetime
+import pandas as pd
 from app_core import (
     require_login,
+    get_user_id,
     load_user_settings,
-    load_current_user_profile,
-    jst_now,
+    load_latest_log,
+    get_initial_log_values,
+    load_recent_logs,
+    save_diet_log,
+    jst_today_str,
+    TODAY_CONDITION_OPTIONS,
 )
 
-# 既存の保存関数が app_core にある場合はそれを使う
-try:
-    from app_core import load_diet_logs, upsert_diet_log
-    HAS_DIET_LOG_API = True
-except Exception:
-    HAS_DIET_LOG_API = False
-
-
 st.set_page_config(
-    page_title="記録する | ShufuMate",
+    page_title="記録する｜ShufuMate",
     page_icon="📝",
     layout="centered",
 )
 
 require_login()
 
+user_id = get_user_id()
+
+try:
+    settings = load_user_settings(user_id) or {}
+    latest_log = load_latest_log(user_id)
+    initial_values = get_initial_log_values(user_id)
+except Exception as e:
+    st.error(f"設定の読込に失敗しました: {e}")
+    st.stop()
+
 st.markdown(
     """
     <style>
     .block-container {
-        padding-top: 1rem;
+        max-width: 760px;
+        padding-top: 1.2rem;
         padding-bottom: 2rem;
-        max-width: 920px;
     }
 
-    .page-hero {
-        background: linear-gradient(135deg, #fff8f2 0%, #f7ede4 100%);
-        border: 1px solid #ead8c8;
-        border-radius: 24px;
-        padding: 20px 18px 16px 18px;
-        margin-bottom: 16px;
-        box-shadow: 0 6px 18px rgba(120, 90, 60, 0.08);
+    .sm-hero {
+        background: linear-gradient(135deg, #faf6f1 0%, #fffdfa 100%);
+        border: 1px solid #eadfd3;
+        border-radius: 22px;
+        padding: 10px 16px 8px 16px;
+        margin-top: 0.3rem;
+        margin-bottom: 12px;
+        box-shadow: 0 4px 14px rgba(0,0,0,0.03);
     }
 
-    .page-hero-title {
-        font-size: 1.35rem;
-        font-weight: 800;
-        color: #5c4432;
-        margin-bottom: 6px;
+    .sm-hero-sub {
+        color: #6d645d;
+        font-size: 0.92rem;
+        line-height: 1.5;
     }
 
-    .page-hero-sub {
-        color: #7a6250;
-        line-height: 1.6;
-    }
-
-    .section-card {
-        background: #fffaf6;
-        border: 1px solid #ead8c8;
+    .sm-card {
+        background: #ffffff;
+        border: 1px solid #ece4db;
         border-radius: 18px;
-        padding: 16px 14px;
-        margin-top: 14px;
+        padding: 16px 15px;
+        margin-bottom: 12px;
         box-shadow: 0 2px 10px rgba(0,0,0,0.03);
     }
 
-    .section-title {
+    .sm-card-soft {
+        background: #fffdf9;
+    }
+
+    .sm-title {
         font-size: 1rem;
         font-weight: 700;
-        color: #5c4432;
-        margin-bottom: 10px;
+        margin-bottom: 0.7rem;
+        color: #3f3834;
     }
 
-    button[data-testid="stBaseButton-primary"] {
-        background: #E49858 !important;
-        color: #ffffff !important;
-        font-weight: 800 !important;
-        border: none !important;
-        border-radius: 14px !important;
-        min-height: 50px !important;
-        box-shadow: 0 10px 20px rgba(228, 152, 88, 0.28) !important;
+    .sm-sub {
+        color: #6d645d;
+        font-size: 0.9rem;
+        margin-bottom: 0.2rem;
+        line-height: 1.5;
     }
 
-    button[data-testid="stBaseButton-primary"]:hover {
-        background: #DA8A47 !important;
-        color: #ffffff !important;
-    }
-
-    .hint-box {
+    .sm-note {
         background: #fffaf4;
         border: 1px dashed #e7d5c0;
         border-radius: 14px;
         padding: 10px 11px;
+        margin: 8px 0 12px 0;
         color: #6b6055;
         font-size: 0.84rem;
         line-height: 1.55;
-        margin-top: 10px;
+    }
+
+    .sm-label {
+        display: inline-block;
+        background: #f7f1e9;
+        border: 1px solid #eadfce;
+        border-radius: 999px;
+        padding: 4px 10px;
+        margin: 2px 6px 2px 0;
+        font-size: 0.82rem;
+        color: #554d47;
+    }
+
+    .sm-mini-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+    }
+
+    .sm-mini-card {
+        background: #fffdf9;
+        border: 1px solid #eee5da;
+        border-radius: 16px;
+        padding: 14px 12px;
+    }
+
+    .sm-mini-title {
+        font-size: 0.86rem;
+        color: #6d645d;
+        margin-bottom: 0.3rem;
+    }
+
+    .sm-mini-main {
+        font-size: 1.18rem;
+        font-weight: 700;
+        margin-bottom: 0.2rem;
+        color: #3f3834;
+    }
+
+    .stButton > button {
+        border-radius: 12px !important;
+        min-height: 42px;
+        border: 1px solid #e2d2c1 !important;
+        width: 100%;
+        font-size: 0.92rem !important;
+        background: #fffdfa !important;
+        color: #4a4039 !important;
+    }
+
+    .stButton > button:hover {
+        border: 1px solid #d6c2ae !important;
+        background: #faf5ef !important;
+    }
+
+    div[data-testid="stExpander"] {
+        border: 1px solid #eee3d7;
+        border-radius: 16px;
+        overflow: hidden;
+        margin-bottom: 10px;
+        background: #fffdf9;
+    }
+
+    h3 {
+        margin-top: 0.55rem !important;
+        margin-bottom: 0.55rem !important;
+        font-size: 1rem !important;
+        color: #3f3834 !important;
+    }
+
+    @media (max-width: 640px) {
+        .sm-mini-grid {
+            grid-template-columns: 1fr;
+        }
     }
     </style>
     """,
     unsafe_allow_html=True,
 )
 
+nickname = (settings.get("nickname") or "").strip()
+today_str = jst_today_str()
 
-def init_common_state(settings: dict):
-    defaults = {
-        "common_gender": settings.get("common_gender", "未選択"),
-        "common_age": int(settings.get("common_age", 40)),
-        "common_height": float(settings.get("common_height", 160.0)),
-        "common_weight": float(settings.get("common_weight", 50.0)),
-        "common_target_weight": float(settings.get("common_target_weight", 48.0)),
-        "common_body_fat": float(settings.get("common_body_fat", 28.0)),
-        "common_target_body_fat": float(settings.get("common_target_body_fat", 24.0)),
-        "common_muscle_mass": float(settings.get("common_muscle_mass", 35.0)),
-        "common_target_muscle_mass": float(settings.get("common_target_muscle_mass", 38.0)),
-    }
-    for k, v in defaults.items():
-        if k not in st.session_state:
-            st.session_state[k] = v
+default_weight = float(initial_values.get("weight", settings.get("current_weight", 50.0)))
+default_body_fat = float(initial_values.get("body_fat", settings.get("current_body_fat", 30.0)))
+default_conditions = initial_values.get("today_conditions", [])
 
-    if "record_notes_by_date" not in st.session_state:
-        st.session_state["record_notes_by_date"] = {}
+latest_date = "未記録"
+if latest_log:
+    latest_date = str(latest_log.get("log_date", "未記録")) or "未記録"
 
+st.markdown(
+    """
+    <div class="sm-hero">
+        <div class="sm-hero-sub">📝 数値やメモをまとめて記録します。写真でサッと残したい時は「写真で記録」、しっかり入力したい時はこちらがおすすめです。</div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
 
-def get_today_note_defaults(date_str: str):
-    saved = st.session_state["record_notes_by_date"].get(date_str, {})
-
-    food_default = saved.get("food_memo", "").strip()
-    if not food_default:
-        food_default = "朝：\n昼：\n夜：\n間食："
-
-    return {
-        "food_memo": food_default,
-        "exercise_memo": saved.get("exercise_memo", ""),
-        "condition_note": saved.get("condition_note", ""),
-        "mood_note": saved.get("mood_note", ""),
-    }
-
-
-def save_today_notes(date_str: str, food_memo: str, exercise_memo: str, condition_note: str, mood_note: str):
-    st.session_state["record_notes_by_date"][date_str] = {
-        "food_memo": food_memo,
-        "exercise_memo": exercise_memo,
-        "condition_note": condition_note,
-        "mood_note": mood_note,
-    }
-
-
-def render_body_inputs():
-    gender = st.selectbox(
-        "性別（任意）",
-        ["未選択", "女性", "男性", "その他", "回答しない"],
-        key="common_gender",
-    )
-    age = st.number_input("年齢", min_value=20, max_value=100, step=1, key="common_age")
-    height_cm = st.number_input("身長（cm）", min_value=145.0, max_value=200.0, step=0.5, format="%.1f", key="common_height")
-    weight = st.number_input("現在の体重（kg）", min_value=35.0, max_value=200.0, step=0.1, format="%.1f", key="common_weight")
-    target_weight = st.number_input("目標体重（kg）", min_value=35.0, max_value=150.0, step=0.1, format="%.1f", key="common_target_weight")
-    body_fat = st.number_input("体脂肪率（%）", min_value=5.0, max_value=60.0, step=0.1, format="%.1f", key="common_body_fat")
-    target_body_fat = st.number_input("目標体脂肪率（%）", min_value=5.0, max_value=60.0, step=0.1, format="%.1f", key="common_target_body_fat")
-    muscle_mass = st.number_input("筋肉量（kg）", min_value=10.0, max_value=80.0, step=0.1, format="%.1f", key="common_muscle_mass")
-    target_muscle_mass = st.number_input("目標筋肉量（kg）", min_value=10.0, max_value=80.0, step=0.1, format="%.1f", key="common_target_muscle_mass")
-    return gender, age, height_cm, weight, target_weight, body_fat, target_body_fat, muscle_mass, target_muscle_mass
-
-
-settings = load_user_settings() or {}
-profile = load_current_user_profile() or {}
-init_common_state(settings)
-
-now = jst_now()
-today_str = now.strftime("%Y-%m-%d")
-today_jp = now.strftime("%Y年%m月%d日")
-nickname = (profile.get("nickname") or settings.get("nickname") or "").strip()
-
-notes_default = get_today_note_defaults(today_str)
+st.subheader(f"{nickname}さんの今日の記録" if nickname else "今日の記録")
 
 st.markdown(
     f"""
-    <div class="page-hero">
-        <div class="page-hero-title">📝 記録する</div>
-        <div class="page-hero-sub">
-            {nickname + "さん、" if nickname else ""}今日はどんな1日でしたか？<br>
-            数値とメモをまとめて残せます。
+    <span class="sm-label">日付：{today_str}</span>
+    <span class="sm-label">最新記録日：{latest_date}</span>
+    """,
+    unsafe_allow_html=True,
+)
+
+st.markdown(
+    f"""
+    <div class="sm-card sm-card-soft">
+        <div class="sm-title">基本情報</div>
+        <div class="sm-sub">設定から読み込んだ内容です。今日の記録はこの情報をもとに保存されます。</div>
+        <div class="sm-mini-grid" style="margin-top:10px;">
+            <div class="sm-mini-card">
+                <div class="sm-mini-title">身長</div>
+                <div class="sm-mini-main">{float(settings.get("height_cm", 160.0)):.1f} cm</div>
+            </div>
+            <div class="sm-mini-card">
+                <div class="sm-mini-title">目標</div>
+                <div class="sm-mini-main">{float(settings.get("target_weight", 48.0)):.1f} kg / {float(settings.get("target_body_fat", 28.0)):.1f} %</div>
+            </div>
         </div>
     </div>
     """,
     unsafe_allow_html=True,
 )
 
-st.caption(f"対象日：{today_jp}")
+with st.form("daily_log_form"):
+    st.markdown('<div class="sm-card">', unsafe_allow_html=True)
+    st.markdown('<div class="sm-title">体重・体脂肪を記録</div>', unsafe_allow_html=True)
 
-with st.container():
-    st.markdown('<div class="section-card">', unsafe_allow_html=True)
-    st.markdown('<div class="section-title">📏 体の記録</div>', unsafe_allow_html=True)
+    col1, col2 = st.columns(2)
+    with col1:
+        weight = st.number_input(
+            "体重(kg)",
+            min_value=0.0,
+            max_value=200.0,
+            value=float(default_weight),
+            step=0.1,
+            format="%.1f",
+        )
+    with col2:
+        body_fat = st.number_input(
+            "体脂肪(%)",
+            min_value=0.0,
+            max_value=70.0,
+            value=float(default_body_fat),
+            step=0.1,
+            format="%.1f",
+        )
 
-    gender, age, height_cm, weight, target_weight, body_fat, target_body_fat, muscle_mass, target_muscle_mass = render_body_inputs()
+    st.markdown("</div>", unsafe_allow_html=True)
 
-    bmi = weight / ((height_cm / 100) ** 2)
-    bmr = weight * 22 * 1.5
-    goal_calories = round(bmr, 0)
+    st.markdown('<div class="sm-card sm-card-soft">', unsafe_allow_html=True)
+    st.markdown('<div class="sm-title">今日の状態</div>', unsafe_allow_html=True)
+    today_conditions = st.multiselect(
+        "当てはまるものを選ぶ",
+        TODAY_CONDITION_OPTIONS,
+        default=default_conditions,
+    )
+    st.markdown("</div>", unsafe_allow_html=True)
 
-    c1, c2, c3 = st.columns(3)
-    with c1:
-        st.metric("BMI", f"{bmi:.1f}")
-    with c2:
-        st.metric("基礎代謝", f"{bmr:.0f} kcal")
-    with c3:
-        st.metric("目標摂取", f"{goal_calories:.0f} kcal")
+    st.markdown('<div class="sm-card">', unsafe_allow_html=True)
+    st.markdown('<div class="sm-title">食事メモ</div>', unsafe_allow_html=True)
+    meal_memo = st.text_area(
+        "朝・昼・夜・間食など",
+        placeholder="例：朝: 納豆ごはん、味噌汁\n昼: お弁当\n夜: 焼き魚、サラダ、ごはん少なめ\n間食: ヨーグルト",
+        height=180,
+    )
+    st.markdown("</div>", unsafe_allow_html=True)
 
-    st.markdown('</div>', unsafe_allow_html=True)
+    with st.expander("運動メモを入れる"):
+        exercise_memo = st.text_area(
+            "運動メモ",
+            placeholder="例：散歩20分、ストレッチ10分、ヨガ45分",
+            height=100,
+        )
 
-st.markdown('<div class="section-card">', unsafe_allow_html=True)
-st.markdown('<div class="section-title">🍽 今日のメモ</div>', unsafe_allow_html=True)
+    with st.expander("体調・気分メモを入れる"):
+        condition_note = st.text_area(
+            "体調メモ",
+            placeholder="例：むくみあり、少し疲れ気味、胃が重い",
+            height=90,
+        )
+        mood_note = st.text_area(
+            "気分メモ",
+            placeholder="例：前向き、少しだるい、やる気が出にくい",
+            height=90,
+        )
 
-food_memo = st.text_area(
-    "食事メモ",
-    value=notes_default["food_memo"],
-    height=180,
-    placeholder="例：\n朝：納豆ごはん\n昼：お弁当\n夜：鮭と味噌汁\n間食：ヨーグルト",
-)
+    st.markdown(
+        """
+        <div class="sm-note">
+        食事は完璧でなくても大丈夫です。朝・昼・夜・間食がざっくり分かるだけでも、次の提案につながりやすくなります。
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
-exercise_memo = st.text_area(
-    "運動メモ",
-    value=notes_default["exercise_memo"],
-    height=120,
-    placeholder="例：ウォーキング20分、ストレッチ10分",
-)
+    submitted = st.form_submit_button("📝 今日の記録を保存する", use_container_width=True)
 
-condition_note = st.text_area(
-    "体調メモ",
-    value=notes_default["condition_note"],
-    placeholder="例：少しむくみあり、よく眠れた",
-)
+if submitted:
+    save_data = {
+        "log_date": today_str,
+        "weight": float(weight),
+        "body_fat": float(body_fat),
+        "meal_memo": meal_memo.strip(),
+        "exercise_memo": exercise_memo.strip(),
+        "condition_note": condition_note.strip(),
+        "mood_note": mood_note.strip(),
+        "today_conditions": today_conditions,
+    }
 
-mood_note = st.text_area(
-    "気分メモ",
-    value=notes_default["mood_note"],
-    placeholder="例：朝はだるかったけど午後は元気",
-)
+    try:
+        save_diet_log(user_id, save_data)
+        st.success("今日の記録を保存しました。")
+        st.rerun()
+    except Exception as e:
+        st.error(f"保存に失敗しました: {e}")
 
 st.markdown(
     """
-    <div class="hint-box">
-        食事メモは最初から<br>
-        朝： / 昼： / 夜： / 間食：<br>
-        が入っているので、そのまま追記できます。
+    <div class="sm-note">
+    朝は起きてから2時間以内、間食は夕方まで、夜は寝る直前を避けると整えやすいです。
     </div>
     """,
     unsafe_allow_html=True,
 )
-st.markdown('</div>', unsafe_allow_html=True)
 
-col_a, col_b = st.columns(2)
-
-with col_a:
-    if st.button("💾 メモだけ保存", use_container_width=True):
-        save_today_notes(today_str, food_memo, exercise_memo, condition_note, mood_note)
-        st.success("メモを保存しました。")
-
-with col_b:
-    if st.button("📌 今日のデータを記録", use_container_width=True, type="primary"):
-        save_today_notes(today_str, food_memo, exercise_memo, condition_note, mood_note)
-
-        log = {
-            "日付": today_str,
-            "性別": gender,
-            "年齢": age,
-            "身長(cm)": height_cm,
-            "体重(kg)": weight,
-            "目標体重(kg)": target_weight,
-            "体脂肪率(%)": body_fat,
-            "目標体脂肪率(%)": target_body_fat,
-            "筋肉量(kg)": muscle_mass,
-            "目標筋肉量(kg)": target_muscle_mass,
-            "BMI": round(bmi, 1),
-            "目標摂取カロリー": goal_calories,
-        }
-
-        if HAS_DIET_LOG_API:
-            upsert_diet_log(log)
-            st.success("今日の数値を保存しました。メモはこの画面内にも保存しています。")
-        else:
-            if "diet_logs_local" not in st.session_state:
-                st.session_state["diet_logs_local"] = []
-            st.session_state["diet_logs_local"] = [
-                x for x in st.session_state["diet_logs_local"] if x["日付"] != today_str
-            ]
-            st.session_state["diet_logs_local"].append(log)
-            st.success("今日の数値を保存しました。")
-        st.rerun()
+st.markdown('<div class="sm-card sm-card-soft">', unsafe_allow_html=True)
+st.markdown('<div class="sm-title">最近の記録</div>', unsafe_allow_html=True)
 
 try:
-    if HAS_DIET_LOG_API:
-        logs = load_diet_logs()
-    else:
-        logs = st.session_state.get("diet_logs_local", [])
+    recent_df = load_recent_logs(user_id, limit=10)
 except Exception:
-    logs = []
+    recent_df = pd.DataFrame()
 
-if logs:
-    st.markdown('<div class="section-card">', unsafe_allow_html=True)
-    st.markdown('<div class="section-title">📘 最近の記録</div>', unsafe_allow_html=True)
+if recent_df is not None and not recent_df.empty:
+    st.dataframe(recent_df, use_container_width=True, hide_index=True)
+else:
+    st.caption("まだ記録はありません。")
 
-    latest = logs[-1]
-    c1, c2 = st.columns(2)
-    with c1:
-        st.metric("体重", f'{latest.get("体重(kg)", 0):.1f} kg')
-    with c2:
-        st.metric("体脂肪率", f'{latest.get("体脂肪率(%)", 0):.1f} %')
-
-    st.markdown('</div>', unsafe_allow_html=True)
+st.markdown("</div>", unsafe_allow_html=True)
