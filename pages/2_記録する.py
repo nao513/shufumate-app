@@ -257,11 +257,18 @@ with st.form("daily_log_form"):
 
     st.markdown('<div class="sm-card">', unsafe_allow_html=True)
     st.markdown('<div class="sm-title">食事メモ</div>', unsafe_allow_html=True)
+    default_meal_memo = (
+    str(initial_values.get("meal_memo", "")).strip()
+    if initial_values.get("meal_memo")
+    else "朝:\n昼:\n夜:\n間食:"
+)
+
     meal_memo = st.text_area(
-        "朝・昼・夜・間食など",
-        placeholder="例：朝: 納豆ごはん、味噌汁\n昼: お弁当\n夜: 焼き魚、サラダ、ごはん少なめ\n間食: ヨーグルト",
-        height=180,
+    "食事メモ",
+    value=default_meal_memo,
+    height=180,
     )
+    
     st.markdown("</div>", unsafe_allow_html=True)
 
     with st.expander("運動メモを入れる"):
