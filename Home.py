@@ -10,9 +10,9 @@ from app_core import (
     get_today_exercise,
 )
 
-# =========================
+# -----------------
 # 初期設定
-# =========================
+# -----------------
 st.set_page_config(
     page_title="ShufuMate",
     page_icon="💻",
@@ -29,9 +29,9 @@ advice = get_today_advice(settings, latest_log)
 shopping = get_today_shopping_list(settings, latest_log)
 exercise = get_today_exercise(settings, latest_log)
 
-# =========================
-# トップ
-# =========================
+# -----------------
+# 表示
+# -----------------
 st.title("💻 ShufuMate")
 
 today = datetime.now().strftime("%Y年%m月%d日")
@@ -39,53 +39,42 @@ st.markdown(f"### {today}")
 
 st.markdown("---")
 
-# =========================
-# 今日の食事提案
-# =========================
-st.subheader("🍽 今日の食事提案")
+# 食事
+st.subheader("🍽 今日の食事")
 
-st.markdown(f"**▶ {advice['食事']}**")
+st.write(f"▶ {advice['食事']}")
 
-st.markdown("### 🌅 朝")
+st.markdown("🌅 朝")
 st.write(advice["朝"])
 
-st.markdown("### ☀️ 昼（お弁当・外食対応）")
+st.markdown("☀️ 昼（お弁当・外食対応）")
 st.write(advice["昼"])
 
-st.markdown("### 🌙 夜")
+st.markdown("🌙 夜")
 st.write(advice["夜"])
 
-# =========================
-# 買い物リスト
-# =========================
+# 買い物
 if shopping:
-    st.markdown("### 🛒 今日の買い足し候補")
+    st.markdown("🛒 買い足し")
     for item in shopping:
         st.write(f"・{item}")
 
 st.markdown("---")
 
-# =========================
-# 今日の運動
-# =========================
+# 運動
 st.subheader("🏃‍♀️ 今日の運動")
-
-st.write(f"**{exercise['title']}**")
+st.write(exercise["title"])
 st.write(exercise["body"])
 
 st.markdown("---")
 
-# =========================
 # 一言
-# =========================
 st.subheader("🌿 ひとこと")
 st.write(advice["ひとこと"])
 
 st.markdown("---")
 
-# =========================
-# ナビゲーション
-# =========================
+# ナビ
 col1, col2 = st.columns(2)
 
 with col1:
