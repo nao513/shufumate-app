@@ -164,31 +164,33 @@ st.markdown(
         background: #fffdf9;
         border: 1px solid #ece2d6;
         border-radius: 18px;
-        padding: 16px 14px 14px 14px;
+        padding: 14px 12px;
         margin-bottom: 12px;
         box-shadow: 0 2px 10px rgba(0,0,0,0.03);
         min-height: 100%;
-        text-align: center;
     }
 
     .sm-use-icon {
-        font-size: 1.8rem;
-        margin-bottom: 0.55rem;
+        font-size: 1.55rem;
+        text-align: center;
+        margin-bottom: 0.4rem;
     }
 
     .sm-use-title {
-        font-size: 1rem;
+        font-size: 0.95rem;
         font-weight: 700;
-        margin-bottom: 0.25rem;
+        text-align: center;
+        margin-bottom: 0.2rem;
         color: #3f3834;
     }
 
     .sm-use-sub {
-        font-size: 0.84rem;
+        font-size: 0.82rem;
         color: #6d645d;
-        line-height: 1.5;
-        min-height: 2.8em;
-        margin-bottom: 0.8rem;
+        line-height: 1.45;
+        text-align: center;
+        min-height: 2.6em;
+        margin-bottom: 0.55rem;
     }
 
     .sm-note {
@@ -465,23 +467,23 @@ st.markdown(
 col1, col2 = st.columns(2)
 with col1:
     render_use_card("📷", "写真で記録", "写真からサッと残す")
-    if st.button("写真で記録", use_container_width=True, key="go_photo"):
+    if st.button("📷 開く", use_container_width=True, key="go_photo"):
         st.switch_page("pages/4_写真で記録.py")
 
 with col2:
     render_use_card("📝", "記録する", "数値やメモを入力する")
-    if st.button("記録する", use_container_width=True, key="go_log"):
+    if st.button("📝 開く", use_container_width=True, key="go_log"):
         st.switch_page("pages/2_記録する.py")
 
 col3, col4 = st.columns(2)
 with col3:
     render_use_card("💬", "相談する", "食事や運動を相談する")
-    if st.button("相談する", use_container_width=True, key="go_advice"):
+    if st.button("💬 開く", use_container_width=True, key="go_advice"):
         st.switch_page("pages/3_相談する.py")
 
 with col4:
     render_use_card("⚙️", "設定", "体質や目標を整える")
-    if st.button("設定", use_container_width=True, key="go_settings"):
+    if st.button("⚙️ 開く", use_container_width=True, key="go_settings"):
         st.switch_page("pages/1_設定.py")
 
 st.markdown(
