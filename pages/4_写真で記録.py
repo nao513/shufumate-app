@@ -1,6 +1,7 @@
 import streamlit as st
 import base64
 import json
+
 from app_core import (
     require_login,
     get_user_id,
@@ -13,11 +14,21 @@ from app_core import (
     build_food_evaluation_from_text,
 )
 
+# ① まずこれ
 st.set_page_config(
     page_title="写真で記録｜ShufuMate",
     page_icon="📷",
     layout="centered",
 )
+
+# ② 次にCSS（ここがベスト位置）
+st.markdown("""
+<style>
+.block-container {
+    padding-top: 3rem !important;
+}
+</style>
+""", unsafe_allow_html=True)
 
 require_login()
 
