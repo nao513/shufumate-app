@@ -52,6 +52,7 @@ SETTINGS_HEADERS = [
     "target_body_fat",
     "activity_level",
     "food_style",
+    "lunch_style",
     "user_type",
     "advice_tone",
     "constitution_traits",
@@ -90,6 +91,14 @@ FOOD_STYLE_OPTIONS = [
     "たんぱく質重視",
     "節約重視",
     "時短重視",
+]
+
+LUNCH_STYLE_OPTIONS = [
+    "指定なし",
+    "お弁当",
+    "外食",
+    "コンビニ",
+    "自宅",
 ]
 
 ADVICE_TONE_OPTIONS = [
@@ -427,6 +436,7 @@ def create_user(login_id: str, password: str, nickname: str, birth_date: date | 
             28.0,
             "ふつう",
             "バランス重視",
+            "指定なし",
             "自分だけ向け",
             "やさしく",
             "",
@@ -611,6 +621,7 @@ def change_birth_date(user_id: str, current_password: str, new_birth_date):
             "target_body_fat": settings["target_body_fat"],
             "activity_level": settings["activity_level"],
             "food_style": settings["food_style"],
+            "lunch_style": settings["lunch_style"],
             "user_type": settings["user_type"],
             "advice_tone": settings["advice_tone"],
             "constitution_traits": settings["constitution_traits"],
@@ -638,6 +649,10 @@ def load_user_settings(user_id: str) -> dict:
             if food_style not in FOOD_STYLE_OPTIONS:
                 food_style = "バランス重視"
 
+            lunch_style = to_str(record.get("lunch_style", "指定なし")) or "指定なし"
+            if lunch_style not in LUNCH_STYLE_OPTIONS:
+                lunch_style = "指定なし"
+
             user_type = to_str(record.get("user_type", "自分だけ向け")) or "自分だけ向け"
             if user_type not in USER_TYPE_OPTIONS:
                 user_type = "自分だけ向け"
@@ -661,6 +676,7 @@ def load_user_settings(user_id: str) -> dict:
                 "target_body_fat": to_float(record.get("target_body_fat", 28.0), 28.0),
                 "activity_level": activity_level,
                 "food_style": food_style,
+                "lunch_style": lunch_style,
                 "user_type": user_type,
                 "advice_tone": advice_tone,
                 "constitution_traits": constitution_traits,
@@ -676,6 +692,7 @@ def load_user_settings(user_id: str) -> dict:
         "target_body_fat": 28.0,
         "activity_level": "ふつう",
         "food_style": "バランス重視",
+        "lunch_style": "指定なし",
         "user_type": "自分だけ向け",
         "advice_tone": "やさしく",
         "constitution_traits": [],
@@ -696,6 +713,10 @@ def save_user_settings(user_id: str, data: dict):
     food_style = data.get("food_style", "バランス重視")
     if food_style not in FOOD_STYLE_OPTIONS:
         food_style = "バランス重視"
+
+    lunch_style = data.get("lunch_style", "指定なし")
+    if lunch_style not in LUNCH_STYLE_OPTIONS:
+        lunch_style = "指定なし"
 
     user_type = data.get("user_type", "自分だけ向け")
     if user_type not in USER_TYPE_OPTIONS:
@@ -721,6 +742,7 @@ def save_user_settings(user_id: str, data: dict):
         data["target_body_fat"],
         activity_level,
         food_style,
+        lunch_style,
         user_type,
         advice_tone,
         join_multi_value(constitution_traits),
@@ -1182,40 +1204,167 @@ def tone_short_message(text: str, tone: str) -> str:
     return f"{text} あせらず進めば大丈夫です。"
 
 
+def parse_meal_sections(meal_memo: str) -> dict:
+    text = (meal_memo or "").strip()
+    result = {"朝": "", "昼": "", "夜": "", "間食": ""}
+
+    current_key = None
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+
+        if line.startswith("朝:"):
+            current_key = "朝"
+            result["朝"] = line.replace("朝:", "", 1).strip()
+        elif line.startswith("昼:"):
+            current_key = "昼"
+            result["昼"] = line.replace("昼:", "", 1).strip()
+        elif line.startswith("夜:"):
+            current_key = "夜"
+            result["夜"] = line.replace("夜:", "", 1).strip()
+        elif line.startswith("間食:"):
+            current_key = "間食"
+            result["間食"] = line.replace("間食:", "", 1).strip()
+        else:
+            if current_key:
+                if result[current_key]:
+                    result[current_key] += " " + line
+                else:
+                    result[current_key] = line
+
+    return result
+
+
+def _meal_style_hint(food_style: str) -> str:
+    if food_style == "和食中心":
+        return "ごはん・汁物・たんぱく質・野菜を意識すると整いやすいです。"
+    if food_style == "バランス重視":
+        return "主食・たんぱく質・野菜をそろえる形が基本です。"
+    if food_style == "節約重視":
+        return "卵、豆腐、鶏むね肉、納豆など使い回しやすい食材が向いています。"
+    return "無理なく続けやすい形で整えるのがおすすめです。"
+
+
+def _lunch_style_hint(settings: dict) -> str:
+    lunch_style = str(settings.get("lunch_style", "指定なし"))
+
+    if lunch_style == "お弁当":
+        return "昼はお弁当前提で、冷めても食べやすいおかずがおすすめです。"
+    if lunch_style == "外食":
+        return "昼は外食前提で、定食・丼・麺なら野菜や汁物を足せる選び方がおすすめです。"
+    if lunch_style == "コンビニ":
+        return "昼はコンビニ前提で、おにぎり＋たんぱく質＋汁物の形にすると整えやすいです。"
+    if lunch_style == "自宅":
+        return "昼は家で食べる前提で、作りすぎない簡単ごはんがおすすめです。"
+    return "昼はその日の予定に合わせて、重くなりすぎない形が向いています。"
+
+
+def _support_points(settings: dict, latest_log: dict | None = None) -> list[str]:
+    points = []
+    traits = settings.get("constitution_traits", []) or []
+    if isinstance(traits, str):
+        traits = [x.strip() for x in traits.split(",") if x.strip()]
+
+    conditions = []
+    if latest_log:
+        conditions = latest_log.get("today_conditions", []) or []
+        if isinstance(conditions, str):
+            conditions = [x.strip() for x in conditions.split(",") if x.strip()]
+
+    if "冷えやすい" in traits:
+        points.append("温かいもの")
+    if "むくみやすい" in traits or "むくみあり" in conditions:
+        points.append("塩分を重ねすぎないこと")
+    if "疲れやすい" in traits or "だるい" in conditions:
+        points.append("たんぱく質を抜かないこと")
+    if "胃腸がゆらぎやすい" in traits or "食べすぎた" in conditions:
+        points.append("やさしい味・軽め")
+    if "寝不足" in conditions:
+        points.append("甘いものだけで済ませないこと")
+
+    return points[:3]
+
+
 def get_today_advice(settings: dict, latest_log: dict | None = None) -> dict:
-    user_type = settings["user_type"]
-    food_style = settings["food_style"]
-    advice_tone = settings.get("advice_tone", "やさしく")
-    support = get_support_focus_summary(settings, latest_log)
-    point_text = " / ".join(support["points"]) if support["points"] else "基本の整え"
+    user_type = str(settings.get("user_type", "自分だけ向け"))
+    food_style = str(settings.get("food_style", "バランス重視"))
+    lunch_style = str(settings.get("lunch_style", "指定なし"))
+    advice_tone = str(settings.get("advice_tone", "やさしく"))
 
-    if user_type == "自分＋家族向け":
-        advice = {
-            "食事": f"家族も満足しやすく、自分は重くなりすぎない組み立てがおすすめです。食事スタイルは「{food_style}」を軸に、特に {point_text} を意識しましょう。",
-            "運動": "すきま時間の軽い運動で十分です。家事の合間に5〜10分でもOKです。",
-            "ひとこと": "全部を完璧にしなくて大丈夫です。",
-        }
-    elif user_type == "節約重視":
-        advice = {
-            "食事": f"使い回ししやすい食材で組み立てる日がおすすめです。食事スタイルは「{food_style}」を軸に、特に {point_text} を意識しましょう。",
-            "運動": "家でできる軽い運動を優先しましょう。お金をかけずに続ける形でOKです。",
-            "ひとこと": "無理なく続けられる形がいちばん強いです。",
-        }
-    elif user_type == "忙しい日向け":
-        advice = {
-            "食事": f"時短・洗い物少なめの献立がおすすめです。食事スタイルは「{food_style}」を軸に、特に {point_text} を意識しましょう。",
-            "運動": "今日は5分だけでも十分です。ゼロにしないことを優先します。",
-            "ひとこと": "今日は回すこと優先で大丈夫です。",
-        }
+    meal_sections = parse_meal_sections(latest_log.get("meal_memo", "") if latest_log else "")
+    support_points = _support_points(settings, latest_log)
+    point_text = "・".join(support_points) if support_points else "主食・たんぱく質・野菜のバランス"
+
+    style_hint = _meal_style_hint(food_style)
+    lunch_hint = _lunch_style_hint(settings)
+
+    if meal_sections["朝"]:
+        breakfast = "朝はすでに記録ありなので、昼と夜で整えましょう。"
     else:
-        advice = {
-            "食事": f"軽めに整えながら、無理のない食事がおすすめです。食事スタイルは「{food_style}」を軸に、特に {point_text} を意識しましょう。",
-            "運動": "短時間でも、自分のための運動時間を少し取りましょう。",
-            "ひとこと": "今日は自分優先で大丈夫です。",
-        }
+        breakfast = f"朝は軽くてもよいので、たんぱく質を入れる形がおすすめです。{style_hint}"
 
-    advice["ひとこと"] = tone_short_message(advice["ひとこと"], advice_tone)
-    return advice
+    if lunch_style == "お弁当":
+        lunch = "昼はお弁当なら、ごはん＋卵・肉・魚のおかず＋野菜1品が基本です。"
+    elif lunch_style == "外食":
+        lunch = "昼が外食なら、定食・和食・丼＋汁物の形を優先し、揚げ物を重ねすぎないのがおすすめです。"
+    elif lunch_style == "コンビニ":
+        lunch = "昼がコンビニなら、おにぎり＋サラダチキン or ゆで卵＋汁物が整えやすいです。"
+    elif lunch_style == "自宅":
+        lunch = "昼が自宅なら、丼もの1品だけで終えず、汁物か野菜を少し足す形がおすすめです。"
+    else:
+        lunch = lunch_hint
+
+    if meal_sections["夜"]:
+        dinner = "夜はすでに記録ありなので、食べすぎ防止と寝る前の重さを避ける意識で十分です。"
+    else:
+        if user_type == "自分＋家族向け":
+            dinner = "夜は家族も満足しつつ、自分は主食を少し控えめにして、主菜＋汁物＋野菜で整えるのがおすすめです。"
+        elif user_type == "節約重視":
+            dinner = "夜は卵・豆腐・鶏むね肉など使い回ししやすい食材で、簡単に整えるのがおすすめです。"
+        elif user_type == "忙しい日向け":
+            dinner = "夜は時短優先で、丼ものだけで終えず、汁物か野菜を1つ足す形がおすすめです。"
+        else:
+            dinner = f"夜は食べすぎず、{point_text} を意識して整えるのがおすすめです。"
+
+    summary = f"今日は {point_text} を意識すると整いやすいです。"
+    short_msg = tone_short_message("全部を完璧にしなくて大丈夫です。", advice_tone)
+
+    return {
+        "食事": summary,
+        "朝": breakfast,
+        "昼": lunch,
+        "夜": dinner,
+        "運動": get_today_exercise(settings, latest_log)["body"],
+        "ひとこと": short_msg,
+    }
+
+
+def get_today_shopping_list(settings: dict, latest_log: dict | None = None) -> list[str]:
+    meal_sections = parse_meal_sections(latest_log.get("meal_memo", "") if latest_log else "")
+    lunch_style = str(settings.get("lunch_style", "指定なし"))
+    items = []
+
+    if not meal_sections["朝"]:
+        items.extend(["卵", "ヨーグルト", "味噌汁"])
+    if not meal_sections["昼"]:
+        if lunch_style == "お弁当":
+            items.extend(["おにぎり用ごはん", "卵", "冷めても食べやすいおかず"])
+        elif lunch_style == "外食":
+            items.extend(["外食時に足しやすいサラダ or 汁物"])
+        elif lunch_style == "コンビニ":
+            items.extend(["おにぎり", "サラダチキン", "ゆで卵", "スープ"])
+        else:
+            items.extend(["ごはん", "豆腐", "簡単な汁物"])
+    if not meal_sections["夜"]:
+        items.extend(["魚 or 肉", "野菜", "汁物用の材料"])
+
+    deduped = []
+    for item in items:
+        if item not in deduped:
+            deduped.append(item)
+
+    return deduped
 
 
 def get_today_exercise(settings: dict, latest_log: dict | None = None) -> dict:
@@ -1328,6 +1477,35 @@ def apply_advice_tone(text: str, tone: str) -> str:
     if tone == "淡々と":
         return text
     return f"大丈夫です。無理なく整えていきましょう。\n\n{text}\n\nできるところからで十分です。"
+
+
+def format_meal_proposals(question: str, settings: dict, latest_log: dict | None = None) -> str:
+    advice = get_today_advice(settings, latest_log)
+    shopping_items = get_today_shopping_list(settings, latest_log)
+
+    lines = [
+        "今日の食事提案です。",
+        "",
+        "【朝】",
+        advice["朝"],
+        "",
+        "【昼】",
+        advice["昼"],
+        "",
+        "【夜】",
+        advice["夜"],
+    ]
+
+    if shopping_items:
+        lines.extend(
+            [
+                "",
+                "【買い足し候補】",
+                "・" + "\n・".join(shopping_items),
+            ]
+        )
+
+    return "\n".join(lines)
 
 
 def build_food_answer(question: str, settings: dict, latest_log: dict | None = None) -> str:
