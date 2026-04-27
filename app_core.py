@@ -1412,6 +1412,17 @@ def get_today_exercise(settings: dict, latest_log: dict | None = None) -> dict:
         "level_text": level_text,
     }
 
+def detect_meal_type_by_time(now_dt) -> str:
+    hour = now_dt.hour
+
+    if 4 <= hour < 10:
+        return "朝"
+    elif 10 <= hour < 15:
+        return "昼"
+    elif 15 <= hour < 22:
+        return "夜"
+    else:
+        return "間食"
 
 def get_week_menu(settings: dict) -> list[dict]:
     user_type = settings["user_type"]
@@ -2006,3 +2017,13 @@ def build_food_evaluation_from_text(
         "score_text": score_text,
         "score_value": score,
     }
+
+def simple_food_guess(meal_type: str) -> str:
+    if meal_type == "朝":
+        return "納豆、ごはん、味噌汁、ヨーグルト"
+    elif meal_type == "昼":
+        return "おにぎり、卵焼き、ブロッコリー"
+    elif meal_type == "夜":
+        return "鮭、サラダ、味噌汁、ごはん"
+    else:
+        return "ナッツ、ヨーグルト"
