@@ -290,7 +290,23 @@ def read_users_records():
 
 @st.cache_data(ttl=30, show_spinner=False)
 def read_settings_records():
-    return get_settings_sheet().get_all_records()
+    ws = get_settings_sheet()
+    data = ws.get_all_values()
+
+    if len(data) < 2:
+        return []
+
+    headers = data[0]
+    records = []
+
+    for row in data[1:]:
+        if len(row) != len(headers):
+            continue  # ← 壊れた行スキップ
+
+        record = dict(zip(headers, row))
+        records.append(record)
+
+    return records
 
 
 @st.cache_data(ttl=30, show_spinner=False)
