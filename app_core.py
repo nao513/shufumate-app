@@ -2027,3 +2027,83 @@ def simple_food_guess(meal_type: str) -> str:
         return "鮭、サラダ、味噌汁、ごはん"
     else:
         return "ナッツ、ヨーグルト"
+
+import random
+
+def generate_weekly_plan(settings: dict, latest_log: dict | None = None) -> dict:
+    import random
+
+    user_type = settings.get("user_type", "自分だけ向け")
+    food_style = settings.get("food_style", "バランス重視")
+    activity = settings.get("activity_level", "ふつう")
+    lunch_style = settings.get("lunch_style", "指定なし")
+
+    # 体調
+    conditions = []
+    if latest_log:
+        conditions = latest_log.get("today_conditions", []) or []
+        if isinstance(conditions, str):
+            conditions = [x.strip() for x in conditions.split(",")]
+
+    # 体質
+    traits = settings.get("constitution_traits", []) or []
+    if isinstance(traits, str):
+        traits = [x.strip() for x in traits.split(",")]
+
+    # -----------------
+    # 食材ベース
+    # -----------------
+    protein = ["鶏むね肉", "鮭", "豚肉", "卵", "豆腐"]
+    veg = ["サラダ", "味噌汁", "野菜炒め"]
+    carb = ["ごはん", "丼", "うどん", "パスタ"]
+
+    # -----------------
+    # 体質反映
+    # -----------------
+    if "むくみやすい" in traits:
+        veg.append("きのこたっぷり味噌汁")
+    if "冷えやすい" in traits:
+        veg.append("温野菜＋スープ")
+
+    # -----------------
+    # 体調反映
+    # -----------------
+    if "疲れ" in str(conditions):
+        protein.append("豚肉（疲労回復）")
+
+    # -----------------
+    # 活動量
+    # -----------------
+    if activity == "高い":
+        carb.append("しっかりごはん")
+    elif activity == "低い":
+        carb = ["軽めごはん", "スープ"]
+
+    # -----------------
+    # 節約
+    # -----------------
+    if food_style == "節約重視":
+        protein = ["卵", "豆腐", "鶏むね肉"]
+
+    # -----------------
+    # 家族向け
+    # -----------------
+    if user_type == "自分＋家族向け":
+        protein.append("ハンバーグ")
+        carb.append("カレー")
+
+    # -----------------
+    # 曜日生成
+    # -----------------
+    days = ["月", "火", "水", "木", "金", "土", "日"]
+    plan = {}
+
+    for d in days:
+        if d == "土":
+            plan[d] = "外食 or 調整日"
+        elif d == "日":
+            plan[d] = "作り置き・リセット日"
+        else:
+            plan[d] = f"{random.choice(protein)}＋{random.choice(veg)}＋{random.choice(carb)}"
+
+    return plan
