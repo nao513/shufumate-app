@@ -13,7 +13,38 @@ from app_core import (
     get_week_key,
 )
 
-st.set_page_config(page_title="ShufuMate", page_icon="💻", layout="centered")
+# -----------------
+# ページ設定（最初に）
+# -----------------
+st.set_page_config(
+    page_title="ShufuMate",
+    page_icon="💻",
+    layout="centered",
+)
+
+# -----------------
+# デザイン（影＋余白）
+# -----------------
+st.markdown("""
+<style>
+.block-container {
+    padding-top: 1.5rem;
+}
+
+/* 画像デザイン */
+img {
+    border-radius: 14px;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.12);
+}
+
+/* ボタン少し丸く */
+.stButton>button {
+    border-radius: 10px;
+    height: 48px;
+    font-size: 16px;
+}
+</style>
+""", unsafe_allow_html=True)
 
 # -----------------
 # ログイン
@@ -31,7 +62,7 @@ advice = get_today_advice(settings, latest_log)
 exercise = get_today_exercise(settings, latest_log)
 
 # -----------------
-# 週間固定
+# 週間献立（1週間固定）
 # -----------------
 week_key = get_week_key()
 
@@ -42,10 +73,16 @@ if "weekly_plan" not in st.session_state or st.session_state.get("week_key") != 
 weekly_plan = st.session_state["weekly_plan"]
 
 # -----------------
-# タイトル
+# 🟩 トップ（世界観）
 # -----------------
-st.title("💻 ShufuMate")
-st.markdown(datetime.now().strftime("%Y年%m月%d日"))
+st.image("assets/home_icons/top/top_visual.png", use_container_width=True)
+
+st.markdown("<br>", unsafe_allow_html=True)
+
+st.markdown("### 🍽 食事も、暮らしも、ちょうどよく")
+
+today = datetime.now().strftime("%Y年%m月%d日")
+st.caption(today)
 
 st.markdown("---")
 
@@ -56,13 +93,13 @@ st.subheader("🌿 今日のおすすめ")
 
 st.write(advice["食事"])
 
-st.markdown("**朝**")
+st.markdown("**🌅 朝**")
 st.write(advice["朝"])
 
-st.markdown("**昼**")
+st.markdown("**☀️ 昼**")
 st.write(advice["昼"])
 
-st.markdown("**夜**")
+st.markdown("**🌙 夜**")
 st.write(advice["夜"])
 
 st.caption(advice["ひとこと"])
@@ -70,7 +107,7 @@ st.caption(advice["ひとこと"])
 st.markdown("---")
 
 # =====================
-# 🟨 すぐやる（重要）
+# 🟨 すぐやる
 # =====================
 st.subheader("🚀 すぐやる")
 
@@ -87,23 +124,35 @@ with col2:
 st.markdown("---")
 
 # =====================
-# 🟦 まとめ（隠す）
+# 🟦 まとめ
 # =====================
 st.subheader("📦 まとめ")
 
+# -------- 週間献立 --------
 with st.expander("🗓 週間献立"):
     for day, meal in weekly_plan.items():
         st.write(f"{day}：{meal}")
 
+# -------- 買い物リスト --------
 with st.expander("🛒 買い物リスト"):
     shopping = generate_shopping_list_from_week(weekly_plan)
 
     for category, items in shopping.items():
         if items:
             st.markdown(f"**{category}**")
-            for item in items:
-                st.checkbox(item, key=f"{category}_{item}")
 
+            for item in items:
+                key = f"{category}_{item}"
+
+                if key not in st.session_state:
+                    st.session_state[key] = False
+
+                st.session_state[key] = st.checkbox(
+                    item,
+                    value=st.session_state[key]
+                )
+
+# -------- 運動 --------
 with st.expander("🏃‍♀️ 運動"):
     st.write(exercise["title"])
     st.write(exercise["body"])
