@@ -2111,3 +2111,41 @@ def generate_weekly_plan(settings: dict, latest_log: dict | None = None) -> dict
 def get_week_key():
     today = jst_now()
     return f"{today.year}-{today.isocalendar()[1]}"
+
+def generate_shopping_list_from_week(plan: dict) -> dict:
+
+    categories = {
+        "肉・魚": [],
+        "野菜": [],
+        "主食": [],
+        "調味料": [],
+        "その他": []
+    }
+
+    for meal in plan.values():
+
+        if "鶏" in meal:
+            categories["肉・魚"].append("鶏むね肉")
+        if "鮭" in meal:
+            categories["肉・魚"].append("鮭")
+        if "豚" in meal:
+            categories["肉・魚"].append("豚肉")
+
+        if "サラダ" in meal or "野菜" in meal:
+            categories["野菜"].extend(["キャベツ", "にんじん"])
+        if "味噌汁" in meal:
+            categories["野菜"].append("ねぎ")
+
+        if "ごはん" in meal or "丼" in meal:
+            categories["主食"].append("米")
+        if "パスタ" in meal:
+            categories["主食"].append("パスタ")
+
+        if "味噌汁" in meal:
+            categories["調味料"].extend(["味噌", "だし"])
+
+    # 重複削除
+    for k in categories:
+        categories[k] = list(set(categories[k]))
+
+    return categories
