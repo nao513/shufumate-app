@@ -25,6 +25,8 @@ user_id = get_user_id()
 settings = load_user_settings(user_id)
 latest_log = load_latest_log(user_id)
 
+weekly_plan = generate_weekly_plan(settings, latest_log)
+
 advice = get_today_advice(settings, latest_log)
 shopping = get_today_shopping_list(settings, latest_log)
 exercise = get_today_exercise(settings, latest_log)
