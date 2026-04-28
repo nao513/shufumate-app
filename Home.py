@@ -1,3 +1,6 @@
+import streamlit as st
+from datetime import datetime
+
 from app_core import (
     require_login,
     get_user_id,
@@ -7,7 +10,7 @@ from app_core import (
     get_today_shopping_list,
     get_today_exercise,
     generate_weekly_plan,
-    get_week_key,   # ← これ追加
+    get_week_key,
 )
 
 # -----------------
