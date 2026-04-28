@@ -22,11 +22,10 @@ st.set_page_config(
     layout="centered",
 )
 
-require_login()
-user_id = get_user_id()
-
 settings = load_user_settings(user_id)
 latest_log = load_latest_log(user_id)
+
+advice = get_today_advice(settings, latest_log)
 
 week_key = get_week_key()
 
