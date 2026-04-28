@@ -8,6 +8,7 @@ from app_core import (
     get_today_advice,
     get_today_shopping_list,
     get_today_exercise,
+    generate_weekly_plan, 
 )
 
 # -----------------
