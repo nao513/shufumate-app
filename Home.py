@@ -1,5 +1,3 @@
-import streamlit as st
-from datetime import datetime
 from app_core import (
     require_login,
     get_user_id,
@@ -8,7 +6,8 @@ from app_core import (
     get_today_advice,
     get_today_shopping_list,
     get_today_exercise,
-    generate_weekly_plan, 
+    generate_weekly_plan,
+    get_week_key,   # ← これ追加
 )
 
 # -----------------
@@ -26,11 +25,13 @@ user_id = get_user_id()
 settings = load_user_settings(user_id)
 latest_log = load_latest_log(user_id)
 
-weekly_plan = generate_weekly_plan(settings, latest_log)
+week_key = get_week_key()
 
-advice = get_today_advice(settings, latest_log)
-shopping = get_today_shopping_list(settings, latest_log)
-exercise = get_today_exercise(settings, latest_log)
+if "weekly_plan" not in st.session_state or st.session_state.get("week_key") != week_key:
+    st.session_state["weekly_plan"] = generate_weekly_plan(settings, latest_log)
+    st.session_state["week_key"] = week_key
+
+weekly_plan = st.session_state["weekly_plan"]
 
 # -----------------
 # 表示
