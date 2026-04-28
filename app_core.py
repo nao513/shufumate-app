@@ -2107,3 +2107,7 @@ def generate_weekly_plan(settings: dict, latest_log: dict | None = None) -> dict
             plan[d] = f"{random.choice(protein)}＋{random.choice(veg)}＋{random.choice(carb)}"
 
     return plan
+
+def get_week_key():
+    today = jst_now()
+    return f"{today.year}-{today.isocalendar()[1]}"
