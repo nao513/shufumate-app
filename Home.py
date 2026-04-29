@@ -1,5 +1,6 @@
 import streamlit as st
 from datetime import datetime
+from app_core import jst_now
 
 from app_core import (
     require_login,
@@ -81,7 +82,7 @@ st.markdown("<br>", unsafe_allow_html=True)
 
 st.markdown("### 🍽 食事も、暮らしも、ちょうどよく")
 
-today = datetime.now().strftime("%Y年%m月%d日")
+today = jst_now().strftime("%Y年%m月%d日")
 st.caption(today)
 
 st.markdown("---")
