@@ -97,11 +97,17 @@ st.caption(today)
 # -----------------
 # モード切替
 # -----------------
+if "mode" not in st.session_state:
+    st.session_state["mode"] = "かんたん"
+
 mode = st.radio(
     "表示モード",
     ["かんたん", "しっかり"],
+    index=0 if st.session_state["mode"] == "かんたん" else 1,
     horizontal=True
 )
+
+st.session_state["mode"] = mode
 
 st.markdown("---")
 
