@@ -60,6 +60,14 @@ settings = load_user_settings(user_id)
 latest_log = load_latest_log(user_id)
 
 advice = get_today_advice(settings, latest_log)
+now_hour = jst_now().hour
+
+if now_hour < 10:
+    main_meal = "朝"
+elif now_hour < 15:
+    main_meal = "昼"
+else:
+    main_meal = "夜"
 exercise = get_today_exercise(settings, latest_log)
 
 # -----------------
@@ -94,14 +102,21 @@ st.subheader("🌿 今日のおすすめ")
 
 st.write(advice["食事"])
 
-st.markdown("**🌅 朝**")
-st.write(advice["朝"])
+st.markdown(f"### ⭐ 今のおすすめ（{main_meal}）")
+st.write(advice[main_meal])
 
-st.markdown("**☀️ 昼**")
-st.write(advice["昼"])
+st.markdown("---")
 
-st.markdown("**🌙 夜**")
-st.write(advice["夜"])
+# 👇 サブ（全部）
+with st.expander("🍽 すべての食事を見る"):
+    st.markdown("**🌅 朝**")
+    st.write(advice["朝"])
+
+    st.markdown("**☀️ 昼**")
+    st.write(advice["昼"])
+
+    st.markdown("**🌙 夜**")
+    st.write(advice["夜"])
 
 st.caption(advice["ひとこと"])
 
