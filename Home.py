@@ -2,6 +2,7 @@ import streamlit as st
 import random
 import requests
 from datetime import datetime
+from app_core import load_weight_data
 
 # -----------------
 # app_core
@@ -256,3 +257,12 @@ df2 = pd.DataFrame(fat_data, columns=["日付", "体脂肪"])
 df2["日付"] = pd.to_datetime(df2["日付"])
 
 st.line_chart(df2.set_index("日付"))
+
+st.markdown("### 📊 体重の変化")
+
+weight_df = load_weight_data(user_id)
+
+if weight_df is not None:
+    st.line_chart(weight_df.set_index("date"))
+else:
+    st.info("体重データがまだありません")
