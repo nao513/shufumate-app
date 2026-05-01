@@ -1,7 +1,6 @@
 import streamlit as st
 import random
 import requests
-from datetime import datetime
 import pandas as pd
 import altair as alt
 
@@ -59,14 +58,12 @@ if "weekly_plan" not in st.session_state or st.session_state.get("week_key") != 
 weekly_plan = st.session_state["weekly_plan"]
 
 # -----------------
-# 🌤 天気取得
+# 🌤 天気
 # -----------------
 def get_weather():
     try:
-        url = "https://wttr.in/Sendai?format=j1"
-        res = requests.get(url, timeout=3)
+        res = requests.get("https://wttr.in/Sendai?format=j1", timeout=3)
         data = res.json()
-
         temp = int(data["current_condition"][0]["temp_C"])
         if temp <= 10:
             return "寒い"
@@ -104,13 +101,23 @@ if st.session_state["state_date"] != today_str:
     st.session_state["state_date"] = today_str
 
 # -----------------
-# UI開始
+# 🎯 優先順位
+# -----------------
+def apply_priority(state):
+    if state["疲れ"]:
+        return {"疲れ": True, "冷え": False, "こり": False, "食べすぎ": False}
+    elif state["食べすぎ"]:
+        return {"疲れ": False, "冷え": False, "こり": False, "食べすぎ": True}
+    elif state["冷え"]:
+        return {"疲れ": False, "冷え": True, "こり": False, "食べすぎ": False}
+    return state
+
+# -----------------
+# 🟩 UI開始
 # -----------------
 render_header()
 
-# -----------------
-# 状態表示
-# -----------------
+# 今日の状態
 st.markdown("### 📊 今日の状態")
 log_status = get_today_log_status(user_id)
 
@@ -144,17 +151,16 @@ state = {
     "食べすぎ": st.session_state["overeating"]
 }
 
-st.markdown("---")
+state = apply_priority(state)
 
-# -----------------
-# 📊 体重データ取得（←ここ重要）
-# -----------------
-weight_df = load_weight_data(user_id)
+st.markdown("---")
 
 # -----------------
 # 📊 グラフ
 # -----------------
 st.markdown("### 📊 体の変化")
+
+weight_df = load_weight_data(user_id)
 
 if weight_df is not None and not weight_df.empty:
 
@@ -170,25 +176,26 @@ if weight_df is not None and not weight_df.empty:
 
     if not df.empty:
 
-        target_weight = 48
+        target_weight = st.session_state.get("target_weight", 48)
 
         base = alt.Chart(df).encode(x="log_date:T")
 
         weight_line = base.mark_line(color="blue").encode(y="weight:Q")
 
-        fat_line = None
+        chart = weight_line
+
         if "体脂肪" in df.columns:
             fat_line = base.mark_line(color="orange").encode(y="体脂肪:Q")
+            chart += fat_line
 
         target_line = alt.Chart(df).mark_rule(color="red", strokeDash=[5,5]).encode(
             y=alt.datum(target_weight)
         )
 
-        chart = weight_line + target_line
-        if fat_line:
-            chart += fat_line
+        chart += target_line
 
         st.altair_chart(chart, use_container_width=True)
+        st.caption(f"目標体重：{target_weight}kg")
 
         # -----------------
         # 💬 コメント
@@ -196,24 +203,12 @@ if weight_df is not None and not weight_df.empty:
         if len(df) >= 2:
             weight_diff = df["weight"].iloc[-1] - df["weight"].iloc[-2]
 
-            fat_diff = None
-            if "体脂肪" in df.columns:
-                fat_diff = df["体脂肪"].iloc[-1] - df["体脂肪"].iloc[-2]
-
-            if weight_diff < 0 and (fat_diff is not None and fat_diff < 0):
-                st.success("体重・体脂肪ともにいい流れです✨")
-
-            elif weight_diff < 0:
-                st.success("体重は順調に減っています😊")
-
-            elif fat_diff is not None and fat_diff < 0:
-                st.info("体脂肪が減っています✨いい変化です")
-
+            if weight_diff < 0:
+                st.success("順調に減っています😊")
             elif weight_diff > 0.3:
                 st.warning("少し増えていますが大丈夫。整えていきましょう☺️")
-
             else:
-                st.info("キープできています👌その調子です")
+                st.info("キープできています👌")
 
     else:
         st.info("データがまだありません")
@@ -222,11 +217,29 @@ else:
     st.info("体重データがまだありません")
 
 # -----------------
+# 💬 動的アドバイス
+# -----------------
+def generate_dynamic_advice(meal, base, user_type, weather):
+    extra = []
+    if weather == "寒い":
+        extra.append("体を温めましょう")
+    elif weather == "暑い":
+        extra.append("水分しっかり")
+
+    msg = base
+    if extra:
+        msg += "｜" + random.choice(extra)
+    return msg
+
+# -----------------
 # モード
 # -----------------
 mode = st.radio("表示モード", ["かんたん", "しっかり"], horizontal=True)
 
+user_type = st.session_state.get("user_type", "バランス重視")
+
 if mode == "かんたん":
-    render_simple_mode(main_meal, advice, None, None, weather, state)
+    render_simple_mode(main_meal, advice, generate_dynamic_advice, user_type, weather, state)
+
 else:
-    render_full_mode(advice, exercise, weekly_plan, None, None, weather, state)
+    render_full_mode(advice, exercise, weekly_plan, generate_dynamic_advice, user_type, weather, state)
