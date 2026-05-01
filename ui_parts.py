@@ -101,9 +101,9 @@ def render_full_mode(advice, exercise, weekly_plan, generate_dynamic_advice, use
 
     hour = datetime.now().hour
 
-    dynamic_ex = get_dynamic_exercise(weather, hour)
+    plan = get_personal_plan(weather, hour, state)
 
-    st.write(dynamic_ex)
+    st.write(plan)
 
     if weather == "雨":
         st.info("☔ 今日は室内ストレッチがおすすめ")
