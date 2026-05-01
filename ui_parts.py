@@ -169,3 +169,72 @@ def render_full_mode(advice, exercise, weekly_plan, generate_dynamic_advice, use
         msg = random.choice(messages)
 
     st.info(msg)
+
+import pandas as pd
+import streamlit as st
+
+def render_shopping_list(shopping):
+
+    st.subheader("🛒 買い物リスト")
+
+    checked_items = []
+
+    # -----------------
+    # 表示＆チェック
+    # -----------------
+    for category, items in shopping.items():
+        if items:
+            st.markdown(f"**{category}**")
+
+            for item in items:
+                key = f"shopping_{category}_{item}"
+
+                if key not in st.session_state:
+                    st.session_state[key] = False
+
+                checked = st.checkbox(item, key=key)
+
+                if checked:
+                    checked_items.append((category, item))
+
+    st.markdown("---")
+
+    # -----------------
+    # 📥 CSVダウンロード
+    # -----------------
+    if checked_items:
+
+        df_download = pd.DataFrame([
+            {"カテゴリ": c, "商品": i}
+            for c, i in checked_items
+        ])
+
+        csv = df_download.to_csv(index=False).encode("utf-8-sig")
+
+        st.download_button(
+            label="📥 チェック済みをダウンロード",
+            data=csv,
+            file_name="shopping_list.csv",
+            mime="text/csv"
+        )
+
+    else:
+        st.info("チェックした商品がありません")
+
+    # -----------------
+    # 📱 LINE共有用
+    # -----------------
+    if checked_items:
+
+        text = "🛒 買い物リスト\n\n"
+
+        current_category = ""
+        for c, i in checked_items:
+            if c != current_category:
+                text += f"\n【{c}】\n"
+                current_category = c
+            text += f"・{i}\n"
+
+        st.text_area("📱 LINEで送る（コピーして使えます）", text, height=200)
+
+    st.markdown("---")
