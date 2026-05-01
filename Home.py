@@ -143,8 +143,7 @@ state = {
 }
 
 if mode == "かんたん":
-    render_simple_mode(main_meal, advice, generate_dynamic_advice, user_type, weather, state)
-
+    render_full_mode(advice, exercise, weekly_plan, generate_dynamic_advice, user_type, weather, state)
 
 elif mode == "しっかり":
     render_full_mode(advice, exercise, weekly_plan, generate_dynamic_advice, user_type, weather, state)
