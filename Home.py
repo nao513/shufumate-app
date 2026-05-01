@@ -112,3 +112,5 @@ def render_full_mode(advice, exercise, weekly_plan, generate_dynamic_advice, use
                         st.session_state[key] = False
 
                     st.session_state[key] = st.checkbox(item, value=st.session_state[key])
+
+st.write("ここまで来てます")
