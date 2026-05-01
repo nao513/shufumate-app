@@ -132,8 +132,19 @@ mode = st.radio("表示モード", ["かんたん", "しっかり"], horizontal=
 user_type = st.session_state.get("user_type", "バランス重視")
 weather = get_weather()
 
+# -----------------
+# 🧠 状態（仮：あとでUI化）
+# -----------------
+state = {
+    "疲れ": False,
+    "冷え": False,
+    "こり": True,
+    "食べすぎ": False
+}
+
 if mode == "かんたん":
-    render_simple_mode(main_meal, advice, generate_dynamic_advice, user_type, weather)
+    render_simple_mode(main_meal, advice, generate_dynamic_advice, user_type, weather, state)
+
 
 elif mode == "しっかり":
-    render_full_mode(advice, exercise, weekly_plan, generate_dynamic_advice, user_type, weather)
+    render_full_mode(advice, exercise, weekly_plan, generate_dynamic_advice, user_type, weather, state)
