@@ -2151,10 +2151,14 @@ def generate_shopping_list_from_week(plan: dict) -> dict:
     return categories
 
 def load_weight_data(user_id):
-    df = read_sheet("DietLogs")
+    import pandas as pd
 
-    if df is None or df.empty:
+    records = read_dietlog_records()  # ←ここが正解
+
+    if not records:
         return None
+
+    df = pd.DataFrame(records)
 
     # ユーザー絞り込み
     df = df[df["user_id"] == user_id]
@@ -2162,11 +2166,14 @@ def load_weight_data(user_id):
     if df.empty:
         return None
 
-    # 日付・体重だけ使う
-    df = df[["date", "weight"]].dropna()
+    # 日付・体重
+    df = df[["log_date", "weight"]].dropna()
 
-    # 日付変換
-    import pandas as pd
-    df["date"] = pd.to_datetime(df["date"])
+    # 型変換
+    df["log_date"] = pd.to_datetime(df["log_date"], errors="coerce")
+    df["weight"] = pd.to_numeric(df["weight"], errors="coerce")
 
-    return df.sort_values("date")
+    df = df.dropna()
+    df = df.sort_values("log_date")
+
+    return df
