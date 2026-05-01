@@ -158,3 +158,18 @@ def load_latest_log(user_id):
     df["log_date"] = pd.to_datetime(df["log_date"], errors="coerce")
 
     return df.sort_values("log_date").iloc[-1].to_dict()
+
+# -----------------
+# 🛒 買い物リスト
+# -----------------
+def generate_shopping_list_from_week(weekly_plan):
+
+    # 仮ロジック（あとで強化OK）
+    return {
+        "野菜": ["キャベツ", "にんじん", "ほうれん草"],
+        "肉・魚": ["鶏むね肉", "鮭"],
+        "その他": ["豆腐", "卵"]
+    }
+
+
+
