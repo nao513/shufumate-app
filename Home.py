@@ -263,6 +263,6 @@ st.markdown("### 📊 体重の変化")
 weight_df = load_weight_data(user_id)
 
 if weight_df is not None:
-    st.line_chart(weight_df.set_index("date"))
+    st.line_chart(weight_df.set_index("log_date"))
 else:
     st.info("体重データがまだありません")
