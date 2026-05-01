@@ -16,6 +16,7 @@ from app_core import (
     generate_weekly_plan,
     get_week_key,
     jst_now,
+    get_today_log_status,  # ← ★追加（重要）
 )
 
 # -----------------
@@ -39,7 +40,7 @@ advice = get_today_advice(settings, latest_log)
 exercise = get_today_exercise(settings, latest_log)
 
 # -----------------
-# ⏰ 時間で食事決定
+# ⏰ 食事時間判定
 # -----------------
 hour = jst_now().hour
 
@@ -62,7 +63,7 @@ if "weekly_plan" not in st.session_state or st.session_state.get("week_key") != 
 weekly_plan = st.session_state["weekly_plan"]
 
 # -----------------
-# 🌤 天気取得（地域固定）
+# 🌤 天気取得
 # -----------------
 def get_weather():
     try:
@@ -87,7 +88,7 @@ def get_weather():
         return "普通"
 
 # -----------------
-# 🧠 状態（仮）
+# 🧠 状態（仮：あとでUI化）
 # -----------------
 state = {
     "疲れ": False,
@@ -126,14 +127,13 @@ def generate_dynamic_advice(meal, base_advice, user_type="バランス重視", w
     elif season == "冬":
         extra.append("温かい食事で代謝UP")
 
-    # 👇 修正ポイント（joke弱め＆ランダム頻度）
     jokes = [
         "今日はゆるくても合格です",
         "完璧じゃなくてOK",
-        "それだけで十分です"
+        "それだけで十分です",
     ]
 
-    use_joke = random.random() < 0.4  # 40%だけ出す
+    use_joke = random.random() < 0.4
 
     result = base_advice
 
@@ -150,6 +150,25 @@ def generate_dynamic_advice(meal, base_advice, user_type="バランス重視", w
 # -----------------
 render_header()
 
+# -----------------
+# 📊 今日の状態（← ★ここ重要）
+# -----------------
+st.markdown("### 📊 今日の状態")
+
+log_status = get_today_log_status(user_id)
+
+if log_status["is_logged"]:
+    st.success(log_status["label"])
+    st.caption(log_status["detail"])
+else:
+    st.info(log_status["label"])
+    st.caption(log_status["detail"])
+
+st.markdown("---")
+
+# -----------------
+# モード選択
+# -----------------
 mode = st.radio("表示モード", ["かんたん", "しっかり"], horizontal=True)
 
 user_type = st.session_state.get("user_type", "バランス重視")
