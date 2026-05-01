@@ -126,13 +126,24 @@ def generate_dynamic_advice(meal, base_advice, user_type="バランス重視", w
     elif season == "冬":
         extra.append("温かい食事で代謝UP")
 
-    joke = random.choice([
-        "今日はゆるくても合格です😂",
+    # 👇 修正ポイント（joke弱め＆ランダム頻度）
+    jokes = [
+        "今日はゆるくても合格です",
         "完璧じゃなくてOK",
-        "それだけで十分です◎",
-    ])
+        "それだけで十分です"
+    ]
 
-    return base_advice + "｜" + random.choice(extra) + "。" + joke if extra else base_advice
+    use_joke = random.random() < 0.4  # 40%だけ出す
+
+    result = base_advice
+
+    if extra:
+        result += "｜" + random.choice(extra)
+
+    if use_joke:
+        result += "。" + random.choice(jokes)
+
+    return result
 
 # -----------------
 # 🟩 UI開始
