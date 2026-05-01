@@ -21,18 +21,16 @@ USERS = {
     }
 }
 
+USER_SETTINGS = {}
+DIET_LOGS = []
+
 # -----------------
 # 🔐 ログイン
 # -----------------
 def verify_login(login_id, password):
     user = USERS.get(login_id)
-
     if user and user["password"] == password:
-        return {
-            "user_id": login_id,
-            "nickname": user.get("nickname", "")
-        }
-
+        return {"user_id": login_id, "nickname": user.get("nickname", "")}
     return None
 
 def login_user(user_record):
@@ -52,9 +50,7 @@ def require_login():
 
 def get_user_id():
     import streamlit as st
-    if "login_user" in st.session_state:
-        return st.session_state["login_user"]["user_id"]
-    return "guest"
+    return st.session_state.get("login_user", {}).get("user_id", "guest")
 
 # -----------------
 # 🆕 ユーザー登録
@@ -62,10 +58,10 @@ def get_user_id():
 def create_user(login_id, password, nickname, birth_date):
 
     if not login_id or not password:
-        raise ValueError("ログインIDとパスワードは必須です")
+        raise ValueError("IDとパスワードは必須")
 
     if login_id in USERS:
-        raise ValueError("このIDは使われています")
+        raise ValueError("IDは既に存在")
 
     USERS[login_id] = {
         "password": password,
@@ -73,16 +69,12 @@ def create_user(login_id, password, nickname, birth_date):
         "birth_date": str(birth_date)
     }
 
-    return {
-        "user_id": login_id,
-        "nickname": nickname
-    }
+    return {"user_id": login_id, "nickname": nickname}
 
 # -----------------
 # 👤 プロフィール
 # -----------------
 def load_current_user_profile():
-    import streamlit as st
     user_id = get_user_id()
     user = USERS.get(user_id)
 
@@ -92,12 +84,11 @@ def load_current_user_profile():
     birth = user.get("birth_date")
     age = None
 
-    if birth:
-        try:
-            birth_dt = datetime.strptime(birth, "%Y-%m-%d")
-            age = int((datetime.now() - birth_dt).days / 365)
-        except:
-            pass
+    try:
+        birth_dt = datetime.strptime(birth, "%Y-%m-%d")
+        age = int((datetime.now() - birth_dt).days / 365)
+    except:
+        pass
 
     return {
         "login_id": user_id,
@@ -109,8 +100,6 @@ def load_current_user_profile():
 # -----------------
 # 📊 設定
 # -----------------
-USER_SETTINGS = {}
-
 def load_user_settings(user_id):
     return USER_SETTINGS.get(user_id, {
         "nickname": "はは",
@@ -144,20 +133,18 @@ CONSTITUTION_TRAIT_OPTIONS = ["冷え性", "むくみやすい", "疲れやす�
 # -----------------
 def change_login_id(user_id, current_password, new_login_id):
     user = USERS.get(user_id)
-
     if user["password"] != current_password:
-        raise ValueError("パスワードが違います")
+        raise ValueError("パスワード違い")
 
     if new_login_id in USERS:
-        raise ValueError("IDが使われています")
+        raise ValueError("ID使用中")
 
     USERS[new_login_id] = USERS.pop(user_id)
 
 def change_birth_date(user_id, current_password, new_birth_date):
     user = USERS.get(user_id)
-
     if user["password"] != current_password:
-        raise ValueError("パスワードが違います")
+        raise ValueError("パスワード違い")
 
     user["birth_date"] = str(new_birth_date)
 
@@ -165,22 +152,19 @@ def change_password(user_id, current_password, new_password, new_password_confir
     user = USERS.get(user_id)
 
     if user["password"] != current_password:
-        raise ValueError("現在のパスワードが違います")
+        raise ValueError("現在のパスワード違い")
 
     if new_password != new_password_confirm:
-        raise ValueError("新パスワードが一致しません")
+        raise ValueError("新パスワード不一致")
 
     user["password"] = new_password
 
 # -----------------
-# 📒 記録（仮DB）
+# 📒 記録
 # -----------------
-DIET_LOGS = []
-
 def save_diet_log(user_id, data):
     data["user_id"] = user_id
     DIET_LOGS.append(data)
-    return True
 
 def read_dietlog_records():
     return DIET_LOGS
@@ -189,11 +173,10 @@ def load_latest_log(user_id):
     logs = [l for l in DIET_LOGS if l["user_id"] == user_id]
     if not logs:
         return None
-    return sorted(logs, key=lambda x: x["log_date"])[-1]
+    return sorted(logs, key=lambda x: x.get("log_date", ""))[-1]
 
 def get_initial_log_values(user_id):
     latest = load_latest_log(user_id)
-
     if not latest:
         return {"weight": 50.0, "body_fat": 25.0}
 
@@ -206,36 +189,42 @@ def get_initial_log_values(user_id):
 # 📊 グラフ
 # -----------------
 def load_weight_data(user_id):
-    logs = [l for l in DIET_LOGS if l["user_id"] == user_id]
+
+    logs = read_dietlog_records()
 
     if not logs:
         return None
 
     df = pd.DataFrame(logs)
+    df = df[df["user_id"] == user_id]
 
-    df["log_date"] = pd.to_datetime(df["log_date"])
-    df["weight"] = pd.to_numeric(df.get("weight"), errors="coerce")
+    if df.empty:
+        return None
+
+    if "log_date" not in df.columns:
+        return None
+
+    df["log_date"] = pd.to_datetime(df["log_date"], errors="coerce")
+
+    if "weight" in df.columns:
+        df["weight"] = pd.to_numeric(df["weight"], errors="coerce")
 
     if "body_fat" in df.columns:
         df["body_fat"] = pd.to_numeric(df["body_fat"], errors="coerce")
 
-    return df.dropna()
+    df = df.dropna(subset=["log_date"])
+
+    return df
 
 # -----------------
 # 🔥 継続日数
 # -----------------
 def get_streak_days(user_id):
-    logs = read_dietlog_records()
-
-    df = pd.DataFrame(logs)
-    df = df[df["user_id"] == user_id]
-
-    if df.empty:
+    df = load_weight_data(user_id)
+    if df is None:
         return 0
 
-    df["log_date"] = pd.to_datetime(df["log_date"])
     dates = df["log_date"].dt.date.unique()
-
     today = datetime.now().date()
     streak = 0
 
@@ -256,13 +245,13 @@ def get_today_log_status(user_id):
     if not latest:
         return {"is_logged": False, "label": "未記録", "detail": "記録なし"}
 
-    if latest["log_date"] == jst_today_str():
+    if latest.get("log_date") == jst_today_str():
         return {"is_logged": True, "label": "記録済み", "detail": "今日記録あり"}
 
     return {"is_logged": False, "label": "未記録", "detail": "まだです"}
 
 # -----------------
-# 🍽 食事時間判定
+# 🍽 食事時間
 # -----------------
 def detect_meal_type_by_time(now):
     h = now.hour
@@ -285,6 +274,15 @@ def get_today_exercise(settings, latest_log):
     return "軽く動きましょう"
 
 # -----------------
+# 📅 週間
+# -----------------
+def generate_weekly_plan(settings, latest_log):
+    return ["和食中心", "野菜多め", "魚メニュー"]
+
+def get_week_key():
+    return datetime.now().strftime("%Y-%W")
+
+# -----------------
 # 🛒 買い物
 # -----------------
 def generate_shopping_list_from_week(plan):
@@ -303,4 +301,4 @@ def get_support_focus_summary(settings, latest_log):
     return {"points": ["体調"], "today_conditions": []}
 
 def generate_answer(category, question, settings, latest_log):
-    return f"{category}についてアドバイスします。\n{question}"
+    return f"{category}についての提案です。\n{question}"
