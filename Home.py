@@ -81,7 +81,7 @@ def get_weather():
 weather = get_weather()
 
 # -----------------
-# 🎯 優先順位ロジック（先に定義）
+# 🎯 優先順位ロジック
 # -----------------
 def apply_priority(state):
     if state["疲れ"]:
@@ -134,7 +134,7 @@ def detect_fatigue(log):
 def detect_cold(weather):
     return weather == "寒い"
 
-# 自動反映
+# 自動反映（※ここでは代入OK）
 if detect_overeating(latest_log):
     st.session_state["overeating"] = True
 
@@ -162,20 +162,20 @@ st.caption(log_status["detail"])
 st.markdown("---")
 
 # -----------------
-# 🧠 体調UI（key付き）
+# 🧠 体調UI（重要：代入しない）
 # -----------------
 st.markdown("### 🧠 今日の体調")
 col1, col2 = st.columns(2)
 
 with col1:
-    st.session_state["fatigue"] = st.checkbox("疲れてる", key="fatigue")
-    st.session_state["cold"] = st.checkbox("冷えを感じる", key="cold")
+    st.checkbox("疲れてる", key="fatigue")
+    st.checkbox("冷えを感じる", key="cold")
 
 with col2:
-    st.session_state["stiff"] = st.checkbox("こりがある", key="stiff")
-    st.session_state["overeating"] = st.checkbox("食べすぎた", key="overeating")
+    st.checkbox("こりがある", key="stiff")
+    st.checkbox("食べすぎた", key="overeating")
 
-# state生成
+# state生成（ここで読む）
 state = {
     "疲れ": st.session_state["fatigue"],
     "冷え": st.session_state["cold"],
@@ -219,6 +219,5 @@ user_type = st.session_state.get("user_type", "バランス重視")
 
 if mode == "かんたん":
     render_simple_mode(main_meal, advice, generate_dynamic_advice, user_type, weather, state)
-
 else:
     render_full_mode(advice, exercise, weekly_plan, generate_dynamic_advice, user_type, weather, state)
