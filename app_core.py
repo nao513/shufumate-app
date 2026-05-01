@@ -2177,3 +2177,40 @@ def load_weight_data(user_id):
     df = df.sort_values("log_date")
 
     return df
+
+def get_streak_days(user_id):
+    import pandas as pd
+
+    records = read_dietlog_records()
+
+    if not records:
+        return 0
+
+    df = pd.DataFrame(records)
+
+    df = df[df["user_id"] == user_id]
+
+    if df.empty:
+        return 0
+
+    df["log_date"] = pd.to_datetime(df["log_date"], errors="coerce")
+    df = df.dropna().sort_values("log_date")
+
+    dates = df["log_date"].dt.date.unique()
+
+    if len(dates) == 0:
+        return 0
+
+    from datetime import date, timedelta
+
+    today = date.today()
+    streak = 0
+
+    for i in range(len(dates)):
+        check_day = today - timedelta(days=i)
+        if check_day in dates:
+            streak += 1
+        else:
+            break
+
+    return streak
