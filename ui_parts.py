@@ -1,7 +1,7 @@
 import streamlit as st
 import random
 from datetime import datetime
-from app_core import generate_shopping_list_from_week
+from app_core import generate_shopping_list_from_week, jst_now  # ←追加
 
 # ======================
 # 🌿 ヘッダー
