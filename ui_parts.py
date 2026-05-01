@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-import random
 from datetime import datetime
 
 # -----------------
@@ -8,7 +7,7 @@ from datetime import datetime
 # -----------------
 def render_header():
     st.title("🏠 ShufuMate")
-    st.caption("主婦の毎日をちょっと楽にするアプリ")
+    st.caption("食事も、暮らしも、ちょうどよく")
 
 # -----------------
 # 🌿 かんたんモード
@@ -17,10 +16,27 @@ def render_simple_mode(main_meal, advice, generate_dynamic_advice, user_type, we
 
     st.subheader("🌿 今日のおすすめ")
 
+    # 👉 文字列対応（エラー修正）
     text = generate_dynamic_advice(main_meal, advice, user_type, weather)
+
+    st.markdown(f"### ⭐ 今のおすすめ（{main_meal}）")
     st.write(text)
 
     st.success(f"今は「{main_meal}」を整える時間です☺️")
+
+    st.markdown("---")
+
+    st.subheader("🚀 すぐやる")
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        if st.button("📷 写真で記録"):
+            st.switch_page("写真で記録")
+
+    with col2:
+        if st.button("📝 記録する"):
+            st.switch_page("記録する")
 
 # -----------------
 # 💪 しっかりモード
@@ -41,12 +57,14 @@ def render_full_mode(advice, exercise, weekly_plan, generate_dynamic_advice, use
     # 🛒 買い物リスト
     # -----------------
     with st.expander("🛒 買い物リスト"):
+
         from app_core import generate_shopping_list_from_week
         shopping = generate_shopping_list_from_week(weekly_plan)
+
         render_shopping_list(shopping)
 
 # -----------------
-# 🛒 買い物リスト完全版
+# 🛒 買い物リスト（完全版）
 # -----------------
 def render_shopping_list(shopping):
 
@@ -113,6 +131,7 @@ def render_shopping_list(shopping):
     # 📱 LINE共有
     # -----------------
     if checked_items:
+
         text = "🛒 買い物リスト\n\n"
 
         current_category = ""
