@@ -2,10 +2,13 @@ import pandas as pd
 from datetime import datetime, timedelta
 
 # -----------------
-# 🕒 JST時間
+# 🕒 JST
 # -----------------
 def jst_now():
     return datetime.now()
+
+def jst_today_str():
+    return datetime.now().strftime("%Y-%m-%d")
 
 # -----------------
 # 🔐 ログイン（仮）
@@ -21,11 +24,25 @@ def get_user_id():
 # -----------------
 def load_user_settings(user_id):
     return {
-        "target_weight": 48
+        "target_weight": 48,
+        "user_type": "バランス重視",
+        "activity_level": "普通",
+        "food_style": "和食中心",
+        "constitution_traits": [],
+        "advice_tone": "やさしい",
+        "nickname": "はは"
     }
 
 # -----------------
-# 📒 ダミーログ（後でSheetsに置き換えOK）
+# 👤 プロフィール
+# -----------------
+def load_current_user_profile():
+    return {
+        "nickname": "はは"
+    }
+
+# -----------------
+# 📒 ダミーデータ
 # -----------------
 def read_dietlog_records():
     return [
@@ -35,6 +52,29 @@ def read_dietlog_records():
         {"user_id": "guest", "log_date": "2024-04-04", "weight": 51.7, "body_fat": 25.7},
         {"user_id": "guest", "log_date": "2024-04-05", "weight": 51.5, "body_fat": 25.5},
     ]
+
+# -----------------
+# 📊 初期値（記録ページ）
+# -----------------
+def get_initial_log_values(user_id):
+    records = read_dietlog_records()
+
+    if not records:
+        return {"weight": 50.0, "body_fat": 25.0}
+
+    df = pd.DataFrame(records)
+    df = df[df["user_id"] == user_id]
+
+    if df.empty:
+        return {"weight": 50.0, "body_fat": 25.0}
+
+    df["log_date"] = pd.to_datetime(df["log_date"], errors="coerce")
+    latest = df.sort_values("log_date").iloc[-1]
+
+    return {
+        "weight": float(latest.get("weight", 50.0)),
+        "body_fat": float(latest.get("body_fat", 25.0))
+    }
 
 # -----------------
 # 📊 体重データ
@@ -77,12 +117,7 @@ def get_streak_days(user_id):
         return 0
 
     df["log_date"] = pd.to_datetime(df["log_date"], errors="coerce")
-    df = df.dropna().sort_values("log_date")
-
     dates = df["log_date"].dt.date.unique()
-
-    if len(dates) == 0:
-        return 0
 
     today = datetime.now().date()
     streak = 0
@@ -106,9 +141,6 @@ def get_today_log_status(user_id):
 
     df = pd.DataFrame(records)
     df = df[df["user_id"] == user_id]
-
-    if df.empty:
-        return {"is_logged": False, "label": "未記録", "detail": "記録がありません"}
 
     df["log_date"] = pd.to_datetime(df["log_date"], errors="coerce")
 
@@ -152,24 +184,64 @@ def load_latest_log(user_id):
     df = pd.DataFrame(records)
     df = df[df["user_id"] == user_id]
 
-    if df.empty:
-        return None
-
     df["log_date"] = pd.to_datetime(df["log_date"], errors="coerce")
 
     return df.sort_values("log_date").iloc[-1].to_dict()
 
 # -----------------
+# 🍽 食事時間判定
+# -----------------
+def detect_meal_type_by_time(now):
+    hour = now.hour
+    if hour < 10:
+        return "朝"
+    elif hour < 15:
+        return "昼"
+    elif hour < 20:
+        return "夜"
+    else:
+        return "間食"
+
+# -----------------
+# 💾 保存（仮）
+# -----------------
+def save_diet_log(user_id, data):
+    print("保存:", user_id, data)
+    return True
+
+# -----------------
 # 🛒 買い物リスト
 # -----------------
 def generate_shopping_list_from_week(weekly_plan):
-
-    # 仮ロジック（あとで強化OK）
     return {
         "野菜": ["キャベツ", "にんじん", "ほうれん草"],
         "肉・魚": ["鶏むね肉", "鮭"],
         "その他": ["豆腐", "卵"]
     }
 
+# -----------------
+# 💬 相談機能
+# -----------------
+CATEGORY_OPTIONS = ["食事", "運動", "体調", "外食調整"]
 
+def get_support_focus_summary(settings, latest_log):
+    return {
+        "points": ["体重調整"],
+        "today_conditions": []
+    }
 
+def generate_answer(category, question, settings, latest_log):
+
+    base = {
+        "食事": "バランスよく食べるのがポイントです",
+        "運動": "軽いストレッチから始めましょう",
+        "体調": "無理せず整えることを優先しましょう",
+        "外食調整": "量とバランスを意識しましょう"
+    }
+
+    answer = base.get(category, "整えていきましょう")
+
+    if question:
+        answer += f"\n\n「{question}」については無理のない範囲で調整していきましょう。"
+
+    return answer
