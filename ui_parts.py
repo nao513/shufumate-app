@@ -16,7 +16,6 @@ def render_simple_mode(main_meal, advice, generate_dynamic_advice, user_type, we
 
     st.subheader("🌿 今日のおすすめ")
 
-    # 👉 文字列対応（エラー修正）
     text = generate_dynamic_advice(main_meal, advice, user_type, weather)
 
     st.markdown(f"### ⭐ 今のおすすめ（{main_meal}）")
@@ -64,7 +63,7 @@ def render_full_mode(advice, exercise, weekly_plan, generate_dynamic_advice, use
         render_shopping_list(shopping)
 
 # -----------------
-# 🛒 買い物リスト（完全版）
+# 🛒 買い物リスト（最終安定版）
 # -----------------
 def render_shopping_list(shopping):
 
@@ -79,9 +78,9 @@ def render_shopping_list(shopping):
         st.session_state["shopping_date"] = today
 
     if st.session_state["shopping_date"] != today:
-        for key in list(st.session_state.keys()):
-            if key.startswith("shopping_"):
-                del st.session_state[key]
+        keys_to_delete = [k for k in st.session_state.keys() if k.startswith("shopping_")]
+        for k in keys_to_delete:
+            del st.session_state[k]
 
         st.session_state["shopping_date"] = today
 
@@ -144,13 +143,13 @@ def render_shopping_list(shopping):
         st.text_area("📱 LINEで送る（コピー用）", text, height=200)
 
     # -----------------
-    # 🧹 リセット
+    # 🧹 リセット（安全版）
     # -----------------
     if st.button("🧹 買い物完了（リストをリセット）"):
 
-        for key in list(st.session_state.keys()):
-            if key.startswith("shopping_"):
-                del st.session_state[key]
+        keys_to_delete = [k for k in st.session_state.keys() if k.startswith("shopping_")]
+        for k in keys_to_delete:
+            del st.session_state[k]
 
         st.success("リストをリセットしました✨")
         st.rerun()
