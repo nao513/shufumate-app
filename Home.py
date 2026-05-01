@@ -2,7 +2,8 @@ import streamlit as st
 import random
 import requests
 from datetime import datetime
-from app_core import load_weight_data
+import pandas as pd
+import altair as alt
 
 # -----------------
 # app_core
@@ -18,6 +19,7 @@ from app_core import (
     get_week_key,
     jst_now,
     get_today_log_status,
+    load_weight_data
 )
 
 # -----------------
@@ -66,14 +68,10 @@ def get_weather():
         data = res.json()
 
         temp = int(data["current_condition"][0]["temp_C"])
-        desc = data["current_condition"][0]["weatherDesc"][0]["value"]
-
-        if "rain" in desc.lower():
-            return "雨"
+        if temp <= 10:
+            return "寒い"
         elif temp >= 28:
             return "暑い"
-        elif temp <= 10:
-            return "寒い"
         else:
             return "普通"
     except:
@@ -82,21 +80,7 @@ def get_weather():
 weather = get_weather()
 
 # -----------------
-# 🎯 優先順位ロジック
-# -----------------
-def apply_priority(state):
-    if state["疲れ"]:
-        return {"疲れ": True, "冷え": False, "こり": False, "食べすぎ": False}
-    elif state["食べすぎ"]:
-        return {"疲れ": False, "冷え": False, "こり": False, "食べすぎ": True}
-    elif state["冷え"]:
-        return {"疲れ": False, "冷え": True, "こり": False, "食べすぎ": False}
-    elif state["こり"]:
-        return {"疲れ": False, "冷え": False, "こり": True, "食べすぎ": False}
-    return state
-
-# -----------------
-# 🧠 状態 初期化＋日付管理
+# 🧠 体調 state
 # -----------------
 today_str = jst_now().strftime("%Y-%m-%d")
 
@@ -120,37 +104,13 @@ if st.session_state["state_date"] != today_str:
     st.session_state["state_date"] = today_str
 
 # -----------------
-# 🤖 自動判定
-# -----------------
-def detect_overeating(log):
-    if not log:
-        return False
-    return any(k in str(log) for k in ["食べすぎ", "大盛り", "満腹", "おかわり"])
-
-def detect_fatigue(log):
-    if not log:
-        return False
-    return any(k in str(log) for k in ["ヨガ", "運動", "筋トレ", "ジム", "疲れた"])
-
-def detect_cold(weather):
-    return weather == "寒い"
-
-# 自動反映（※ここでは代入OK）
-if detect_overeating(latest_log):
-    st.session_state["overeating"] = True
-
-if detect_fatigue(latest_log):
-    st.session_state["fatigue"] = True
-
-if detect_cold(weather):
-    st.session_state["cold"] = True
-
-# -----------------
-# 🟩 UI開始
+# UI開始
 # -----------------
 render_header()
 
-# 今日の状態
+# -----------------
+# 状態表示
+# -----------------
 st.markdown("### 📊 今日の状態")
 log_status = get_today_log_status(user_id)
 
@@ -163,9 +123,10 @@ st.caption(log_status["detail"])
 st.markdown("---")
 
 # -----------------
-# 🧠 体調UI（重要：代入しない）
+# 🧠 体調UI
 # -----------------
 st.markdown("### 🧠 今日の体調")
+
 col1, col2 = st.columns(2)
 
 with col1:
@@ -176,7 +137,6 @@ with col2:
     st.checkbox("こりがある", key="stiff")
     st.checkbox("食べすぎた", key="overeating")
 
-# state生成（ここで読む）
 state = {
     "疲れ": st.session_state["fatigue"],
     "冷え": st.session_state["cold"],
@@ -184,104 +144,10 @@ state = {
     "食べすぎ": st.session_state["overeating"]
 }
 
-# 優先適用
-state = apply_priority(state)
-
 st.markdown("---")
 
 # -----------------
-# 💬 動的アドバイス
-# -----------------
-def generate_dynamic_advice(meal, base_advice, user_type="バランス重視", weather="普通"):
-    extra = []
-
-    if weather == "雨":
-        extra.append("今日はゆるめでOK")
-    elif weather == "暑い":
-        extra.append("水分しっかり")
-    elif weather == "寒い":
-        extra.append("体を温めましょう")
-
-    jokes = ["完璧じゃなくてOK", "それだけで十分です", "今日はゆるくても合格です"]
-
-    result = base_advice
-    if extra:
-        result += "｜" + random.choice(extra)
-    if random.random() < 0.4:
-        result += "。" + random.choice(jokes)
-
-    return result
-
-# -----------------
-# 表示分岐
-# -----------------
-mode = st.radio("表示モード", ["かんたん", "しっかり"], horizontal=True)
-user_type = st.session_state.get("user_type", "バランス重視")
-
-if mode == "かんたん":
-    render_simple_mode(main_meal, advice, generate_dynamic_advice, user_type, weather, state)
-else:
-    render_full_mode(advice, exercise, weekly_plan, generate_dynamic_advice, user_type, weather, state)
-
-st.markdown("### 📊 体重の変化")
-
-# 仮データ（あとで実データに置き換え）
-weight_data = [
-    ("2024-04-01", 52.0),
-    ("2024-04-02", 51.8),
-    ("2024-04-03", 51.6),
-    ("2024-04-04", 51.7),
-    ("2024-04-05", 51.5),
-]
-
-# データ整形
-import pandas as pd
-
-df = pd.DataFrame(weight_data, columns=["日付", "体重"])
-df["日付"] = pd.to_datetime(df["日付"])
-
-# グラフ表示（Streamlit標準）
-st.line_chart(df.set_index("日付"))
-
-st.markdown("### 📊 体脂肪の変化")
-
-fat_data = [
-    ("2024-04-01", 26.0),
-    ("2024-04-02", 25.8),
-    ("2024-04-03", 25.6),
-    ("2024-04-04", 25.7),
-    ("2024-04-05", 25.5),
-]
-
-df2 = pd.DataFrame(fat_data, columns=["日付", "体脂肪"])
-df2["日付"] = pd.to_datetime(df2["日付"])
-
-st.line_chart(df2.set_index("日付"))
-
-import altair as alt
-
-st.markdown("### 📊 体の変化")
-
-if weight_df is not None and not weight_df.empty:
-    df = weight_df.copy()
-
-    import pandas as pd
-    df["log_date"] = pd.to_datetime(df["log_date"], errors="coerce")
-    df["weight"] = pd.to_numeric(df["weight"], errors="coerce")
-
-    # 体脂肪
-    if "body_fat" in df.columns:
-        df["体脂肪"] = pd.to_numeric(df["body_fat"], errors="coerce")
-
-    df = df.dropna()
-
-    if not df.empty:
-
-        # 🎯 目標体重（ここ変えられる）
-        target_weight = 48
-
-# -----------------
-# 📊 データ取得
+# 📊 体重データ取得（←ここ重要）
 # -----------------
 weight_df = load_weight_data(user_id)
 
@@ -291,9 +157,9 @@ weight_df = load_weight_data(user_id)
 st.markdown("### 📊 体の変化")
 
 if weight_df is not None and not weight_df.empty:
+
     df = weight_df.copy()
 
-    import pandas as pd
     df["log_date"] = pd.to_datetime(df["log_date"], errors="coerce")
     df["weight"] = pd.to_numeric(df["weight"], errors="coerce")
 
@@ -303,103 +169,64 @@ if weight_df is not None and not weight_df.empty:
     df = df.dropna()
 
     if not df.empty:
-        st.line_chart(df.set_index("log_date"), use_container_width=True)
+
+        target_weight = 48
+
+        base = alt.Chart(df).encode(x="log_date:T")
+
+        weight_line = base.mark_line(color="blue").encode(y="weight:Q")
+
+        fat_line = None
+        if "体脂肪" in df.columns:
+            fat_line = base.mark_line(color="orange").encode(y="体脂肪:Q")
+
+        target_line = alt.Chart(df).mark_rule(color="red", strokeDash=[5,5]).encode(
+            y=alt.datum(target_weight)
+        )
+
+        chart = weight_line + target_line
+        if fat_line:
+            chart += fat_line
+
+        st.altair_chart(chart, use_container_width=True)
+
+        # -----------------
+        # 💬 コメント
+        # -----------------
+        if len(df) >= 2:
+            weight_diff = df["weight"].iloc[-1] - df["weight"].iloc[-2]
+
+            fat_diff = None
+            if "体脂肪" in df.columns:
+                fat_diff = df["体脂肪"].iloc[-1] - df["体脂肪"].iloc[-2]
+
+            if weight_diff < 0 and (fat_diff is not None and fat_diff < 0):
+                st.success("体重・体脂肪ともにいい流れです✨")
+
+            elif weight_diff < 0:
+                st.success("体重は順調に減っています😊")
+
+            elif fat_diff is not None and fat_diff < 0:
+                st.info("体脂肪が減っています✨いい変化です")
+
+            elif weight_diff > 0.3:
+                st.warning("少し増えていますが大丈夫。整えていきましょう☺️")
+
+            else:
+                st.info("キープできています👌その調子です")
+
     else:
         st.info("データがまだありません")
+
 else:
-    st.info("データがまだありません")
+    st.info("体重データがまだありません")
 
 # -----------------
-# 💬 自動コメント
+# モード
 # -----------------
-if len(df) >= 2:
-    latest = df["weight"].iloc[-1]
-    prev = df["weight"].iloc[-2]
+mode = st.radio("表示モード", ["かんたん", "しっかり"], horizontal=True)
 
-    diff = latest - prev
-
-    if diff < -0.3:
-        msg = "順調に減っています😊いい流れです！"
-    elif diff < 0:
-        msg = "少しずつ減っています👍その調子です"
-    elif diff < 0.3:
-        msg = "キープできています👌無理しなくてOK"
-    else:
-        msg = "少し増えていますが大丈夫。整えていきましょう☺️"
-
-    st.success(msg)
-# -----------------
-# 🧠 体調連動コメント
-# -----------------
-if len(df) >= 2:
-
-    latest = df["weight"].iloc[-1]
-    prev = df["weight"].iloc[-2]
-    diff = latest - prev
-
-    fatigue = state["疲れ"]
-    overeating = state["食べすぎ"]
-    cold = state["冷え"]
-
-    # 🎯 パターン分岐
-    if fatigue and diff > 0:
-        msg = "今日は少し疲れが出ているかも。無理せず整えましょう☺️"
-
-    elif overeating and diff > 0:
-        msg = "昨日少し食べた分ですね😊今日は軽めでOKです"
-
-    elif cold and diff > 0:
-        msg = "体が冷えて巡りが落ちているかも。温めていきましょう🔥"
-
-    elif diff < -0.3:
-        msg = "順調に減っています✨いい流れです！"
-
-    elif diff < 0:
-        msg = "少しずついい変化が出ています👍"
-
-    elif diff < 0.3:
-        msg = "キープできています👌十分です"
-
-    else:
-        msg = "大丈夫。焦らず整えていきましょう☺️"
-
-    st.success(msg)
-# -----------------
-# グラフ作成
-# -----------------
-chart = weight_line + target_line
-if fat_line:
-    chart = chart + fat_line
-
-# -----------------
-# グラフ表示
-# -----------------
-st.altair_chart(chart, use_container_width=True)
-
-# -----------------
-# 💬 コメント（整理版）
-# -----------------
-if len(df) >= 2:
-    weight_diff = df["weight"].iloc[-1] - df["weight"].iloc[-2]
-
-    fat_diff = None
-    if "体脂肪" in df.columns:
-        fat_diff = df["体脂肪"].iloc[-1] - df["体脂肪"].iloc[-2]
-
-    # 🎯 メイン判定
-    if weight_diff < 0 and (fat_diff is not None and fat_diff < 0):
-        st.success("体重・体脂肪ともにいい流れです✨")
-
-    elif weight_diff < 0:
-        st.success("体重は順調に減っています😊")
-
-    elif fat_diff is not None and fat_diff < 0:
-        st.info("体脂肪が減っています✨いい変化です")
-
-    elif weight_diff > 0.3:
-        st.warning("少し増えていますが大丈夫。整えていきましょう☺️")
-
-    else:
-        st.info("キープできています👌その調子です")
-    if fat_diff < 0:
-        st.info("体脂肪も減っています✨いい変化です")
+if mode == "かんたん":
+    render_simple_mode(main_meal, advice, None, None, weather, state)
+else:
+    render_full_mode(advice, exercise, weekly_plan, None, None, weather, state)
