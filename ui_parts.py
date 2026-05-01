@@ -10,6 +10,9 @@ def render_header():
     st.image("assets/home_icons/top/top_visual.png", use_container_width=True)
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown("### 🍽 食事も、暮らしも、ちょうどよく")
+    
+    today = jst_now().strftime("%Y年%m月%d日（%a）")
+    st.caption(today)
 
 
 # ======================
