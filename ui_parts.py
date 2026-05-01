@@ -16,7 +16,11 @@ def render_simple_mode(main_meal, advice, generate_dynamic_advice, user_type, we
 
     st.subheader("🌿 今日のおすすめ")
 
-    text = generate_dynamic_advice(main_meal, advice, user_type, weather)
+    # 安全に文字列として扱う
+    try:
+        text = generate_dynamic_advice(main_meal, advice, user_type, weather)
+    except:
+        text = advice
 
     st.markdown(f"### ⭐ 今のおすすめ（{main_meal}）")
     st.write(text)
@@ -63,7 +67,7 @@ def render_full_mode(advice, exercise, weekly_plan, generate_dynamic_advice, use
         render_shopping_list(shopping)
 
 # -----------------
-# 🛒 買い物リスト（最終安定版）
+# 🛒 買い物リスト（完全安定版）
 # -----------------
 def render_shopping_list(shopping):
 
@@ -143,15 +147,18 @@ def render_shopping_list(shopping):
         st.text_area("📱 LINEで送る（コピー用）", text, height=200)
 
     # -----------------
-    # 🧹 リセット（安全版）
+    # 🧹 リセット（完全安全版）
     # -----------------
     if st.button("🧹 買い物完了（リストをリセット）"):
 
         keys_to_delete = [k for k in st.session_state.keys() if k.startswith("shopping_")]
+
         for k in keys_to_delete:
             del st.session_state[k]
 
         st.success("リストをリセットしました✨")
-        st.rerun()
+
+        # Streamlitの安全再描画
+        st.experimental_rerun()
 
     st.markdown("---")
