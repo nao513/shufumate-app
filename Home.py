@@ -241,3 +241,18 @@ df["日付"] = pd.to_datetime(df["日付"])
 
 # グラフ表示（Streamlit標準）
 st.line_chart(df.set_index("日付"))
+
+st.markdown("### 📊 体脂肪の変化")
+
+fat_data = [
+    ("2024-04-01", 26.0),
+    ("2024-04-02", 25.8),
+    ("2024-04-03", 25.6),
+    ("2024-04-04", 25.7),
+    ("2024-04-05", 25.5),
+]
+
+df2 = pd.DataFrame(fat_data, columns=["日付", "体脂肪"])
+df2["日付"] = pd.to_datetime(df2["日付"])
+
+st.line_chart(df2.set_index("日付"))
