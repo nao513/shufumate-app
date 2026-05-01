@@ -280,34 +280,126 @@ if weight_df is not None and not weight_df.empty:
         # 🎯 目標体重（ここ変えられる）
         target_weight = 48
 
-        # -----------------
-        # グラフ
-        # -----------------
-        base = alt.Chart(df).encode(
-            x="log_date:T"
-        )
+# -----------------
+# 📊 データ取得
+# -----------------
+weight_df = load_weight_data(user_id)
 
-        weight_line = base.mark_line(color="blue").encode(
-            y="weight:Q"
-        )
+# -----------------
+# 📊 グラフ
+# -----------------
+st.markdown("### 📊 体の変化")
 
-        fat_line = base.mark_line(color="orange").encode(
-            y="体脂肪:Q"
-        ) if "体脂肪" in df.columns else None
+if weight_df is not None and not weight_df.empty:
+    df = weight_df.copy()
 
-        target_line = alt.Chart(df).mark_rule(color="red", strokeDash=[5,5]).encode(
-            y=alt.datum(target_weight)
-        )
+    import pandas as pd
+    df["log_date"] = pd.to_datetime(df["log_date"], errors="coerce")
+    df["weight"] = pd.to_numeric(df["weight"], errors="coerce")
 
-        chart = weight_line + target_line
-        if fat_line:
-            chart = chart + fat_line
+    if "body_fat" in df.columns:
+        df["体脂肪"] = pd.to_numeric(df["body_fat"], errors="coerce")
 
-        st.altair_chart(chart, use_container_width=True)
+    df = df.dropna()
 
-        st.caption(f"目標体重：{target_weight}kg")
-
+    if not df.empty:
+        st.line_chart(df.set_index("log_date"), use_container_width=True)
     else:
         st.info("データがまだありません")
 else:
     st.info("データがまだありません")
+
+# -----------------
+# 💬 自動コメント
+# -----------------
+if len(df) >= 2:
+    latest = df["weight"].iloc[-1]
+    prev = df["weight"].iloc[-2]
+
+    diff = latest - prev
+
+    if diff < -0.3:
+        msg = "順調に減っています😊いい流れです！"
+    elif diff < 0:
+        msg = "少しずつ減っています👍その調子です"
+    elif diff < 0.3:
+        msg = "キープできています👌無理しなくてOK"
+    else:
+        msg = "少し増えていますが大丈夫。整えていきましょう☺️"
+
+    st.success(msg)
+# -----------------
+# 🧠 体調連動コメント
+# -----------------
+if len(df) >= 2:
+
+    latest = df["weight"].iloc[-1]
+    prev = df["weight"].iloc[-2]
+    diff = latest - prev
+
+    fatigue = state["疲れ"]
+    overeating = state["食べすぎ"]
+    cold = state["冷え"]
+
+    # 🎯 パターン分岐
+    if fatigue and diff > 0:
+        msg = "今日は少し疲れが出ているかも。無理せず整えましょう☺️"
+
+    elif overeating and diff > 0:
+        msg = "昨日少し食べた分ですね😊今日は軽めでOKです"
+
+    elif cold and diff > 0:
+        msg = "体が冷えて巡りが落ちているかも。温めていきましょう🔥"
+
+    elif diff < -0.3:
+        msg = "順調に減っています✨いい流れです！"
+
+    elif diff < 0:
+        msg = "少しずついい変化が出ています👍"
+
+    elif diff < 0.3:
+        msg = "キープできています👌十分です"
+
+    else:
+        msg = "大丈夫。焦らず整えていきましょう☺️"
+
+    st.success(msg)
+# -----------------
+# グラフ作成
+# -----------------
+chart = weight_line + target_line
+if fat_line:
+    chart = chart + fat_line
+
+# -----------------
+# グラフ表示
+# -----------------
+st.altair_chart(chart, use_container_width=True)
+
+# -----------------
+# 💬 コメント（整理版）
+# -----------------
+if len(df) >= 2:
+    weight_diff = df["weight"].iloc[-1] - df["weight"].iloc[-2]
+
+    fat_diff = None
+    if "体脂肪" in df.columns:
+        fat_diff = df["体脂肪"].iloc[-1] - df["体脂肪"].iloc[-2]
+
+    # 🎯 メイン判定
+    if weight_diff < 0 and (fat_diff is not None and fat_diff < 0):
+        st.success("体重・体脂肪ともにいい流れです✨")
+
+    elif weight_diff < 0:
+        st.success("体重は順調に減っています😊")
+
+    elif fat_diff is not None and fat_diff < 0:
+        st.info("体脂肪が減っています✨いい変化です")
+
+    elif weight_diff > 0.3:
+        st.warning("少し増えていますが大丈夫。整えていきましょう☺️")
+
+    else:
+        st.info("キープできています👌その調子です")
+    if fat_diff < 0:
+        st.info("体脂肪も減っています✨いい変化です")
