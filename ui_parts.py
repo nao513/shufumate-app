@@ -1,6 +1,26 @@
 import streamlit as st
 from app_core import generate_shopping_list_from_week
 
+def get_dynamic_exercise(weather, hour):
+    
+    # ⏰ 時間
+    if hour < 10:
+        base = "朝の軽いストレッチ（5分）"
+    elif hour < 15:
+        base = "軽めのヨガ or 体をほぐす運動"
+    else:
+        base = "リラックスヨガ or ストレッチ"
+
+    # 🌦 天気
+    if weather == "雨":
+        return "☔ 室内ストレッチ（5〜10分）＋深呼吸"
+    elif weather == "暑い":
+        return "🔥 無理せず軽めストレッチ＋水分補給"
+    elif weather == "寒い":
+        return "❄️ 体を温めるヨガ（肩回し・股関節）"
+    else:
+        return f"🌿 {base}"
+
 # ======================
 # 🌿 ヘッダー
 # ======================
@@ -48,8 +68,11 @@ def render_simple_mode(main_meal, advice, generate_dynamic_advice, user_type, we
 
     st.subheader("🏃‍♀️ 今日の運動（軽め）")
 
-    st.write("・軽いストレッチ（3分）")
-    st.write("・深呼吸＋肩回し")
+    from datetime import datetime
+
+    hour = datetime.now().hour
+
+    st.write(get_dynamic_exercise(weather, hour))
 
 
 # ======================
@@ -74,8 +97,13 @@ def render_full_mode(advice, exercise, weekly_plan, generate_dynamic_advice, use
     # 🏃‍♀️ 運動
     st.subheader("🏃‍♀️ 今日の運動")
 
-    st.write(exercise["title"])
-    st.write(exercise["body"])
+    from datetime import datetime
+
+    hour = datetime.now().hour
+
+    dynamic_ex = get_dynamic_exercise(weather, hour)
+
+    st.write(dynamic_ex)
 
     if weather == "雨":
         st.info("☔ 今日は室内ストレッチがおすすめ")
