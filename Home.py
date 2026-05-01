@@ -158,51 +158,74 @@ if mode == "かんたん":
     st.subheader("🌿 今日のおすすめ")
 
     st.markdown(f"### ⭐ 今のおすすめ（{main_meal}）")
-    st.write(advice[main_meal])
+
+    user_type = st.session_state.get("user_type", "バランス重視")
+    weather = "晴れ"
+
+    advice_text = generate_dynamic_advice(
+        main_meal,
+        advice[main_meal],
+        user_type,
+        weather
+    )
+
+    st.write(advice_text)
 
     st.success(f"今は「{main_meal}」を整える時間です ☺️")
-
-    st.markdown("---")
-
-    st.subheader("🚀 すぐやる")
-
-    col1, col2 = st.columns(2)
-
-    with col1:
-        if st.button("📷 写真で記録", use_container_width=True):
-            st.switch_page("pages/4_写真で記録.py")
-
-    with col2:
-        if st.button("📝 記録する", use_container_width=True):
-            st.switch_page("pages/2_記録する.py")
-
+    
 # =====================
-# 🔧 しっかりモード
+# 🔧 しっかりモード（完成版）
 # =====================
 elif mode == "しっかり":
 
-    st.subheader("🌿 今日のおすすめ")
+    st.subheader("🌿 今日のおすすめ（しっかり版）")
 
-    st.write(advice["食事"])
+    user_type = st.session_state.get("user_type", "バランス重視")
+    weather = "晴れ"  # ←あとでAPI化OK
 
-    with st.expander("🍽 すべての食事"):
-        st.write("🌅 朝")
-        st.write(advice["朝"])
-        st.write("☀️ 昼")
-        st.write(advice["昼"])
-        st.write("🌙 夜")
-        st.write(advice["夜"])
+    # -----------------
+    # 🍽 食事
+    # -----------------
+    st.markdown("### 🌅 朝")
+    st.write(generate_dynamic_advice("朝", advice["朝"], user_type, weather))
+
+    st.markdown("### ☀️ 昼")
+    st.write(generate_dynamic_advice("昼", advice["昼"], user_type, weather))
+
+    st.markdown("### 🌙 夜")
+    st.write(generate_dynamic_advice("夜", advice["夜"], user_type, weather))
 
     st.markdown("---")
 
+    # -----------------
+    # 🏃‍♀️ 運動
+    # -----------------
+    st.subheader("🏃‍♀️ 今日の運動")
+
+    st.write(exercise["title"])
+    st.write(exercise["body"])
+
+    # 天気連動
+    if weather == "雨":
+        st.info("☔ 今日は室内ストレッチがおすすめです")
+    elif weather == "暑い":
+        st.info("🔥 無理せず軽め運動＋水分補給を")
+    elif weather == "寒い":
+        st.info("❄️ 体を温めるストレッチがおすすめ")
+
+    st.markdown("---")
+
+    # -----------------
+    # 📦 まとめ
+    # -----------------
     st.subheader("📦 まとめ")
 
-    # 週間献立
+    # 🗓 週間献立
     with st.expander("🗓 週間献立"):
         for day, meal in weekly_plan.items():
             st.write(f"{day}：{meal}")
 
-    # 買い物リスト
+    # 🛒 買い物リスト
     with st.expander("🛒 買い物リスト"):
         shopping = generate_shopping_list_from_week(weekly_plan)
 
@@ -219,11 +242,18 @@ elif mode == "しっかり":
                         value=st.session_state[key]
                     )
 
-    # 運動
-    with st.expander("🏃‍♀️ 運動"):
-        st.write(exercise["title"])
-        st.write(exercise["body"])
+    # 🧘 補足アドバイス
+    st.markdown("---")
+    st.subheader("💡 今日のひとこと")
 
+    st.info(
+        generate_dynamic_advice(
+            "夜",
+            "今日は少し整えるだけでもOKな日です",
+            user_type,
+            weather
+        )
+    )
 # -----------------
 # 共通ナビ
 # -----------------
