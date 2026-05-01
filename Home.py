@@ -1,7 +1,7 @@
 import streamlit as st
 import random
-from datetime import datetime
 import requests
+from datetime import datetime
 
 # -----------------
 # app_core
@@ -43,19 +43,12 @@ exercise = get_today_exercise(settings, latest_log)
 # ⏰ 食事時間判定
 # -----------------
 hour = jst_now().hour
-
-if hour < 10:
-    main_meal = "朝"
-elif hour < 15:
-    main_meal = "昼"
-else:
-    main_meal = "夜"
+main_meal = "朝" if hour < 10 else "昼" if hour < 15 else "夜"
 
 # -----------------
 # 📅 週間データ
 # -----------------
 week_key = get_week_key()
-
 if "weekly_plan" not in st.session_state or st.session_state.get("week_key") != week_key:
     st.session_state["weekly_plan"] = generate_weekly_plan(settings, latest_log)
     st.session_state["week_key"] = week_key
@@ -76,8 +69,7 @@ def get_weather():
 
         if "rain" in desc.lower():
             return "雨"
-
-        if temp >= 28:
+        elif temp >= 28:
             return "暑い"
         elif temp <= 10:
             return "寒い"
@@ -89,29 +81,41 @@ def get_weather():
 weather = get_weather()
 
 # -----------------
-# 🧠 体調（保存＋日付リセット）
+# 🎯 優先順位ロジック（先に定義）
+# -----------------
+def apply_priority(state):
+    if state["疲れ"]:
+        return {"疲れ": True, "冷え": False, "こり": False, "食べすぎ": False}
+    elif state["食べすぎ"]:
+        return {"疲れ": False, "冷え": False, "こり": False, "食べすぎ": True}
+    elif state["冷え"]:
+        return {"疲れ": False, "冷え": True, "こり": False, "食べすぎ": False}
+    elif state["こり"]:
+        return {"疲れ": False, "冷え": False, "こり": True, "食べすぎ": False}
+    return state
+
+# -----------------
+# 🧠 状態 初期化＋日付管理
 # -----------------
 today_str = jst_now().strftime("%Y-%m-%d")
 
-# 初期化
-if "fatigue" not in st.session_state:
-    st.session_state["fatigue"] = False
-if "cold" not in st.session_state:
-    st.session_state["cold"] = False
-if "stiff" not in st.session_state:
-    st.session_state["stiff"] = True
-if "overeating" not in st.session_state:
-    st.session_state["overeating"] = False
+defaults = {
+    "fatigue": False,
+    "cold": False,
+    "stiff": True,
+    "overeating": False
+}
 
-# 日付管理
+for k, v in defaults.items():
+    if k not in st.session_state:
+        st.session_state[k] = v
+
 if "state_date" not in st.session_state:
     st.session_state["state_date"] = today_str
 
 if st.session_state["state_date"] != today_str:
-    st.session_state["fatigue"] = False
-    st.session_state["cold"] = False
-    st.session_state["stiff"] = True
-    st.session_state["overeating"] = False
+    for k, v in defaults.items():
+        st.session_state[k] = v
     st.session_state["state_date"] = today_str
 
 # -----------------
@@ -120,16 +124,12 @@ if st.session_state["state_date"] != today_str:
 def detect_overeating(log):
     if not log:
         return False
-    text = str(log)
-    keywords = ["食べすぎ", "大盛り", "満腹", "おかわり", "バイキング"]
-    return any(k in text for k in keywords)
+    return any(k in str(log) for k in ["食べすぎ", "大盛り", "満腹", "おかわり"])
 
 def detect_fatigue(log):
     if not log:
         return False
-    text = str(log)
-    keywords = ["ヨガ", "運動", "筋トレ", "ランニング", "ジム", "疲れた"]
-    return any(k in text for k in keywords)
+    return any(k in str(log) for k in ["ヨガ", "運動", "筋トレ", "ジム", "疲れた"])
 
 def detect_cold(weather):
     return weather == "寒い"
@@ -143,20 +143,6 @@ if detect_fatigue(latest_log):
 
 if detect_cold(weather):
     st.session_state["cold"] = True
-
-# -----------------
-# 🎯 優先順位ロジック
-# -----------------
-def apply_priority(state):
-    if state["疲れ"]:
-        return {"疲れ": True, "冷え": False, "こり": False, "食べすぎ": False}
-    elif state["食べすぎ"]:
-        return {"疲れ": False, "冷え": False, "こり": False, "食べすぎ": True}
-    elif state["冷え"]:
-        return {"疲れ": False, "冷え": True, "こり": False, "食べすぎ": False}
-    elif state["こり"]:
-        return {"疲れ": False, "冷え": False, "こり": True, "食べすぎ": False}
-    return state
 
 # -----------------
 # 🟩 UI開始
@@ -176,38 +162,26 @@ st.caption(log_status["detail"])
 st.markdown("---")
 
 # -----------------
-# 🧠 体調UI
+# 🧠 体調UI（key付き）
 # -----------------
 st.markdown("### 🧠 今日の体調")
-st.caption("今日はどんな感じですか？無理しない範囲でOKです☺️")
-
 col1, col2 = st.columns(2)
 
 with col1:
-    st.session_state["fatigue"] = st.checkbox(
-        "疲れてる",
-        value=st.session_state["fatigue"],
-        key="fatigue_checkbox"
-    )
-
-    st.session_state["cold"] = st.checkbox(
-        "冷えを感じる",
-        value=st.session_state["cold"],
-        key="cold_checkbox"
-    )
+    st.session_state["fatigue"] = st.checkbox("疲れてる", key="fatigue")
+    st.session_state["cold"] = st.checkbox("冷えを感じる", key="cold")
 
 with col2:
-    st.session_state["stiff"] = st.checkbox(
-        "こりがある",
-        value=st.session_state["stiff"],
-        key="stiff_checkbox"
-    )
+    st.session_state["stiff"] = st.checkbox("こりがある", key="stiff")
+    st.session_state["overeating"] = st.checkbox("食べすぎた", key="overeating")
 
-    st.session_state["overeating"] = st.checkbox(
-        "食べすぎた",
-        value=st.session_state["overeating"],
-        key="overeating_checkbox"
-    )
+# state生成
+state = {
+    "疲れ": st.session_state["fatigue"],
+    "冷え": st.session_state["cold"],
+    "こり": st.session_state["stiff"],
+    "食べすぎ": st.session_state["overeating"]
+}
 
 # 優先適用
 state = apply_priority(state)
@@ -218,7 +192,6 @@ st.markdown("---")
 # 💬 動的アドバイス
 # -----------------
 def generate_dynamic_advice(meal, base_advice, user_type="バランス重視", weather="普通"):
-
     extra = []
 
     if weather == "雨":
@@ -228,17 +201,11 @@ def generate_dynamic_advice(meal, base_advice, user_type="バランス重視", w
     elif weather == "寒い":
         extra.append("体を温めましょう")
 
-    jokes = [
-        "完璧じゃなくてOK",
-        "それだけで十分です",
-        "今日はゆるくても合格です",
-    ]
+    jokes = ["完璧じゃなくてOK", "それだけで十分です", "今日はゆるくても合格です"]
 
     result = base_advice
-
     if extra:
         result += "｜" + random.choice(extra)
-
     if random.random() < 0.4:
         result += "。" + random.choice(jokes)
 
@@ -248,26 +215,10 @@ def generate_dynamic_advice(meal, base_advice, user_type="バランス重視", w
 # 表示分岐
 # -----------------
 mode = st.radio("表示モード", ["かんたん", "しっかり"], horizontal=True)
-
 user_type = st.session_state.get("user_type", "バランス重視")
 
 if mode == "かんたん":
-    render_simple_mode(
-        main_meal,
-        advice,
-        generate_dynamic_advice,
-        user_type,
-        weather,
-        state
-    )
+    render_simple_mode(main_meal, advice, generate_dynamic_advice, user_type, weather, state)
 
-elif mode == "しっかり":
-    render_full_mode(
-        advice,
-        exercise,
-        weekly_plan,
-        generate_dynamic_advice,
-        user_type,
-        weather,
-        state
-    )
+else:
+    render_full_mode(advice, exercise, weekly_plan, generate_dynamic_advice, user_type, weather, state)
