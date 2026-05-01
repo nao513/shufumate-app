@@ -221,3 +221,23 @@ if mode == "かんたん":
     render_simple_mode(main_meal, advice, generate_dynamic_advice, user_type, weather, state)
 else:
     render_full_mode(advice, exercise, weekly_plan, generate_dynamic_advice, user_type, weather, state)
+
+st.markdown("### 📊 体重の変化")
+
+# 仮データ（あとで実データに置き換え）
+weight_data = [
+    ("2024-04-01", 52.0),
+    ("2024-04-02", 51.8),
+    ("2024-04-03", 51.6),
+    ("2024-04-04", 51.7),
+    ("2024-04-05", 51.5),
+]
+
+# データ整形
+import pandas as pd
+
+df = pd.DataFrame(weight_data, columns=["日付", "体重"])
+df["日付"] = pd.to_datetime(df["日付"])
+
+# グラフ表示（Streamlit標準）
+st.line_chart(df.set_index("日付"))
