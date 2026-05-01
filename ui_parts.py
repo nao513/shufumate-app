@@ -78,6 +78,15 @@ def render_full_mode(advice, exercise, weekly_plan, generate_dynamic_advice, use
     st.write(exercise["body"])
 
     if weather == "雨":
+        st.info("☔ 今日は室内ストレッチがおすすめ")
+    elif weather == "暑い":
+        st.info("🔥 無理せず軽め＋水分補給")
+    elif weather == "寒い":
+        st.info("❄️ 体を温めるストレッチ")
+    elif weather == "普通":
+        st.info("🌿 軽く体を動かすのに良い日です")
+
+    if weather == "雨":
         st.info("☔ 室内ストレッチがおすすめ")
     elif weather == "暑い":
         st.info("🔥 軽め運動＋水分補給")
