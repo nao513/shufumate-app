@@ -1,116 +1,169 @@
 import streamlit as st
-from app_core import generate_shopping_list_from_week
+import random
+from datetime import datetime
+import requests
 
-# ======================
-# 🌿 ヘッダー
-# ======================
-def render_header():
-    st.image("assets/home_icons/top/top_visual.png", use_container_width=True)
-    st.markdown("<br>", unsafe_allow_html=True)
-    st.markdown("### 🍽 食事も、暮らしも、ちょうどよく")
+# -----------------
+# app_core
+# -----------------
+from app_core import (
+    require_login,
+    get_user_id,
+    load_user_settings,
+    load_latest_log,
+    get_today_advice,
+    get_today_exercise,
+    generate_weekly_plan,
+    get_week_key,
+    jst_now,
+)
 
+# -----------------
+# UIパーツ
+# -----------------
+from ui_parts import render_header, render_simple_mode, render_full_mode
 
-# ======================
-# 🧠 状態連動運動
-# ======================
-def get_personal_plan(weather, hour, state):
+# -----------------
+# 🔐 ログイン
+# -----------------
+require_login()
+user_id = get_user_id()
 
-    if hour < 10:
-        base = "朝ストレッチ"
-    elif hour < 15:
-        base = "軽い運動"
+# -----------------
+# 📊 データ取得
+# -----------------
+settings = load_user_settings(user_id)
+latest_log = load_latest_log(user_id)
+
+advice = get_today_advice(settings, latest_log)
+exercise = get_today_exercise(settings, latest_log)
+
+# -----------------
+# ⏰ 時間で食事決定
+# -----------------
+hour = jst_now().hour
+
+if hour < 10:
+    main_meal = "朝"
+elif hour < 15:
+    main_meal = "昼"
+else:
+    main_meal = "夜"
+
+# -----------------
+# 📅 週間データ
+# -----------------
+week_key = get_week_key()
+
+if "weekly_plan" not in st.session_state or st.session_state.get("week_key") != week_key:
+    st.session_state["weekly_plan"] = generate_weekly_plan(settings, latest_log)
+    st.session_state["week_key"] = week_key
+
+weekly_plan = st.session_state["weekly_plan"]
+
+# -----------------
+# 🌤 天気取得（地域固定）
+# -----------------
+def get_weather():
+    try:
+        url = "https://wttr.in/Sendai?format=j1"
+        res = requests.get(url, timeout=3)
+        data = res.json()
+
+        temp = int(data["current_condition"][0]["temp_C"])
+        desc = data["current_condition"][0]["weatherDesc"][0]["value"]
+
+        if "rain" in desc.lower():
+            return "雨"
+
+        if temp >= 28:
+            return "暑い"
+        elif temp <= 10:
+            return "寒い"
+        else:
+            return "普通"
+
+    except:
+        return "普通"
+
+# -----------------
+# 🧠 状態（仮）
+# -----------------
+state = {
+    "疲れ": False,
+    "冷え": False,
+    "こり": True,
+    "食べすぎ": False
+}
+
+# -----------------
+# 💬 動的アドバイス
+# -----------------
+def generate_dynamic_advice(meal, base_advice, user_type="バランス重視", weather="普通"):
+
+    month = datetime.now().month
+
+    if month in [3,4,5]:
+        season = "春"
+    elif month in [6,7,8]:
+        season = "夏"
+    elif month in [9,10,11]:
+        season = "秋"
     else:
-        base = "リラックス"
+        season = "冬"
 
-    if state.get("疲れ"):
-        return "今日は無理せずストレッチ＋深呼吸"
-
-    if state.get("こり"):
-        return "肩・首・股関節をほぐすストレッチ"
-
-    if state.get("冷え"):
-        return "体を温めるストレッチ＋白湯"
-
-    if state.get("食べすぎ"):
-        return "軽めウォーキング"
+    extra = []
 
     if weather == "雨":
-        return "室内ストレッチ"
+        extra.append("今日はゆるめでOK")
     elif weather == "暑い":
-        return "軽めストレッチ＋水分補給"
+        extra.append("水分しっかり")
     elif weather == "寒い":
-        return "温めるヨガ"
+        extra.append("体を温めましょう")
 
-    return base
+    if season == "夏":
+        extra.append("冷たいもの取りすぎ注意")
+    elif season == "冬":
+        extra.append("温かい食事で代謝UP")
 
+    joke = random.choice([
+        "今日はゆるくても合格です😂",
+        "完璧じゃなくてOK",
+        "それだけで十分です◎",
+    ])
 
-# ======================
-# 🌱 かんたんモード
-# ======================
-def render_simple_mode(main_meal, advice, generate_dynamic_advice, user_type, weather, state):
+    return base_advice + "｜" + random.choice(extra) + "。" + joke if extra else base_advice
 
-    st.subheader("🌿 今日のおすすめ")
+# -----------------
+# 🟩 UI開始
+# -----------------
+render_header()
 
-    st.markdown(f"### ⭐ 今のおすすめ（{main_meal}）")
+mode = st.radio("表示モード", ["かんたん", "しっかり"], horizontal=True)
 
-    st.write(generate_dynamic_advice(main_meal, advice[main_meal], user_type, weather))
+user_type = st.session_state.get("user_type", "バランス重視")
+weather = get_weather()
 
-    st.success(f"今は「{main_meal}」を整える時間です ☺️")
+# -----------------
+# 表示分岐
+# -----------------
+if mode == "かんたん":
+    render_simple_mode(
+        main_meal,
+        advice,
+        generate_dynamic_advice,
+        user_type,
+        weather,
+        state
+    )
 
-    st.markdown("---")
-
-    st.subheader("🏃‍♀️ 今日の運動")
-
-    from datetime import datetime
-    hour = datetime.now().hour
-
-    st.write(get_personal_plan(weather, hour, state))
-
-
-# ======================
-# 🔧 しっかりモード
-# ======================
-def render_full_mode(advice, exercise, weekly_plan, generate_dynamic_advice, user_type, weather, state):
-
-    st.subheader("🌿 今日のおすすめ（しっかり版）")
-
-    st.markdown("### 🌅 朝")
-    st.write(generate_dynamic_advice("朝", advice["朝"], user_type, weather))
-
-    st.markdown("### ☀️ 昼")
-    st.write(generate_dynamic_advice("昼", advice["昼"], user_type, weather))
-
-    st.markdown("### 🌙 夜")
-    st.write(generate_dynamic_advice("夜", advice["夜"], user_type, weather))
-
-    st.markdown("---")
-
-    st.subheader("🏃‍♀️ 今日の運動")
-
-    from datetime import datetime
-    hour = datetime.now().hour
-
-    st.write(get_personal_plan(weather, hour, state))
-
-    st.markdown("---")
-
-    st.subheader("📦 まとめ")
-
-    with st.expander("🗓 週間献立"):
-        for day, meal in weekly_plan.items():
-            st.write(f"{day}：{meal}")
-
-    with st.expander("🛒 買い物リスト"):
-        shopping = generate_shopping_list_from_week(weekly_plan)
-
-        for category, items in shopping.items():
-            if items:
-                st.markdown(f"**{category}**")
-                for item in items:
-                    key = f"{category}_{item}"
-                    if key not in st.session_state:
-                        st.session_state[key] = False
-
-                    st.session_state[key] = st.checkbox(item, value=st.session_state[key])
-
-st.write("ここまで来てます")
+elif mode == "しっかり":
+    render_full_mode(
+        advice,
+        exercise,
+        weekly_plan,
+        generate_dynamic_advice,
+        user_type,
+        weather,
+        state
+    )
