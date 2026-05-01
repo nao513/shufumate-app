@@ -1,18 +1,57 @@
-import streamlit as st
+def generate_dynamic_advice(meal, base_advice, user_type="バランス重視", weather="晴れ"):
 
-from app_core import (
-    require_login,
-    get_user_id,
-    load_user_settings,
-    load_latest_log,
-    get_today_advice,
-    get_today_exercise,
-    generate_weekly_plan,
-    generate_shopping_list_from_week,
-    get_week_key,
-    jst_now,
-)
+    month = datetime.now().month
 
+    # 季節
+    if month in [3,4,5]:
+        season = "春"
+    elif month in [6,7,8]:
+        season = "夏"
+    elif month in [9,10,11]:
+        season = "秋"
+    else:
+        season = "冬"
+
+    extra = []
+
+    # 🌦 天気
+    if weather == "雨":
+        extra.append("今日は気圧の影響でゆるめでOK")
+    elif weather == "暑い":
+        extra.append("水分しっかりとりましょう")
+    elif weather == "寒い":
+        extra.append("体を温める食事がおすすめ")
+
+    # 🌸 季節
+    if season == "夏":
+        extra.append("冷たいもの取りすぎ注意")
+    elif season == "冬":
+        extra.append("温かい食事で代謝UP")
+    elif season == "春":
+        extra.append("生活リズム崩れやすい時期です")
+    elif season == "秋":
+        extra.append("食べすぎ注意の季節です")
+
+    # 👩‍🦰 タイプ
+    if user_type == "ダイエット":
+        extra.append("少しの意識で変わります☺️")
+    elif user_type == "忙しい":
+        extra.append("完璧じゃなくてOKです")
+    elif user_type == "美容":
+        extra.append("肌も食事で変わります✨")
+
+    # 😆 ユーモア
+    joke = random.choice([
+        "今日はゆるくても合格です😂",
+        "主婦はそれだけで十分すごいです",
+        "完璧じゃなくてOK、それが続くコツ",
+    ])
+
+    # 🎯 合成
+    if extra:
+        return base_advice + "｜" + random.choice(extra) + "。" + joke
+    else:
+        return base_advice + "。" + joke
 # -----------------
 # ページ設定
 # -----------------
