@@ -1,26 +1,6 @@
 import streamlit as st
 from app_core import generate_shopping_list_from_week
 
-def get_dynamic_exercise(weather, hour):
-    
-    # ⏰ 時間
-    if hour < 10:
-        base = "朝の軽いストレッチ（5分）"
-    elif hour < 15:
-        base = "軽めのヨガ or 体をほぐす運動"
-    else:
-        base = "リラックスヨガ or ストレッチ"
-
-    # 🌦 天気
-    if weather == "雨":
-        return "☔ 室内ストレッチ（5〜10分）＋深呼吸"
-    elif weather == "暑い":
-        return "🔥 無理せず軽めストレッチ＋水分補給"
-    elif weather == "寒い":
-        return "❄️ 体を温めるヨガ（肩回し・股関節）"
-    else:
-        return f"🌿 {base}"
-
 # ======================
 # 🌿 ヘッダー
 # ======================
@@ -31,58 +11,69 @@ def render_header():
 
 
 # ======================
+# 🧠 状態連動運動
+# ======================
+def get_personal_plan(weather, hour, state):
+
+    if hour < 10:
+        base = "朝ストレッチ"
+    elif hour < 15:
+        base = "軽い運動"
+    else:
+        base = "リラックス"
+
+    if state.get("疲れ"):
+        return "今日は無理せずストレッチ＋深呼吸"
+
+    if state.get("こり"):
+        return "肩・首・股関節をほぐすストレッチ"
+
+    if state.get("冷え"):
+        return "体を温めるストレッチ＋白湯"
+
+    if state.get("食べすぎ"):
+        return "軽めウォーキング"
+
+    if weather == "雨":
+        return "室内ストレッチ"
+    elif weather == "暑い":
+        return "軽めストレッチ＋水分補給"
+    elif weather == "寒い":
+        return "温めるヨガ"
+
+    return base
+
+
+# ======================
 # 🌱 かんたんモード
 # ======================
-def render_simple_mode(main_meal, advice, generate_dynamic_advice, user_type, weather):
+def render_simple_mode(main_meal, advice, generate_dynamic_advice, user_type, weather, state):
 
     st.subheader("🌿 今日のおすすめ")
 
     st.markdown(f"### ⭐ 今のおすすめ（{main_meal}）")
 
-    st.write(
-        generate_dynamic_advice(
-            main_meal,
-            advice[main_meal],
-            user_type,
-            weather
-        )
-    )
+    st.write(generate_dynamic_advice(main_meal, advice[main_meal], user_type, weather))
 
     st.success(f"今は「{main_meal}」を整える時間です ☺️")
 
     st.markdown("---")
 
-    st.subheader("🚀 すぐやる")
-
-    col1, col2 = st.columns(2)
-
-    with col1:
-        if st.button("📸 写真で記録", use_container_width=True):
-            st.switch_page("pages/photo.py")
-
-    with col2:
-        if st.button("📝 記録する", use_container_width=True):
-            st.switch_page("pages/log.py")
-
-    st.markdown("---")
-
-    st.subheader("🏃‍♀️ 今日の運動（軽め）")
+    st.subheader("🏃‍♀️ 今日の運動")
 
     from datetime import datetime
-
     hour = datetime.now().hour
 
-    st.write(get_dynamic_exercise(weather, hour))
+    st.write(get_personal_plan(weather, hour, state))
 
 
 # ======================
 # 🔧 しっかりモード
 # ======================
-def render_full_mode(..., weather, state):
+def render_full_mode(advice, exercise, weekly_plan, generate_dynamic_advice, user_type, weather, state):
 
     st.subheader("🌿 今日のおすすめ（しっかり版）")
 
-    # 🍽 食事
     st.markdown("### 🌅 朝")
     st.write(generate_dynamic_advice("朝", advice["朝"], user_type, weather))
 
@@ -94,36 +85,15 @@ def render_full_mode(..., weather, state):
 
     st.markdown("---")
 
-    # 🏃‍♀️ 運動
     st.subheader("🏃‍♀️ 今日の運動")
 
     from datetime import datetime
-
     hour = datetime.now().hour
 
-    plan = get_personal_plan(weather, hour, state)
-
-    st.write(plan)
-
-    if weather == "雨":
-        st.info("☔ 今日は室内ストレッチがおすすめ")
-    elif weather == "暑い":
-        st.info("🔥 無理せず軽め＋水分補給")
-    elif weather == "寒い":
-        st.info("❄️ 体を温めるストレッチ")
-    elif weather == "普通":
-        st.info("🌿 軽く体を動かすのに良い日です")
-
-    if weather == "雨":
-        st.info("☔ 室内ストレッチがおすすめ")
-    elif weather == "暑い":
-        st.info("🔥 軽め運動＋水分補給")
-    elif weather == "寒い":
-        st.info("❄️ 体を温めるストレッチ")
+    st.write(get_personal_plan(weather, hour, state))
 
     st.markdown("---")
 
-    # 📦 まとめ
     st.subheader("📦 まとめ")
 
     with st.expander("🗓 週間献立"):
@@ -142,16 +112,3 @@ def render_full_mode(..., weather, state):
                         st.session_state[key] = False
 
                     st.session_state[key] = st.checkbox(item, value=st.session_state[key])
-
-    st.markdown("---")
-
-    st.subheader("💡 今日のひとこと")
-
-    st.info(
-        generate_dynamic_advice(
-            "夜",
-            "今日は少し整えるだけでもOKな日です",
-            user_type,
-            weather
-        )
-    )
