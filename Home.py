@@ -258,11 +258,56 @@ df2["日付"] = pd.to_datetime(df2["日付"])
 
 st.line_chart(df2.set_index("日付"))
 
-st.markdown("### 📊 体重の変化")
+import altair as alt
 
-weight_df = load_weight_data(user_id)
+st.markdown("### 📊 体の変化")
 
-if weight_df is not None:
-    st.line_chart(weight_df.set_index("log_date"))
+if weight_df is not None and not weight_df.empty:
+    df = weight_df.copy()
+
+    import pandas as pd
+    df["log_date"] = pd.to_datetime(df["log_date"], errors="coerce")
+    df["weight"] = pd.to_numeric(df["weight"], errors="coerce")
+
+    # 体脂肪
+    if "body_fat" in df.columns:
+        df["体脂肪"] = pd.to_numeric(df["body_fat"], errors="coerce")
+
+    df = df.dropna()
+
+    if not df.empty:
+
+        # 🎯 目標体重（ここ変えられる）
+        target_weight = 48
+
+        # -----------------
+        # グラフ
+        # -----------------
+        base = alt.Chart(df).encode(
+            x="log_date:T"
+        )
+
+        weight_line = base.mark_line(color="blue").encode(
+            y="weight:Q"
+        )
+
+        fat_line = base.mark_line(color="orange").encode(
+            y="体脂肪:Q"
+        ) if "体脂肪" in df.columns else None
+
+        target_line = alt.Chart(df).mark_rule(color="red", strokeDash=[5,5]).encode(
+            y=alt.datum(target_weight)
+        )
+
+        chart = weight_line + target_line
+        if fat_line:
+            chart = chart + fat_line
+
+        st.altair_chart(chart, use_container_width=True)
+
+        st.caption(f"目標体重：{target_weight}kg")
+
+    else:
+        st.info("データがまだありません")
 else:
-    st.info("体重データがまだありません")
+    st.info("データがまだありません")
