@@ -14,6 +14,26 @@ def render_header():
     today = jst_now().strftime("%Y年%m月%d日（%a）")
     st.caption(today)
 
+    st.markdown("### 🧠 今日の体調")
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        fatigue = st.checkbox("疲れてる")
+        cold = st.checkbox("冷えを感じる")
+
+    with col2:
+        stiff = st.checkbox("こりがある")
+        overeating = st.checkbox("食べすぎた")
+
+    state = {
+        "疲れ": fatigue,
+        "冷え": cold,
+        "こり": stiff,
+        "食べすぎ": overeating
+    }
+
+    st.markdown("---")
 
 # ======================
 # 🧠 状態連動運動
