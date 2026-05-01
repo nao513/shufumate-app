@@ -78,7 +78,7 @@ def render_simple_mode(main_meal, advice, generate_dynamic_advice, user_type, we
 # ======================
 # 🔧 しっかりモード
 # ======================
-def render_full_mode(advice, exercise, weekly_plan, generate_dynamic_advice, user_type, weather):
+def render_full_mode(..., weather, state):
 
     st.subheader("🌿 今日のおすすめ（しっかり版）")
 
