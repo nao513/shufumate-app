@@ -184,19 +184,30 @@ st.caption("今日はどんな感じですか？無理しない範囲でOKです
 col1, col2 = st.columns(2)
 
 with col1:
-    st.session_state["fatigue"] = st.checkbox("疲れてる", value=st.session_state["fatigue"])
-    st.session_state["cold"] = st.checkbox("冷えを感じる", value=st.session_state["cold"])
+    st.session_state["fatigue"] = st.checkbox(
+        "疲れてる",
+        value=st.session_state["fatigue"],
+        key="fatigue_checkbox"
+    )
+
+    st.session_state["cold"] = st.checkbox(
+        "冷えを感じる",
+        value=st.session_state["cold"],
+        key="cold_checkbox"
+    )
 
 with col2:
-    st.session_state["stiff"] = st.checkbox("こりがある", value=st.session_state["stiff"])
-    st.session_state["overeating"] = st.checkbox("食べすぎた", value=st.session_state["overeating"])
+    st.session_state["stiff"] = st.checkbox(
+        "こりがある",
+        value=st.session_state["stiff"],
+        key="stiff_checkbox"
+    )
 
-state = {
-    "疲れ": st.session_state["fatigue"],
-    "冷え": st.session_state["cold"],
-    "こり": st.session_state["stiff"],
-    "食べすぎ": st.session_state["overeating"]
-}
+    st.session_state["overeating"] = st.checkbox(
+        "食べすぎた",
+        value=st.session_state["overeating"],
+        key="overeating_checkbox"
+    )
 
 # 優先適用
 state = apply_priority(state)
