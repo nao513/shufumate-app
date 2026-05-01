@@ -2,6 +2,8 @@ import streamlit as st
 import random
 from datetime import datetime
 
+import requests
+
 from app_core import (
     require_login,
     get_user_id,
@@ -84,6 +86,8 @@ def generate_dynamic_advice(meal, base_advice, user_type="バランス重視", w
     elif season == "冬":
         extra.append("温かい食事で代謝UP")
 
+    
+    
     joke = random.choice([
         "今日はゆるくても合格です😂",
         "完璧じゃなくてOK",
@@ -91,6 +95,32 @@ def generate_dynamic_advice(meal, base_advice, user_type="バランス重視", w
     ])
 
     return base_advice + "｜" + random.choice(extra) + "。" + joke if extra else base_advice
+
+def get_weather():
+    try:
+        # 👇 地域固定（ここ変えればどこでもOK）
+        url = "https://wttr.in/Sendai?format=j1"
+
+        res = requests.get(url, timeout=3)
+        data = res.json()
+
+        temp = int(data["current_condition"][0]["temp_C"])
+        weather_desc = data["current_condition"][0]["weatherDesc"][0]["value"]
+
+        # 🌧 雨判定（最優先）
+        if "rain" in weather_desc.lower():
+            return "雨"
+
+        # 🌡 気温判定
+        if temp >= 28:
+            return "暑い"
+        elif temp <= 10:
+            return "寒い"
+        else:
+            return "普通"
+
+    except:
+        return "普通"
 
 # -----------------
 # 🟩 UI
@@ -100,7 +130,7 @@ render_header()
 mode = st.radio("表示モード", ["かんたん", "しっかり"], horizontal=True)
 
 user_type = st.session_state.get("user_type", "バランス重視")
-weather = "晴れ"
+weather = get_weather()
 
 if mode == "かんたん":
     render_simple_mode(main_meal, advice, generate_dynamic_advice, user_type, weather)
