@@ -1,11 +1,10 @@
 import random
-from datetime import datetime
+from collections import Counter
 
 # -----------------
 # 🧠 状態まとめ
 # -----------------
 def build_condition(user_type=None, weather=None, state=None, exercise=None):
-
     return {
         "goal": user_type or "バランス",
         "weather": weather or "普通",
@@ -18,21 +17,18 @@ def build_condition(user_type=None, weather=None, state=None, exercise=None):
 # -----------------
 def decide_meal_type(condition):
 
-    # 体調優先
     if condition["state"] == "疲れ":
         return "軽め"
 
     if condition["state"] == "むくみ":
         return "さっぱり"
 
-    # 運動
     if condition["exercise"] == "筋トレ":
         return "しっかり"
 
     if condition["exercise"] == "有酸素":
         return "バランス"
 
-    # 天気
     if condition["weather"] == "暑い":
         return "さっぱり"
 
@@ -42,19 +38,18 @@ def decide_meal_type(condition):
     return "バランス"
 
 # -----------------
-# 🍽 メニュー変換
+# 🍽 メニュー生成
 # -----------------
 def convert_to_meal(meal_type, condition):
 
     if meal_type == "軽め":
-        options = [
+        if condition["state"] == "疲れ":
+            return "おにぎり＋味噌汁＋温かいお茶"
+        return random.choice([
             "タンパク質おにぎり＋味噌玉の味噌汁",
             "ヨーグルト＋フルーツ＋ナッツ",
             "トースト＋ゆで卵＋スープ"
-        ]
-        if condition["state"] == "疲れ":
-            return "おにぎり＋味噌汁＋温かいお茶"
-        return random.choice(options)
+        ])
 
     elif meal_type == "しっかり":
         if condition["exercise"] == "筋トレ":
@@ -86,19 +81,18 @@ def convert_to_meal(meal_type, condition):
         ])
 
 # -----------------
-# 🌿 かんたん用
+# 🌿 かんたんモード
 # -----------------
 def generate_simple_advice(user_type=None, weather=None, state=None, exercise=None):
 
     condition = build_condition(user_type, weather, state, exercise)
-
     meal_type = decide_meal_type(condition)
     meal = convert_to_meal(meal_type, condition)
 
-    return f"今日は「{meal_type}」がおすすめです。\n→ {meal}"
+    return f"今日は「{meal_type}」がおすすめです\n→ {meal}"
 
 # -----------------
-# 💪 しっかり用（朝昼夜）
+# 💪 しっかりモード（朝昼夜）
 # -----------------
 def generate_full_plan(user_type=None, weather=None, state=None, exercise=None):
 
@@ -110,7 +104,7 @@ def generate_full_plan(user_type=None, weather=None, state=None, exercise=None):
 
         meal_type = decide_meal_type(condition)
 
-        # 夜だけ調整（軽め寄せ）
+        # 夜は軽めに寄せる
         if timing == "夜" and meal_type == "しっかり":
             meal_type = "軽め"
 
@@ -119,52 +113,25 @@ def generate_full_plan(user_type=None, weather=None, state=None, exercise=None):
     return plan
 
 # -----------------
-# 🛒 買い物リスト生成
+# 📅 1週間プラン
 # -----------------
-def generate_shopping_list_from_plan(plan):
+def generate_weekly_plan(user_type=None, weather=None, state=None, exercise=None):
 
-    mapping = {
-        "おにぎり": ["ごはん", "鮭"],
-        "味噌汁": ["味噌", "豆腐", "わかめ"],
-        "鶏むね肉": ["鶏むね肉"],
-        "サラダ": ["レタス", "トマト"],
-        "卵": ["卵"],
-        "ヨーグルト": ["ヨーグルト"],
-        "フルーツ": ["バナナ", "りんご"],
-        "そば": ["そば"],
-        "うどん": ["うどん"]
-    }
+    week_plan = {}
 
-    result = {}
+    for day in ["月", "火", "水", "木", "金", "土", "日"]:
+        week_plan[day] = generate_full_plan(user_type, weather, state, exercise)
 
-    for timing, meal in plan.items():
-
-        for key, items in mapping.items():
-            if key in meal:
-
-                category = "食材"
-
-                if category not in result:
-                    result[category] = []
-
-                result[category].extend(items)
-
-    # 重複削除
-    result["食材"] = list(set(result["食材"]))
-
-    return result
+    return week_plan
 
 # -----------------
-# 🛒 スーパー用買い物リスト（最強版）
+# 🛒 スーパー用買い物リスト
 # -----------------
-from collections import Counter
-
 def generate_smart_shopping_list(plan, fridge_items=None):
 
     if fridge_items is None:
         fridge_items = []
 
-    # 食材マッピング（強化版）
     mapping = {
         "おにぎり": ["ごはん", "鮭"],
         "味噌汁": ["味噌", "豆腐", "わかめ"],
@@ -179,13 +146,12 @@ def generate_smart_shopping_list(plan, fridge_items=None):
         "ハンバーグ": ["ひき肉"]
     }
 
-    # 売り場分類
     category_map = {
         "野菜": ["レタス", "トマト", "バナナ"],
         "肉": ["鶏むね肉", "豚肉", "ひき肉"],
         "魚": ["鮭"],
-        "乳製品": ["ヨーグルト"],
         "卵": ["卵"],
+        "乳製品": ["ヨーグルト"],
         "主食": ["ごはん", "そば", "うどん"],
         "調味料": ["味噌"],
         "その他": ["豆腐", "わかめ"]
@@ -193,27 +159,17 @@ def generate_smart_shopping_list(plan, fridge_items=None):
 
     items = []
 
-    # -----------------
-    # 食材抽出
-    # -----------------
     for meal in plan.values():
         for key, ing in mapping.items():
             if key in meal:
                 items.extend(ing)
 
-    # -----------------
     # 冷蔵庫差分
-    # -----------------
     items = [i for i in items if i not in fridge_items]
 
-    # -----------------
     # 数量まとめ
-    # -----------------
     counted = Counter(items)
 
-    # -----------------
-    # カテゴリ分け
-    # -----------------
     result = {}
 
     for item, count in counted.items():
@@ -229,5 +185,54 @@ def generate_smart_shopping_list(plan, fridge_items=None):
             result[category] = []
 
         result[category].append(f"{item} × {count}")
+
+    return result
+
+# -----------------
+# 📅 週間買い物
+# -----------------
+def generate_weekly_shopping_list(week_plan, fridge_items=None):
+
+    all_meals = []
+
+    for day_plan in week_plan.values():
+        for meal in day_plan.values():
+            all_meals.append(meal)
+
+    temp_plan = {"まとめ": " ".join(all_meals)}
+
+    return generate_smart_shopping_list(temp_plan, fridge_items)
+
+# -----------------
+# 🉐 特売情報（仮）
+# -----------------
+def get_local_deals():
+    return {
+        "鶏むね肉": "特売 100g 78円",
+        "トマト": "特価 1パック 198円",
+        "卵": "10個 198円"
+    }
+
+# -----------------
+# 🉐 特売反映
+# -----------------
+def add_deals_to_shopping(shopping):
+
+    deals = get_local_deals()
+
+    result = {}
+
+    for category, items in shopping.items():
+
+        result[category] = []
+
+        for item in items:
+
+            name = item.split(" × ")[0]
+
+            if name in deals:
+                item = f"{item} 🉐 {deals[name]}"
+
+            result[category].append(item)
 
     return result
