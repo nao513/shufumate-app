@@ -1,13 +1,6 @@
 import streamlit as st
 
-from app_core import (
-    require_login,
-    get_user_id,
-    save_diet_log,
-    jst_today_str,
-    jst_now,
-    detect_meal_type_by_time,  # ← 追加
-)
+from app_core import *
 
 # -----------------
 # 初期設定
