@@ -64,3 +64,11 @@ def load_user_settings(user_id):
 def load_current_user_profile():
     user = st.session_state.get("login_user")
     return {"nickname": user.get("nickname", ""), "login_id": user.get("user_id", "")} if user else {}
+
+
+# =====================
+# 📅 週キー
+# =====================
+def get_week_key():
+    from datetime import datetime
+    return datetime.now().strftime("%Y-%W")
