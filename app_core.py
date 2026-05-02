@@ -280,3 +280,42 @@ def get_streak_days(user_id):
             break
 
     return streak
+
+# =====================
+# 📊 変化コメント
+# =====================
+def get_weight_comment(user_id):
+
+    sheet = get_sheet("DietLogs")
+    records = sheet.get_all_records()
+
+    user_logs = [
+        l for l in records
+        if str(l.get("user_id")) == str(user_id)
+    ]
+
+    if len(user_logs) < 2:
+        return "まずは記録を続けましょう☺️"
+
+    import pandas as pd
+
+    df = pd.DataFrame(user_logs)
+
+    df["log_date"] = pd.to_datetime(df["log_date"], errors="coerce")
+    df["weight"] = pd.to_numeric(df["weight"], errors="coerce")
+
+    df = df.sort_values("log_date").dropna()
+
+    if len(df) < 2:
+        return "データを増やしていきましょう"
+
+    diff = df["weight"].iloc[-1] - df["weight"].iloc[-2]
+
+    if diff < -0.3:
+        return "🔥 しっかり減ってます！いい流れです"
+    elif diff < 0:
+        return "👍 少しずつ減っています"
+    elif diff < 0.3:
+        return "👌 キープできています"
+    else:
+        return "⚠ 少し増えました。でも大丈夫です"
