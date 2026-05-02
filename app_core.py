@@ -1,5 +1,5 @@
 import pandas as pd
-from datetime import datetime, timedelta
+from datetime import datetime
 import streamlit as st
 import hashlib
 import uuid
@@ -57,7 +57,6 @@ def verify_login(login_id, password):
     for user in records:
         if user["login_id"] == login_id:
 
-            # 🔥 ハッシュ一致チェック
             if verify_password(password, user["password_salt"], user["password_hash"]):
                 return {
                     "user_id": user["user_id"],
@@ -116,7 +115,7 @@ def create_user(login_id, password, nickname, birth_date):
     }
 
 # =====================
-# 🔑 パスワード再設定（超重要）
+# 🔑 パスワード再設定
 # =====================
 def reset_password(login_id, new_password):
 
