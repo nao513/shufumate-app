@@ -114,3 +114,25 @@ def jst_today_str():
 def get_week_key():
     from datetime import datetime
     return datetime.now().strftime("%Y-%W")
+# =====================
+# 📅 週間プラン
+# =====================
+def generate_weekly_plan(settings, latest_log):
+    return ["和食中心", "野菜多め", "魚メニュー"]
+
+# =====================
+# 📊 今日の状態
+# =====================
+def get_today_log_status(user_id):
+    return {
+        "is_logged": False,
+        "label": "未記録",
+        "detail": "まだ今日の記録がありません"
+    }
+
+# =====================
+# 📊 体重データ
+# =====================
+def load_weight_data(user_id):
+    import pandas as pd
+    return pd.DataFrame()
