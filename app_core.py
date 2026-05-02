@@ -62,77 +62,30 @@ def save_user_settings(user_id, data):
     USER_SETTINGS[user_id] = data
 
 # =====================
-# 📒 Google Sheets接続
+# 📒 記録（メモリ）
 # =====================
-import gspread
-from google.oauth2.service_account import Credentials
+DIET_LOGS = []
 
-SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
-
-@st.cache_resource
-def get_gspread_client():
-    creds = Credentials.from_service_account_info(
-        st.secrets["gcp_service_account"], scopes=SCOPES
-    )
-    return gspread.authorize(creds)
-
-@st.cache_resource
-def get_dietlog_sheet():
-    return get_gspread_client().open_by_key(
-        st.secrets["SPREADSHEET_ID"]
-    ).worksheet("DietLogs")
-
-# =====================
-# 📒 記録保存
-# =====================
 def save_diet_log(user_id, data):
-
+    data["user_id"] = user_id
     data["created_at"] = datetime.now().isoformat()
+    DIET_LOGS.append(data)
 
-    ws = get_dietlog_sheet()
-
-    ws.append_row([
-        user_id,
-        data.get("log_date", ""),
-        data.get("weight", ""),
-        data.get("body_fat", ""),
-        data.get("meal_memo", ""),
-        data.get("exercise_memo", ""),
-        data.get("condition_note", ""),
-        data.get("mood_note", ""),
-        ",".join(data.get("today_conditions", [])),
-        data.get("created_at", ""),
-        data.get("target_muscle_mass", ""),
-        data.get("bmi", ""),
-        data.get("goal_calories", "")
-    ])
-
-# =====================
-# 📒 読み込み
-# =====================
 def read_dietlog_records():
-    ws = get_dietlog_sheet()
-    return ws.get_all_records()
+    return DIET_LOGS
 
 def load_latest_log(user_id):
-
-    logs = read_dietlog_records()
-
-    user_logs = [l for l in logs if l["user_id"] == user_id]
-
-    if not user_logs:
+    logs = [l for l in DIET_LOGS if l["user_id"] == user_id]
+    if not logs:
         return None
-
-    return sorted(user_logs, key=lambda x: x.get("log_date", ""))[-1]
+    return sorted(logs, key=lambda x: x.get("log_date", ""))[-1]
 
 # =====================
 # 📊 グラフ
 # =====================
 def load_weight_data(user_id):
 
-    logs = read_dietlog_records()
-
-    df = pd.DataFrame(logs)
+    df = pd.DataFrame(DIET_LOGS)
 
     if df.empty:
         return None
@@ -144,8 +97,11 @@ def load_weight_data(user_id):
 
     df["log_date"] = pd.to_datetime(df["log_date"], errors="coerce")
 
-    df["weight"] = pd.to_numeric(df.get("weight"), errors="coerce")
-    df["body_fat"] = pd.to_numeric(df.get("body_fat"), errors="coerce")
+    if "weight" in df.columns:
+        df["weight"] = pd.to_numeric(df["weight"], errors="coerce")
+
+    if "body_fat" in df.columns:
+        df["body_fat"] = pd.to_numeric(df["body_fat"], errors="coerce")
 
     return df.dropna()
 
