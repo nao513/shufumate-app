@@ -17,7 +17,9 @@ except Exception as e:
     st.stop()
 
 nickname_default = profile["nickname"] if profile else settings.get("nickname", "")
-login_id_text = profile.get("login_id", "") if profile else ""
+login_id_text = ""
+if isinstance(profile, dict):
+    login_id_text = profile.get("login_id", "")
 birth_date_text = profile["birth_date"] if profile else "未設定"
 age_text = f"{profile['age']}歳" if profile and profile.get("age") is not None else "未設定"
 
