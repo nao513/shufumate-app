@@ -1,345 +1,155 @@
-import streamlit as st
-from datetime import datetime
-import pandas as pd
 import random
-import hashlib
+from datetime import datetime
 
-# =====================
-# 🔥 モード切替
-# =====================
-USE_SHEETS = True
-
-# =====================
-# 🧾 Sheets接続
-# =====================
-def get_sheet(name):
-    import gspread
-    from google.oauth2.service_account import Credentials
-
-    creds = Credentials.from_service_account_info(
-        st.secrets["gcp_service_account"],
-        scopes=["https://www.googleapis.com/auth/spreadsheets"]
-    )
-
-    client = gspread.authorize(creds)
-    return client.open_by_key(st.secrets["SPREADSHEET_ID"]).worksheet(name)
-
-# =====================
-# 🔐 パスワード処理
-# =====================
-def hash_password(password):
-    return hashlib.sha256(str(password).encode()).hexdigest()
-
-# =====================
-# 🔐 ログイン
-# =====================
-def verify_login(login_id, password):
-
-    sheet = get_sheet("Users")
-    records = sheet.get_all_records()
-
-    password_hash = hash_password(password)
-
-    for user in records:
-        if (
-            str(user.get("login_id")).strip() == str(login_id).strip()
-            and
-            str(user.get("password_hash")).strip() == password_hash
-        ):
-            return {
-                "user_id": user["user_id"],
-                "nickname": user["nickname"]
-            }
-
-    return None
-
-
-def create_user(login_id, password, nickname, birth_date):
-
-    import uuid
-
-    sheet = get_sheet("Users")
-
-    user_id = str(uuid.uuid4())
-
-    password_hash = hash_password(password)
-
-    sheet.append_row([
-        user_id,
-        str(login_id),
-        password_hash,
-        "",  # salt（未使用）
-        str(nickname),
-        str(birth_date),
-        datetime.now().isoformat(),
-        "",  # updated_at
-        True
-    ])
+# -----------------
+# 🧠 状態まとめ
+# -----------------
+def build_condition(user_type=None, weather=None, state=None, exercise=None):
 
     return {
-        "user_id": user_id,
-        "nickname": nickname
+        "goal": user_type or "バランス",
+        "weather": weather or "普通",
+        "state": state or "普通",
+        "exercise": exercise or "なし"
     }
 
+# -----------------
+# 🧭 食事タイプ決定
+# -----------------
+def decide_meal_type(condition):
 
-def login_user(user):
-    st.session_state["login_user"] = user
+    # 体調優先
+    if condition["state"] == "疲れ":
+        return "軽め"
 
+    if condition["state"] == "むくみ":
+        return "さっぱり"
 
-def is_logged_in():
-    return "login_user" in st.session_state
+    # 運動
+    if condition["exercise"] == "筋トレ":
+        return "しっかり"
 
+    if condition["exercise"] == "有酸素":
+        return "バランス"
 
-def require_login():
-    if not is_logged_in():
-        st.switch_page("pages/0_ログイン.py")
+    # 天気
+    if condition["weather"] == "暑い":
+        return "さっぱり"
 
+    if condition["weather"] == "寒い":
+        return "あたたかい"
 
-def get_user_id():
-    return st.session_state.get("login_user", {}).get("user_id", "guest")
+    return "バランス"
 
-# =====================
-# 📒 記録保存
-# =====================
-def save_diet_log(user_id, data):
+# -----------------
+# 🍽 メニュー変換
+# -----------------
+def convert_to_meal(meal_type, condition):
 
-    data["created_at"] = datetime.now().isoformat()
-    data["user_id"] = user_id
+    if meal_type == "軽め":
+        options = [
+            "タンパク質おにぎり＋味噌玉の味噌汁",
+            "ヨーグルト＋フルーツ＋ナッツ",
+            "トースト＋ゆで卵＋スープ"
+        ]
+        if condition["state"] == "疲れ":
+            return "おにぎり＋味噌汁＋温かいお茶"
+        return random.choice(options)
 
-    sheet = get_sheet("DietLogs")
+    elif meal_type == "しっかり":
+        if condition["exercise"] == "筋トレ":
+            return "ごはん＋鶏むね肉＋サラダ＋味噌汁"
+        return random.choice([
+            "豚しゃぶ＋ごはん＋副菜",
+            "ハンバーグ＋サラダ＋スープ"
+        ])
 
-    sheet.append_row([
-        user_id,
-        data.get("log_date", ""),
-        data.get("weight", ""),
-        data.get("body_fat", ""),
-        data.get("meal_memo", ""),
-        data.get("exercise_memo", ""),
-        data.get("condition_note", ""),
-        data.get("mood_note", ""),
-        ", ".join(data.get("today_conditions", [])),
-        data.get("created_at", ""),
-        data.get("target_muscle_mass", ""),
-        data.get("bmi", ""),
-        data.get("goal_calories", "")
-    ])
+    elif meal_type == "さっぱり":
+        return random.choice([
+            "冷しゃぶサラダ＋スープ",
+            "そば＋温泉卵",
+            "冷やしうどん＋副菜"
+        ])
 
-# =====================
-# 📊 データ取得
-# =====================
-def load_latest_log(user_id):
+    elif meal_type == "あたたかい":
+        return random.choice([
+            "雑炊＋味噌汁",
+            "鍋風スープ＋ごはん",
+            "うどん＋野菜たっぷり"
+        ])
 
-    sheet = get_sheet("DietLogs")
-    records = sheet.get_all_records()
-
-    logs = [l for l in records if str(l.get("user_id")) == str(user_id)]
-
-    return logs[-1] if logs else None
-
-
-def load_weight_data(user_id):
-
-    sheet = get_sheet("DietLogs")
-    records = sheet.get_all_records()
-
-    df = pd.DataFrame(records)
-
-    if df.empty:
-        return None
-
-    df = df[df["user_id"].astype(str) == str(user_id)]
-
-    if df.empty:
-        return None
-
-    df["log_date"] = pd.to_datetime(df["log_date"], errors="coerce")
-    df["weight"] = pd.to_numeric(df["weight"], errors="coerce")
-    df["body_fat"] = pd.to_numeric(df["body_fat"], errors="coerce")
-
-    return df.dropna()
-
-# =====================
-# 🕒 時間
-# =====================
-def jst_now():
-    return datetime.now()
-
-def jst_today_str():
-    return datetime.now().strftime("%Y-%m-%d")
-
-# =====================
-# 🍽 食事判定
-# =====================
-def detect_meal_type_by_time(now):
-    h = now.hour
-    if h < 10:
-        return "朝"
-    elif h < 15:
-        return "昼"
-    elif h < 20:
-        return "夜"
     else:
-        return "間食"
+        return random.choice([
+            "鮭おにぎり＋具だくさん味噌汁",
+            "ごはん＋焼き魚＋副菜",
+            "パスタ＋サラダ＋スープ"
+        ])
 
-# =====================
-# 🍽 アドバイス
-# =====================
-def get_today_advice(settings, latest_log):
-    return {"朝": "軽め", "昼": "バランス", "夜": "軽く"}
+# -----------------
+# 🌿 かんたん用
+# -----------------
+def generate_simple_advice(user_type=None, weather=None, state=None, exercise=None):
 
-def get_today_exercise(settings, latest_log):
-    return "ストレッチ"
+    condition = build_condition(user_type, weather, state, exercise)
 
-# =====================
-# 📅 補助
-# =====================
-def get_week_key():
-    return datetime.now().strftime("%Y-%W")
+    meal_type = decide_meal_type(condition)
+    meal = convert_to_meal(meal_type, condition)
 
-def generate_weekly_plan(settings, latest_log):
-    return ["朝軽め", "昼しっかり", "夜控えめ"]
+    return f"今日は「{meal_type}」がおすすめです。\n→ {meal}"
 
-def get_today_log_status(user_id):
-    return {
-        "is_logged": False,
-        "label": "未記録",
-        "detail": "まだ記録がありません"
+# -----------------
+# 💪 しっかり用（朝昼夜）
+# -----------------
+def generate_full_plan(user_type=None, weather=None, state=None, exercise=None):
+
+    condition = build_condition(user_type, weather, state, exercise)
+
+    plan = {}
+
+    for timing in ["朝", "昼", "夜"]:
+
+        meal_type = decide_meal_type(condition)
+
+        # 夜だけ調整（軽め寄せ）
+        if timing == "夜" and meal_type == "しっかり":
+            meal_type = "軽め"
+
+        plan[timing] = convert_to_meal(meal_type, condition)
+
+    return plan
+
+# -----------------
+# 🛒 買い物リスト生成
+# -----------------
+def generate_shopping_list_from_plan(plan):
+
+    mapping = {
+        "おにぎり": ["ごはん", "鮭"],
+        "味噌汁": ["味噌", "豆腐", "わかめ"],
+        "鶏むね肉": ["鶏むね肉"],
+        "サラダ": ["レタス", "トマト"],
+        "卵": ["卵"],
+        "ヨーグルト": ["ヨーグルト"],
+        "フルーツ": ["バナナ", "りんご"],
+        "そば": ["そば"],
+        "うどん": ["うどん"]
     }
 
-# =====================
-# 👤 プロフィール
-# =====================
-def load_user_settings(user_id):
-    return {"nickname": "はは"}
+    result = {}
 
-def load_current_user_profile():
-    user = st.session_state.get("login_user")
-    return {
-        "nickname": user.get("nickname", ""),
-        "login_id": user.get("user_id", "")
-    } if user else {}
+    for timing, meal in plan.items():
 
-# =====================
-# 💬 今日の一言
-# =====================
-def get_today_message(settings, latest_log, state=None, weather="普通"):
+        for key, items in mapping.items():
+            if key in meal:
 
-    if state:
-        if state.get("疲れ"):
-            return "今日は無理しなくて大丈夫☺️"
-        if state.get("食べすぎ"):
-            return "昨日は気にしなくてOK。今日は整えましょう"
-        if state.get("冷え"):
-            return "体を温めましょう"
-        if state.get("こり"):
-            return "少し動くと楽になります"
+                category = "食材"
 
-    return random.choice([
-        "今日は軽く整えるだけでOK",
-        "無理せず続けましょう",
-        "できることだけでOK"
-    ])
+                if category not in result:
+                    result[category] = []
 
-# =====================
-# 🔥 継続日数
-# =====================
-def get_streak_days(user_id):
+                result[category].extend(items)
 
-    sheet = get_sheet("DietLogs")
-    records = sheet.get_all_records()
+    # 重複削除
+    result["食材"] = list(set(result["食材"]))
 
-    user_logs = [
-        l for l in records
-        if str(l.get("user_id")) == str(user_id)
-    ]
-
-    if not user_logs:
-        return 0
-
-    dates = sorted([
-        l.get("log_date") for l in user_logs if l.get("log_date")
-    ])
-
-    if not dates:
-        return 0
-
-    from datetime import datetime, timedelta
-
-    date_objs = [datetime.strptime(d, "%Y-%m-%d") for d in dates]
-    date_set = set(date_objs)
-
-    today = datetime.now().date()
-
-    streak = 0
-
-    while True:
-        check_day = today - timedelta(days=streak)
-        if check_day in [d.date() for d in date_set]:
-            streak += 1
-        else:
-            break
-
-    return streak
-
-# =====================
-# 📊 変化コメント
-# =====================
-def get_weight_comment(user_id):
-
-    sheet = get_sheet("DietLogs")
-    records = sheet.get_all_records()
-
-    user_logs = [
-        l for l in records
-        if str(l.get("user_id")) == str(user_id)
-    ]
-
-    if len(user_logs) < 2:
-        return "まずは記録を続けましょう☺️"
-
-    import pandas as pd
-
-    df = pd.DataFrame(user_logs)
-
-    df["log_date"] = pd.to_datetime(df["log_date"], errors="coerce")
-    df["weight"] = pd.to_numeric(df["weight"], errors="coerce")
-
-    df = df.sort_values("log_date").dropna()
-
-    if len(df) < 2:
-        return "データを増やしていきましょう"
-
-    diff = df["weight"].iloc[-1] - df["weight"].iloc[-2]
-
-    if diff < -0.3:
-        return "🔥 しっかり減ってます！いい流れです"
-    elif diff < 0:
-        return "👍 少しずつ減っています"
-    elif diff < 0.3:
-        return "👌 キープできています"
-    else:
-        return "⚠ 少し増えました。でも大丈夫です"
-
-# =====================
-# 🎯 今日やること1つ
-# =====================
-def get_today_action(settings, latest_log, state=None):
-
-    # 状態優先
-    if state:
-        if state.get("疲れ"):
-            return "無理せずストレッチだけやる"
-        if state.get("食べすぎ"):
-            return "次の食事を軽めにする"
-        if state.get("冷え"):
-            return "温かい飲み物を飲む"
-        if state.get("こり"):
-            return "肩回しをする"
-
-    # 通常
-    return random.choice([
-        "夜ご飯を少し軽めにする",
-        "水を多めに飲む",
-        "5分だけ体を動かす",
-        "間食を少しだけ意識する"
-    ])
+    return result
