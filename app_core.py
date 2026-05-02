@@ -98,3 +98,13 @@ def get_today_advice(settings, latest_log):
 # =====================
 def get_today_exercise(settings, latest_log):
     return "軽くストレッチから始めましょう"
+# =====================
+# 🕒 時間
+# =====================
+from datetime import datetime
+
+def jst_now():
+    return datetime.now()
+
+def jst_today_str():
+    return datetime.now().strftime("%Y-%m-%d")
