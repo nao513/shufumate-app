@@ -160,8 +160,14 @@ def detect_meal_type_by_time(now):
 # 👤 プロフィール（仮）
 # =====================
 def load_current_user_profile():
-    return {"nickname": "はは"}
+    import streamlit as st
 
+    user = st.session_state.get("login_user", {})
+
+    return {
+        "nickname": user.get("nickname", ""),
+        "login_id": user.get("user_id", "")
+    }
 # =====================
 # 💬 相談用
 # =====================
