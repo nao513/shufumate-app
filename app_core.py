@@ -108,3 +108,9 @@ def jst_now():
 
 def jst_today_str():
     return datetime.now().strftime("%Y-%m-%d")
+# =====================
+# 📅 週キー
+# =====================
+def get_week_key():
+    from datetime import datetime
+    return datetime.now().strftime("%Y-%W")
