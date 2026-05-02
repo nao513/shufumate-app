@@ -88,3 +88,15 @@ def create_user(login_id, password, nickname, birth_date):
         "user_id": login_id,
         "nickname": nickname
     }
+
+# =====================
+# 📅 週間プラン
+# =====================
+def generate_weekly_plan(settings, latest_log):
+    return [
+        "朝は軽め＋タンパク質",
+        "昼はバランスよく",
+        "夜は控えめに",
+        "間食はナッツやヨーグルト",
+        "水分をしっかりとる"
+    ]
