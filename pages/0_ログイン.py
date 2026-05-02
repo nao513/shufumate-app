@@ -20,6 +20,11 @@ if is_logged_in():
 
     st.stop()
 
+import streamlit as st
+from app_core import *
+
+st.title("🔐 ログイン")
+
 # -----------------
 # タブ切替
 # -----------------
@@ -37,18 +42,24 @@ with tab1:
         submitted = st.form_submit_button("ログイン", use_container_width=True)
 
     if submitted:
-        try:
-            user_record = verify_login(login_id, password)
 
-            if user_record:
-                login_user(user_record)
-                st.success("ログインしました")
-                st.switch_page("Home.py")
-            else:
-                st.error("ログインIDまたはパスワードが違います")
+        if not login_id or not password:
+            st.warning("ログインIDとパスワードを入力してください")
 
-        except Exception as e:
-            st.error(f"ログインエラー: {e}")
+        else:
+            try:
+                if login(login_id, password):
+
+                    st.success(f"{login_id} さん、ようこそ✨")
+                    st.session_state["user_name"] = login_id
+
+                    st.switch_page("Home.py")
+
+                else:
+                    st.error("ログインIDまたはパスワードが違います")
+
+            except Exception as e:
+                st.error(f"ログインエラー: {e}")
 
 # =====================
 # 🔑 パスワード再設定
