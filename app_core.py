@@ -83,3 +83,18 @@ def load_latest_log(user_id):
         return None
 
     return sorted(logs, key=lambda x: x.get("log_date", ""))[-1]
+# =====================
+# 🍽 今日のアドバイス
+# =====================
+def get_today_advice(settings, latest_log):
+    return {
+        "朝": "軽めに整えましょう☀️",
+        "昼": "バランスよく食べましょう🍱",
+        "夜": "消化にやさしく🌙"
+    }
+
+# =====================
+# 🏃‍♀️ 今日の運動
+# =====================
+def get_today_exercise(settings, latest_log):
+    return "軽くストレッチから始めましょう"
