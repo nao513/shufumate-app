@@ -1,11 +1,12 @@
 import streamlit as st
 from datetime import datetime
 import pandas as pd
+import random
 
 # =====================
 # 🔥 モード切替
 # =====================
-USE_SHEETS = False  # ← 最初はFalse → 後でTrue
+USE_SHEETS = False  # ← 最初はFalse
 
 # =====================
 # 🔐 ログイン
@@ -40,111 +41,25 @@ def get_user_id():
 # =====================
 DIET_LOGS = []
 
-# =====================
-# 📒 Sheets保存
-# =====================
-def save_diet_log_to_sheet(user_id, data):
-    import gspread
-    from google.oauth2.service_account import Credentials
-
-    creds = Credentials.from_service_account_info(
-        st.secrets["gcp_service_account"],
-        scopes=["https://www.googleapis.com/auth/spreadsheets"]
-    )
-
-    client = gspread.authorize(creds)
-
-    sheet = client.open_by_key(
-        st.secrets["SPREADSHEET_ID"]
-    ).worksheet("DietLogs")
-
-    sheet.append_row([
-        user_id,
-        data.get("log_date", ""),
-        data.get("weight", ""),
-        data.get("body_fat", ""),
-        data.get("meal_memo", ""),
-        data.get("exercise_memo", "")
-    ])
-
-# =====================
-# 📒 Sheets読み込み
-# =====================
-def read_dietlog_from_sheet():
-    import gspread
-    from google.oauth2.service_account import Credentials
-
-    creds = Credentials.from_service_account_info(
-        st.secrets["gcp_service_account"],
-        scopes=["https://www.googleapis.com/auth/spreadsheets"]
-    )
-
-    client = gspread.authorize(creds)
-
-    sheet = client.open_by_key(
-        st.secrets["SPREADSHEET_ID"]
-    ).worksheet("DietLogs")
-
-    return sheet.get_all_records()
-
-# =====================
-# 📒 保存（分岐）
-# =====================
 def save_diet_log(user_id, data):
     data["created_at"] = datetime.now().isoformat()
-
-    if USE_SHEETS:
-        save_diet_log_to_sheet(user_id, data)
-        return
-
     data["user_id"] = user_id
     DIET_LOGS.append(data)
 
-# =====================
-# 📒 最新取得
-# =====================
 def load_latest_log(user_id):
+    logs = [l for l in DIET_LOGS if l.get("user_id") == user_id]
+    return logs[-1] if logs else None
 
-    if USE_SHEETS:
-        records = read_dietlog_from_sheet()
-    else:
-        records = DIET_LOGS
-
-    logs = [l for l in records if l.get("user_id") == user_id]
-
-    if not logs:
-        return None
-
-    return logs[-1]
-
-# =====================
-# 📊 グラフ
-# =====================
 def load_weight_data(user_id):
-
-    if USE_SHEETS:
-        records = read_dietlog_from_sheet()
-    else:
-        records = DIET_LOGS
-
-    df = pd.DataFrame(records)
-
+    df = pd.DataFrame(DIET_LOGS)
     if df.empty:
         return None
-
     df = df[df["user_id"] == user_id]
-
     if df.empty:
         return None
-
     df["log_date"] = pd.to_datetime(df["log_date"], errors="coerce")
-
-    if "weight" in df.columns:
-        df["weight"] = pd.to_numeric(df["weight"], errors="coerce")
-
-    if "body_fat" in df.columns:
-        df["body_fat"] = pd.to_numeric(df["body_fat"], errors="coerce")
-
+    df["weight"] = pd.to_numeric(df.get("weight"), errors="coerce")
+    df["body_fat"] = pd.to_numeric(df.get("body_fat"), errors="coerce")
     return df.dropna()
 
 # =====================
@@ -186,14 +101,10 @@ def get_week_key():
     return datetime.now().strftime("%Y-%W")
 
 def generate_weekly_plan(settings, latest_log):
-    return [
-        "朝は軽め＋タンパク質",
-        "昼はバランスよく",
-        "夜は控えめに"
-    ]
+    return ["朝軽め", "昼しっかり", "夜控えめ"]
 
 def get_today_log_status(user_id):
-    return {"is_logged": False, "label": "未記録"}
+    return {"is_logged": False, "label": "未記録", "detail": "まだ記録がありません"}
 
 # =====================
 # 👤 プロフィール
@@ -224,3 +135,33 @@ def generate_answer(category, question, settings, latest_log):
 # =====================
 def get_initial_log_values(user_id):
     return {"weight": 50.0, "body_fat": 25.0}
+
+# =====================
+# 💬 今日の一言（NEW）
+# =====================
+def get_today_message(settings, latest_log, state=None, weather="普通"):
+
+    messages = [
+        "今日は無理しなくて大丈夫☺️",
+        "小さく整えるだけでOKです",
+        "完璧じゃなくていい日です",
+        "昨日より少しでも整えばOK",
+        "ゆるく続けるのが一番です"
+    ]
+
+    # 天気
+    if weather == "寒い":
+        messages.append("体を温めることを優先しましょう")
+    elif weather == "暑い":
+        messages.append("水分をしっかりとりましょう")
+
+    # 状態
+    if state:
+        if state.get("疲れ"):
+            messages.append("今日は休む勇気も大事です")
+        elif state.get("食べすぎ"):
+            messages.append("リセットは明日で大丈夫")
+        elif state.get("冷え"):
+            messages.append("温かい食事を意識しましょう")
+
+    return random.choice(messages)
