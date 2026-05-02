@@ -120,3 +120,12 @@ def get_initial_log_values(user_id):
         "weight": 50.0,
         "body_fat": 25.0
     }
+
+# =====================
+# 💬 相談サポート
+# =====================
+def get_support_focus_summary(settings, latest_log):
+    return {
+        "points": ["体調", "食事"],
+        "today_conditions": []
+    }
