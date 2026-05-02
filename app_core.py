@@ -6,66 +6,161 @@ import random
 # =====================
 # 🔥 モード切替
 # =====================
-USE_SHEETS = False  # ← 後でTrueに変更可能
+USE_SHEETS = True  # ← 本番ON
+
+# =====================
+# 🔐 ログイン（ローカル fallback）
+# =====================
+USERS = {"test": {"password": "1234", "nickname": "はは"}}
+
+# =====================
+# 🧾 Sheets接続
+# =====================
+def get_sheet(name):
+    import gspread
+    from google.oauth2.service_account import Credentials
+
+    creds = Credentials.from_service_account_info(
+        st.secrets["gcp_service_account"],
+        scopes=["https://www.googleapis.com/auth/spreadsheets"]
+    )
+
+    client = gspread.authorize(creds)
+    return client.open_by_key(st.secrets["SPREADSHEET_ID"]).worksheet(name)
 
 # =====================
 # 🔐 ログイン
 # =====================
-USERS = {"test": {"password": "1234", "nickname": "はは"}}
-
 def verify_login(login_id, password):
+
+    if USE_SHEETS:
+        sheet = get_sheet("Users")
+        records = sheet.get_all_records()
+
+        for user in records:
+            if user["login_id"] == login_id and user["password"] == password:
+                return {
+                    "user_id": user["user_id"],
+                    "nickname": user["nickname"]
+                }
+        return None
+
     user = USERS.get(login_id)
     if user and user["password"] == password:
         return {"user_id": login_id, "nickname": user["nickname"]}
     return None
 
+
 def create_user(login_id, password, nickname, birth_date):
+
+    if USE_SHEETS:
+        import uuid
+        sheet = get_sheet("Users")
+
+        user_id = str(uuid.uuid4())
+
+        sheet.append_row([
+            user_id,
+            login_id,
+            password,
+            nickname,
+            datetime.now().isoformat()
+        ])
+
+        return {
+            "user_id": user_id,
+            "nickname": nickname
+        }
+
     USERS[login_id] = {"password": password, "nickname": nickname}
     return {"user_id": login_id, "nickname": nickname}
+
 
 def login_user(user):
     st.session_state["login_user"] = user
 
+
 def is_logged_in():
     return "login_user" in st.session_state
+
 
 def require_login():
     if not is_logged_in():
         st.switch_page("pages/0_ログイン.py")
 
+
 def get_user_id():
     return st.session_state.get("login_user", {}).get("user_id", "guest")
 
 # =====================
-# 📒 記録（メモリ）
+# 📒 記録保存
 # =====================
 DIET_LOGS = []
 
 def save_diet_log(user_id, data):
+
     data["created_at"] = datetime.now().isoformat()
     data["user_id"] = user_id
+
+    if USE_SHEETS:
+        sheet = get_sheet("DietLogs")
+
+        sheet.append_row([
+            user_id,
+            data.get("log_date", ""),
+            data.get("weight", ""),
+            data.get("body_fat", ""),
+            data.get("meal_memo", ""),
+            data.get("exercise_memo", ""),
+            data.get("condition_note", ""),
+            data.get("mood_note", ""),
+            data.get("today_conditions", ""),
+            data.get("created_at", ""),
+            data.get("target_muscle_mass", ""),
+            data.get("bmi", ""),
+            data.get("goal_calories", "")
+        ])
+        return
+
     DIET_LOGS.append(data)
 
+# =====================
+# 📊 データ取得
+# =====================
 def load_latest_log(user_id):
-    logs = [l for l in DIET_LOGS if l.get("user_id") == user_id]
+
+    if USE_SHEETS:
+        sheet = get_sheet("DietLogs")
+        records = sheet.get_all_records()
+    else:
+        records = DIET_LOGS
+
+    logs = [l for l in records if str(l.get("user_id")) == str(user_id)]
+
     return logs[-1] if logs else None
 
+
 def load_weight_data(user_id):
-    df = pd.DataFrame(DIET_LOGS)
+
+    if USE_SHEETS:
+        sheet = get_sheet("DietLogs")
+        records = sheet.get_all_records()
+    else:
+        records = DIET_LOGS
+
+    df = pd.DataFrame(records)
+
     if df.empty:
         return None
 
-    df = df[df["user_id"] == user_id]
+    df = df[df["user_id"].astype(str) == str(user_id)]
+
     if df.empty:
         return None
 
     df["log_date"] = pd.to_datetime(df["log_date"], errors="coerce")
-
-    if "weight" in df.columns:
-        df["weight"] = pd.to_numeric(df["weight"], errors="coerce")
-
-    if "body_fat" in df.columns:
-        df["body_fat"] = pd.to_numeric(df["body_fat"], errors="coerce")
+    df["weight"] = pd.to_numeric(df["weight"], errors="coerce")
+    df["body_fat"] = pd.to_numeric(df["body_fat"], errors="coerce")
 
     return df.dropna()
 
@@ -148,11 +243,10 @@ def get_initial_log_values(user_id):
     return {"weight": 50.0, "body_fat": 25.0}
 
 # =====================
-# 💬 今日の一言（神化）
+# 💬 今日の一言（体調連動）
 # =====================
 def get_today_message(settings, latest_log, state=None, weather="普通"):
 
-    # 🧠 状態優先（最重要）
     if state:
         if state.get("疲れ"):
             return "今日は無理しなくて大丈夫☺️ ゆっくり整えましょう"
@@ -161,15 +255,13 @@ def get_today_message(settings, latest_log, state=None, weather="普通"):
         if state.get("冷え"):
             return "体を温めることを優先しましょう"
         if state.get("こり"):
-            return "少しだけ体を動かすと楽になりますよ"
+            return "少し体を動かすと楽になりますよ"
 
-    # 🌤 天気
     if weather == "寒い":
         return "温かい食事で体を整えましょう"
     if weather == "暑い":
         return "水分をしっかりとりましょう"
 
-    # 🌿 通常
     return random.choice([
         "今日は軽く整えるだけでOK",
         "無理せず続けるのが一番です",
