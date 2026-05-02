@@ -73,16 +73,25 @@ def save_user_settings(user_id, data):
 DIET_LOGS = []
 
 def save_diet_log(user_id, data):
-    data["user_id"] = user_id
-    DIET_LOGS.append(data)
 
-def load_latest_log(user_id):
-    logs = [l for l in DIET_LOGS if l["user_id"] == user_id]
+    ws = get_dietlog_sheet()
 
-    if not logs:
-        return None
-
-    return sorted(logs, key=lambda x: x.get("log_date", ""))[-1]
+    ws.append_row([
+        user_id,
+        data.get("log_date", ""),
+        data.get("weight", ""),
+        data.get("body_fat", ""),
+        data.get("meal_memo", ""),
+        data.get("exercise_memo", ""),
+        data.get("condition_note", ""),
+        data.get("mood_note", ""),
+        ",".join(data.get("today_conditions", [])),
+        data.get("created_at", ""),
+        data.get("target_muscle_mass", ""),
+        data.get("bmi", ""),
+        data.get("goal_calories", "")
+    ])
+    
 # =====================
 # 🍽 今日のアドバイス
 # =====================
