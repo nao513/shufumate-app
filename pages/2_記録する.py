@@ -1,12 +1,6 @@
 import streamlit as st
 from datetime import datetime
-from app_core import (
-    require_login,
-    get_user_id,
-    load_user_settings,
-    save_diet_log,
-    get_initial_log_values,
-)
+from app_core import *
 
 # -----------------
 # 初期設定
