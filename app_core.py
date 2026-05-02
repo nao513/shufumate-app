@@ -110,3 +110,13 @@ def get_today_log_status(user_id):
         "label": "未記録",
         "detail": "まだ今日の記録がありません"
     }
+
+
+# =====================
+# 📒 初期入力値
+# =====================
+def get_initial_log_values(user_id):
+    return {
+        "weight": 50.0,
+        "body_fat": 25.0
+    }
