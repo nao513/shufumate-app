@@ -6,7 +6,7 @@ import random
 # =====================
 # 🔥 モード切替
 # =====================
-USE_SHEETS = False  # ← 最初はFalse
+USE_SHEETS = False  # ← 後でTrueに変更可能
 
 # =====================
 # 🔐 ログイン
@@ -54,12 +54,19 @@ def load_weight_data(user_id):
     df = pd.DataFrame(DIET_LOGS)
     if df.empty:
         return None
+
     df = df[df["user_id"] == user_id]
     if df.empty:
         return None
+
     df["log_date"] = pd.to_datetime(df["log_date"], errors="coerce")
-    df["weight"] = pd.to_numeric(df.get("weight"), errors="coerce")
-    df["body_fat"] = pd.to_numeric(df.get("body_fat"), errors="coerce")
+
+    if "weight" in df.columns:
+        df["weight"] = pd.to_numeric(df["weight"], errors="coerce")
+
+    if "body_fat" in df.columns:
+        df["body_fat"] = pd.to_numeric(df["body_fat"], errors="coerce")
+
     return df.dropna()
 
 # =====================
@@ -104,7 +111,11 @@ def generate_weekly_plan(settings, latest_log):
     return ["朝軽め", "昼しっかり", "夜控えめ"]
 
 def get_today_log_status(user_id):
-    return {"is_logged": False, "label": "未記録", "detail": "まだ記録がありません"}
+    return {
+        "is_logged": False,
+        "label": "未記録",
+        "detail": "まだ今日の記録がありません"
+    }
 
 # =====================
 # 👤 プロフィール
@@ -137,31 +148,31 @@ def get_initial_log_values(user_id):
     return {"weight": 50.0, "body_fat": 25.0}
 
 # =====================
-# 💬 今日の一言（NEW）
+# 💬 今日の一言（神化）
 # =====================
 def get_today_message(settings, latest_log, state=None, weather="普通"):
 
-    messages = [
-        "今日は無理しなくて大丈夫☺️",
-        "小さく整えるだけでOKです",
-        "完璧じゃなくていい日です",
-        "昨日より少しでも整えばOK",
-        "ゆるく続けるのが一番です"
-    ]
-
-    # 天気
-    if weather == "寒い":
-        messages.append("体を温めることを優先しましょう")
-    elif weather == "暑い":
-        messages.append("水分をしっかりとりましょう")
-
-    # 状態
+    # 🧠 状態優先（最重要）
     if state:
         if state.get("疲れ"):
-            messages.append("今日は休む勇気も大事です")
-        elif state.get("食べすぎ"):
-            messages.append("リセットは明日で大丈夫")
-        elif state.get("冷え"):
-            messages.append("温かい食事を意識しましょう")
+            return "今日は無理しなくて大丈夫☺️ ゆっくり整えましょう"
+        if state.get("食べすぎ"):
+            return "昨日は気にしなくてOK。今日は軽く整えましょう"
+        if state.get("冷え"):
+            return "体を温めることを優先しましょう"
+        if state.get("こり"):
+            return "少しだけ体を動かすと楽になりますよ"
 
-    return random.choice(messages)
+    # 🌤 天気
+    if weather == "寒い":
+        return "温かい食事で体を整えましょう"
+    if weather == "暑い":
+        return "水分をしっかりとりましょう"
+
+    # 🌿 通常
+    return random.choice([
+        "今日は軽く整えるだけでOK",
+        "無理せず続けるのが一番です",
+        "昨日より少し整えれば十分です",
+        "できることだけやればOKです"
+    ])
