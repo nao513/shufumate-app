@@ -136,3 +136,42 @@ def get_today_log_status(user_id):
 def load_weight_data(user_id):
     import pandas as pd
     return pd.DataFrame()
+# =====================
+# 📒 初期値
+# =====================
+def get_initial_log_values(user_id):
+    return {"weight": 50.0, "body_fat": 25.0}
+
+# =====================
+# 📷 食事時間判定
+# =====================
+def detect_meal_type_by_time(now):
+    h = now.hour
+    if h < 10:
+        return "朝"
+    elif h < 15:
+        return "昼"
+    elif h < 20:
+        return "夜"
+    else:
+        return "間食"
+
+# =====================
+# 👤 プロフィール（仮）
+# =====================
+def load_current_user_profile():
+    return {"nickname": "はは"}
+
+# =====================
+# 💬 相談用
+# =====================
+CATEGORY_OPTIONS = ["食事", "運動", "体調", "外食調整"]
+
+def get_support_focus_summary(settings, latest_log):
+    return {
+        "points": ["体調"],
+        "today_conditions": []
+    }
+
+def generate_answer(category, question, settings, latest_log):
+    return f"{category}についての簡単な提案です。\n{question}"
