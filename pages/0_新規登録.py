@@ -1,6 +1,6 @@
 import streamlit as st
 from datetime import date
-from app_core import create_user, login_user, is_logged_in
+from app_core import *
 
 st.title("🆕 新規登録")
 st.caption("ShufuMateのアカウントを作成します")
