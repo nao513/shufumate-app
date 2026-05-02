@@ -100,3 +100,13 @@ def generate_weekly_plan(settings, latest_log):
         "間食はナッツやヨーグルト",
         "水分をしっかりとる"
     ]
+
+# =====================
+# 📊 今日の記録状態
+# =====================
+def get_today_log_status(user_id):
+    return {
+        "is_logged": False,
+        "label": "未記録",
+        "detail": "まだ今日の記録がありません"
+    }
