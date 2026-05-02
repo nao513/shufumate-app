@@ -72,3 +72,19 @@ def load_current_user_profile():
 def get_week_key():
     from datetime import datetime
     return datetime.now().strftime("%Y-%W")
+
+
+# =====================
+# 🆕 ユーザー登録
+# =====================
+def create_user(login_id, password, nickname, birth_date):
+
+    USERS[login_id] = {
+        "password": password,
+        "nickname": nickname
+    }
+
+    return {
+        "user_id": login_id,
+        "nickname": nickname
+    }
