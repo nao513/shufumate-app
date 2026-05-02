@@ -2,11 +2,10 @@ import pandas as pd
 from datetime import datetime, timedelta
 import streamlit as st
 import hashlib
-import os
 import uuid
 
 # =====================
-# 🔐 Google Sheets設定（ここは自分の環境に合わせる）
+# 🔐 Google Sheets
 # =====================
 import gspread
 from google.oauth2.service_account import Credentials
@@ -22,7 +21,9 @@ def get_gspread_client():
 
 @st.cache_resource
 def get_users_sheet():
-    return get_gspread_client().open_by_key(st.secrets["SPREADSHEET_ID"]).worksheet("Users")
+    return get_gspread_client().open_by_key(
+        st.secrets["SPREADSHEET_ID"]
+    ).worksheet("Users")
 
 # =====================
 # 🕒 時間
@@ -49,16 +50,20 @@ def verify_password(password, salt, password_hash):
 # 🔐 ログイン
 # =====================
 def verify_login(login_id, password):
+
     ws = get_users_sheet()
     records = ws.get_all_records()
 
     for user in records:
         if user["login_id"] == login_id:
+
+            # 🔥 ハッシュ一致チェック
             if verify_password(password, user["password_salt"], user["password_hash"]):
                 return {
                     "user_id": user["user_id"],
                     "nickname": user["nickname"]
                 }
+
     return None
 
 def login_user(user_record):
@@ -77,7 +82,7 @@ def get_user_id():
     return st.session_state.get("login_user", {}).get("user_id", "guest")
 
 # =====================
-# 🆕 ユーザー登録（Sheets保存）
+# 🆕 ユーザー登録
 # =====================
 def create_user(login_id, password, nickname, birth_date):
 
@@ -111,7 +116,28 @@ def create_user(login_id, password, nickname, birth_date):
     }
 
 # =====================
-# 📊 設定（簡易：今はメモリ）
+# 🔑 パスワード再設定（超重要）
+# =====================
+def reset_password(login_id, new_password):
+
+    ws = get_users_sheet()
+    records = ws.get_all_records()
+
+    for i, user in enumerate(records, start=2):
+        if user["login_id"] == login_id:
+
+            salt = generate_salt()
+            password_hash = hash_password(new_password, salt)
+
+            ws.update(f"C{i}", password_hash)
+            ws.update(f"D{i}", salt)
+
+            return True
+
+    return False
+
+# =====================
+# 📊 設定（簡易）
 # =====================
 USER_SETTINGS = {}
 
@@ -129,7 +155,7 @@ def save_user_settings(user_id, data):
     USER_SETTINGS[user_id] = data
 
 # =====================
-# 📒 記録（仮：あとでSheets化）
+# 📒 記録（仮）
 # =====================
 DIET_LOGS = []
 
@@ -159,6 +185,7 @@ def get_initial_log_values(user_id):
 # 📊 グラフ
 # =====================
 def load_weight_data(user_id):
+
     logs = read_dietlog_records()
     if not logs:
         return None
