@@ -162,12 +162,16 @@ def detect_meal_type_by_time(now):
 def load_current_user_profile():
     import streamlit as st
 
-    user = st.session_state.get("login_user", {})
+    user = st.session_state.get("login_user")
+
+    if not user:
+        return {}
 
     return {
         "nickname": user.get("nickname", ""),
         "login_id": user.get("user_id", "")
     }
+    
 # =====================
 # 💬 相談用
 # =====================
