@@ -56,7 +56,6 @@ def verify_login(login_id, password):
 
     for user in records:
         if user["login_id"] == login_id:
-
             if verify_password(password, user["password_salt"], user["password_hash"]):
                 return {
                     "user_id": user["user_id"],
@@ -136,7 +135,7 @@ def reset_password(login_id, new_password):
     return False
 
 # =====================
-# 📊 設定（簡易）
+# 📊 設定（仮）
 # =====================
 USER_SETTINGS = {}
 
@@ -204,6 +203,42 @@ def load_weight_data(user_id):
         df["body_fat"] = pd.to_numeric(df["body_fat"], errors="coerce")
 
     return df.dropna()
+
+# =====================
+# 📅 週間プラン
+# =====================
+def generate_weekly_plan(settings, latest_log):
+    return ["和食中心", "野菜多め", "魚メニュー"]
+
+def get_week_key():
+    return datetime.now().strftime("%Y-%W")
+
+# =====================
+# 📊 今日の状態
+# =====================
+def get_today_log_status(user_id):
+
+    latest = load_latest_log(user_id)
+
+    if not latest:
+        return {
+            "is_logged": False,
+            "label": "未記録",
+            "detail": "まだ記録がありません"
+        }
+
+    if latest.get("log_date") == jst_today_str():
+        return {
+            "is_logged": True,
+            "label": "記録済み",
+            "detail": "今日の記録があります"
+        }
+
+    return {
+        "is_logged": False,
+        "label": "未記録",
+        "detail": "まだ今日の記録がありません"
+    }
 
 # =====================
 # 🍽 食事時間
