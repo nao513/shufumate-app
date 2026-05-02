@@ -239,3 +239,44 @@ def get_today_message(settings, latest_log, state=None, weather="普通"):
         "無理せず続けましょう",
         "できることだけでOK"
     ])
+
+# =====================
+# 🔥 継続日数
+# =====================
+def get_streak_days(user_id):
+
+    sheet = get_sheet("DietLogs")
+    records = sheet.get_all_records()
+
+    user_logs = [
+        l for l in records
+        if str(l.get("user_id")) == str(user_id)
+    ]
+
+    if not user_logs:
+        return 0
+
+    dates = sorted([
+        l.get("log_date") for l in user_logs if l.get("log_date")
+    ])
+
+    if not dates:
+        return 0
+
+    from datetime import datetime, timedelta
+
+    date_objs = [datetime.strptime(d, "%Y-%m-%d") for d in dates]
+    date_set = set(date_objs)
+
+    today = datetime.now().date()
+
+    streak = 0
+
+    while True:
+        check_day = today - timedelta(days=streak)
+        if check_day in [d.date() for d in date_set]:
+            streak += 1
+        else:
+            break
+
+    return streak
