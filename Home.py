@@ -8,7 +8,7 @@ from app_core import *
 from ui_parts import render_header, render_simple_mode, render_full_mode
 
 # =====================
-# 🎨 デザイン（インスタ風）
+# 🎨 デザイン（統一）
 # =====================
 st.markdown("""
 <style>
@@ -41,7 +41,7 @@ require_login()
 user_id = get_user_id()
 
 # =====================
-# 📊 データ取得
+# 📊 データ
 # =====================
 settings = load_user_settings(user_id)
 latest_log = load_latest_log(user_id)
@@ -56,10 +56,9 @@ hour = jst_now().hour
 main_meal = "朝" if hour < 10 else "昼" if hour < 15 else "夜"
 
 # =====================
-# 📅 週間データ
+# 📅 週間
 # =====================
 week_key = get_week_key()
-
 if "weekly_plan" not in st.session_state or st.session_state.get("week_key") != week_key:
     st.session_state["weekly_plan"] = generate_weekly_plan(settings, latest_log)
     st.session_state["week_key"] = week_key
@@ -85,7 +84,7 @@ weather = get_weather()
 render_header()
 
 # =====================
-# 📊 今日の状態カード
+# 📊 今日の状態
 # =====================
 log_status = get_today_log_status(user_id)
 
@@ -101,7 +100,7 @@ st.markdown(f'<div class="small">{log_status.get("detail","")}</div>', unsafe_al
 st.markdown('</div>', unsafe_allow_html=True)
 
 # =====================
-# 🌿 今日のおすすめ（改善版）
+# 🌿 今日のおすすめ
 # =====================
 st.markdown('<div class="card">', unsafe_allow_html=True)
 st.markdown('<div class="title">🌿 今日のおすすめ</div>', unsafe_allow_html=True)
@@ -112,6 +111,18 @@ recommend_text = advice.get(main_meal, "整えましょう")
 st.success(recommend_text)
 
 st.caption(f"今は「{main_meal}」を整える時間です☺️")
+
+st.markdown('</div>', unsafe_allow_html=True)
+
+# =====================
+# 💬 今日の一言（NEW）
+# =====================
+message = get_today_message(settings, latest_log, {}, weather)
+
+st.markdown('<div class="card">', unsafe_allow_html=True)
+st.markdown('<div class="title">💬 今日の一言</div>', unsafe_allow_html=True)
+
+st.success(message)
 
 st.markdown('</div>', unsafe_allow_html=True)
 
@@ -134,7 +145,7 @@ with col2:
 st.markdown('</div>', unsafe_allow_html=True)
 
 # =====================
-# 📊 グラフカード
+# 📊 グラフ
 # =====================
 st.markdown('<div class="card">', unsafe_allow_html=True)
 st.markdown('<div class="title">📊 体の変化</div>', unsafe_allow_html=True)
