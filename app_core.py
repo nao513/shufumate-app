@@ -153,3 +153,81 @@ def generate_shopping_list_from_plan(plan):
     result["食材"] = list(set(result["食材"]))
 
     return result
+
+# -----------------
+# 🛒 スーパー用買い物リスト（最強版）
+# -----------------
+from collections import Counter
+
+def generate_smart_shopping_list(plan, fridge_items=None):
+
+    if fridge_items is None:
+        fridge_items = []
+
+    # 食材マッピング（強化版）
+    mapping = {
+        "おにぎり": ["ごはん", "鮭"],
+        "味噌汁": ["味噌", "豆腐", "わかめ"],
+        "鶏むね肉": ["鶏むね肉"],
+        "サラダ": ["レタス", "トマト"],
+        "卵": ["卵"],
+        "ヨーグルト": ["ヨーグルト"],
+        "フルーツ": ["バナナ"],
+        "そば": ["そば"],
+        "うどん": ["うどん"],
+        "豚しゃぶ": ["豚肉"],
+        "ハンバーグ": ["ひき肉"]
+    }
+
+    # 売り場分類
+    category_map = {
+        "野菜": ["レタス", "トマト", "バナナ"],
+        "肉": ["鶏むね肉", "豚肉", "ひき肉"],
+        "魚": ["鮭"],
+        "乳製品": ["ヨーグルト"],
+        "卵": ["卵"],
+        "主食": ["ごはん", "そば", "うどん"],
+        "調味料": ["味噌"],
+        "その他": ["豆腐", "わかめ"]
+    }
+
+    items = []
+
+    # -----------------
+    # 食材抽出
+    # -----------------
+    for meal in plan.values():
+        for key, ing in mapping.items():
+            if key in meal:
+                items.extend(ing)
+
+    # -----------------
+    # 冷蔵庫差分
+    # -----------------
+    items = [i for i in items if i not in fridge_items]
+
+    # -----------------
+    # 数量まとめ
+    # -----------------
+    counted = Counter(items)
+
+    # -----------------
+    # カテゴリ分け
+    # -----------------
+    result = {}
+
+    for item, count in counted.items():
+
+        category = "その他"
+
+        for cat, cat_items in category_map.items():
+            if item in cat_items:
+                category = cat
+                break
+
+        if category not in result:
+            result[category] = []
+
+        result[category].append(f"{item} × {count}")
+
+    return result
