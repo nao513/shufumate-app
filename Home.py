@@ -7,19 +7,7 @@ import altair as alt
 # -----------------
 # app_core
 # -----------------
-from app_core import (
-    require_login,
-    get_user_id,
-    load_user_settings,
-    load_latest_log,
-    get_today_advice,
-    get_today_exercise,
-    generate_weekly_plan,
-    get_week_key,
-    jst_now,
-    get_today_log_status,
-    load_weight_data
-)
+from app_core import *
 
 # -----------------
 # UIパーツ
