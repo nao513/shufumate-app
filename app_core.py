@@ -74,6 +74,11 @@ DIET_LOGS = []
 
 def save_diet_log(user_id, data):
 
+    from datetime import datetime
+
+    # 👇 ここに追加
+    data["created_at"] = datetime.now().isoformat()
+
     ws = get_dietlog_sheet()
 
     ws.append_row([
@@ -90,8 +95,7 @@ def save_diet_log(user_id, data):
         data.get("target_muscle_mass", ""),
         data.get("bmi", ""),
         data.get("goal_calories", "")
-    ])
-    
+    ])    
 # =====================
 # 🍽 今日のアドバイス
 # =====================
