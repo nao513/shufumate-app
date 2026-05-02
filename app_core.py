@@ -319,3 +319,27 @@ def get_weight_comment(user_id):
         return "👌 キープできています"
     else:
         return "⚠ 少し増えました。でも大丈夫です"
+
+# =====================
+# 🎯 今日やること1つ
+# =====================
+def get_today_action(settings, latest_log, state=None):
+
+    # 状態優先
+    if state:
+        if state.get("疲れ"):
+            return "無理せずストレッチだけやる"
+        if state.get("食べすぎ"):
+            return "次の食事を軽めにする"
+        if state.get("冷え"):
+            return "温かい飲み物を飲む"
+        if state.get("こり"):
+            return "肩回しをする"
+
+    # 通常
+    return random.choice([
+        "夜ご飯を少し軽めにする",
+        "水を多めに飲む",
+        "5分だけ体を動かす",
+        "間食を少しだけ意識する"
+    ])
