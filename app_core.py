@@ -38,13 +38,17 @@ def verify_login(login_id, password):
         records = sheet.get_all_records()
 
         for user in records:
-            if user["login_id"] == login_id and user["password"] == password:
+            if (
+                user.get("login_id") == login_id and
+                user.get("password_hash") == password
+            ):
                 return {
                     "user_id": user["user_id"],
                     "nickname": user["nickname"]
                 }
         return None
 
+    # fallback
     user = USERS.get(login_id)
     if user and user["password"] == password:
         return {"user_id": login_id, "nickname": user["nickname"]}
