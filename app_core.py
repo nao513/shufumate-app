@@ -29,3 +29,24 @@ def reset_password(login_id, new_password):
         USERS[login_id]["password"] = new_password
         return True
     return False
+# =====================
+# 🔐 セッション管理（必須）
+# =====================
+def login_user(user_record):
+    import streamlit as st
+    st.session_state["login_user"] = user_record
+
+def is_logged_in():
+    import streamlit as st
+    return "login_user" in st.session_state
+
+def get_user_id():
+    import streamlit as st
+    return st.session_state.get("login_user", {}).get("user_id", "guest")
+
+def require_login():
+    import streamlit as st
+    if "login_user" not in st.session_state:
+        st.warning("ログインしてください")
+        st.switch_page("pages/0_ログイン.py")
+        st.stop()
