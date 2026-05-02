@@ -2,7 +2,14 @@ import streamlit as st
 from datetime import datetime
 import pandas as pd
 
+# =====================
+# 🔥 モード切替（超重要）
+# =====================
+USE_SHEETS = False  # ← 最初は絶対False
+
+# =====================
 # ログイン
+# =====================
 USERS = {"test": {"password": "1234", "nickname": "はは"}}
 
 def verify_login(login_id, password):
@@ -24,14 +31,56 @@ def require_login():
 def get_user_id():
     return st.session_state.get("login_user", {}).get("user_id", "guest")
 
-# 記録
+# =====================
+# 📒 記録（メモリ）
+# =====================
 DIET_LOGS = []
 
+# =====================
+# 📒 Sheets保存（新規）
+# =====================
+def save_diet_log_to_sheet(user_id, data):
+
+    import gspread
+    from google.oauth2.service_account import Credentials
+
+    creds = Credentials.from_service_account_info(
+        st.secrets["gcp_service_account"],
+        scopes=["https://www.googleapis.com/auth/spreadsheets"]
+    )
+
+    client = gspread.authorize(creds)
+
+    sheet = client.open_by_key(
+        st.secrets["SPREADSHEET_ID"]
+    ).worksheet("DietLogs")
+
+    sheet.append_row([
+        user_id,
+        data.get("log_date", ""),
+        data.get("weight", ""),
+        data.get("body_fat", ""),
+        data.get("meal_memo", ""),
+        data.get("exercise_memo", "")
+    ])
+
+# =====================
+# 📒 保存（分岐）
+# =====================
 def save_diet_log(user_id, data):
+
+    if USE_SHEETS:
+        save_diet_log_to_sheet(user_id, data)
+        return
+
+    # メモリ保存（安全）
     data["user_id"] = user_id
     data["created_at"] = datetime.now().isoformat()
     DIET_LOGS.append(data)
 
+# =====================
+# 📒 読み込み
+# =====================
 def load_latest_log(user_id):
     logs = [l for l in DIET_LOGS if l["user_id"] == user_id]
     if not logs:
@@ -44,14 +93,18 @@ def load_weight_data(user_id):
         return None
     return df[df["user_id"] == user_id]
 
+# =====================
 # 時間
+# =====================
 def jst_now():
     return datetime.now()
 
 def jst_today_str():
     return datetime.now().strftime("%Y-%m-%d")
 
+# =====================
 # その他
+# =====================
 def get_today_advice(settings, latest_log):
     return {"朝": "軽め", "昼": "バランス", "夜": "軽く"}
 
@@ -65,25 +118,20 @@ def load_current_user_profile():
     user = st.session_state.get("login_user")
     return {"nickname": user.get("nickname", ""), "login_id": user.get("user_id", "")} if user else {}
 
-
 # =====================
 # 📅 週キー
 # =====================
 def get_week_key():
-    from datetime import datetime
     return datetime.now().strftime("%Y-%W")
-
 
 # =====================
 # 🆕 ユーザー登録
 # =====================
 def create_user(login_id, password, nickname, birth_date):
-
     USERS[login_id] = {
         "password": password,
         "nickname": nickname
     }
-
     return {
         "user_id": login_id,
         "nickname": nickname
@@ -111,7 +159,6 @@ def get_today_log_status(user_id):
         "detail": "まだ今日の記録がありません"
     }
 
-
 # =====================
 # 📒 初期入力値
 # =====================
@@ -130,13 +177,11 @@ def get_support_focus_summary(settings, latest_log):
         "today_conditions": []
     }
 
-
 # =====================
 # 🍽 食事時間判定
 # =====================
 def detect_meal_type_by_time(now):
     h = now.hour
-
     if h < 10:
         return "朝"
     elif h < 15:
