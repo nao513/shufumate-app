@@ -175,3 +175,30 @@ def get_support_focus_summary(settings, latest_log):
 
 def generate_answer(category, question, settings, latest_log):
     return f"{category}についての簡単な提案です。\n{question}"
+# =====================
+# ⚙️ 設定（完全仮版）
+# =====================
+
+# メモリ保存（仮）
+USER_SETTINGS = {}
+
+def load_user_settings(user_id):
+    return USER_SETTINGS.get(user_id, {
+        "nickname": "はは",
+        "activity_level": "普通",
+        "food_style": "和食中心",
+        "user_type": "バランス重視",
+        "advice_tone": "やさしい",
+        "constitution_traits": []
+    })
+
+def save_user_settings(user_id, data):
+    USER_SETTINGS[user_id] = data
+
+# =====================
+# 👤 プロフィール
+# =====================
+def load_current_user_profile():
+    return {
+        "nickname": "はは"
+    }
