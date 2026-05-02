@@ -50,3 +50,20 @@ def require_login():
         st.warning("ログインしてください")
         st.switch_page("pages/0_ログイン.py")
         st.stop()
+# =====================
+# 📊 設定（仮）
+# =====================
+USER_SETTINGS = {}
+
+def load_user_settings(user_id):
+    return USER_SETTINGS.get(user_id, {
+        "nickname": "はは",
+        "activity_level": "普通",
+        "food_style": "和食中心",
+        "user_type": "バランス重視",
+        "advice_tone": "やさしい",
+        "constitution_traits": []
+    })
+
+def save_user_settings(user_id, data):
+    USER_SETTINGS[user_id] = data
