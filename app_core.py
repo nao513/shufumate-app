@@ -4,13 +4,41 @@ from collections import Counter
 import streamlit as st
 
 # -----------------
-# 🔐 ログインチェック
+# 🔐 ログイン状態チェック
+# -----------------
+def is_logged_in():
+    return "user_id" in st.session_state
+
+
+# -----------------
+# 🔐 ログイン必須
 # -----------------
 def require_login():
 
-    if "user_id" not in st.session_state:
+    if not is_logged_in():
         st.warning("ログインしてください")
         st.stop()
+
+
+# -----------------
+# 🔐 ログイン処理
+# -----------------
+def login(user_id, password):
+
+    # 仮ログイン（あとでシート連携）
+    if password == "1234":
+        st.session_state["user_id"] = user_id
+        return True
+
+    return False
+
+
+# -----------------
+# 🔐 ログアウト
+# -----------------
+def logout():
+    st.session_state.clear()
+
 
 # -----------------
 # 🧠 状態まとめ
