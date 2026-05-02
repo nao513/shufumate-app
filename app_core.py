@@ -105,25 +105,25 @@ def save_diet_log(user_id, data):
     if USE_SHEETS:
         sheet = get_sheet("DietLogs")
 
-    sheet.append_row([
-        user_id,
-        data.get("log_date", ""),
-        data.get("weight", ""),
-        data.get("body_fat", ""),
-        data.get("meal_memo", ""),
-        data.get("exercise_memo", ""),
-        data.get("condition_note", ""),
-        data.get("mood_note", ""),
-        data.get("today_conditions", ""),
-        data.get("created_at", ""),
-        data.get("target_muscle_mass", ""),
-        data.get("bmi", ""),
-        data.get("goal_calories", "")
-     ])
+        sheet.append_row([
+            user_id,
+            data.get("log_date", ""),
+            data.get("weight", ""),
+            data.get("body_fat", ""),
+            data.get("meal_memo", ""),
+            data.get("exercise_memo", ""),
+            data.get("condition_note", ""),
+            data.get("mood_note", ""),
+            ", ".join(data.get("today_conditions", [])),  # ←これも重要
+            data.get("created_at", ""),
+            data.get("target_muscle_mass", ""),
+            data.get("bmi", ""),
+            data.get("goal_calories", "")
+        ])
+
         return
 
     DIET_LOGS.append(data)
-
 # =====================
 # 📊 データ取得
 # =====================
