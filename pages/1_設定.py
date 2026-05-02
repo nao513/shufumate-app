@@ -1,20 +1,6 @@
 import streamlit as st
 from datetime import date, datetime
-from app_core import (
-    require_login,
-    get_user_id,
-    load_user_settings,
-    load_current_user_profile,
-    save_user_settings,
-    change_login_id,
-    change_birth_date,
-    change_password,
-    ACTIVITY_LEVEL_OPTIONS,
-    FOOD_STYLE_OPTIONS,
-    USER_TYPE_OPTIONS,
-    ADVICE_TONE_OPTIONS,
-    CONSTITUTION_TRAIT_OPTIONS,
-)
+from app_core import *
 
 require_login()
 
