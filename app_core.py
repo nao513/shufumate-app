@@ -2,16 +2,12 @@ import streamlit as st
 from datetime import datetime
 import pandas as pd
 import random
+import hashlib
 
 # =====================
 # 🔥 モード切替
 # =====================
-USE_SHEETS = True  # ← 本番ON
-
-# =====================
-# 🔐 ログイン（ローカル fallback）
-# =====================
-USERS = {"test": {"password": "1234", "nickname": "はは"}}
+USE_SHEETS = True
 
 # =====================
 # 🧾 Sheets接続
@@ -29,55 +25,61 @@ def get_sheet(name):
     return client.open_by_key(st.secrets["SPREADSHEET_ID"]).worksheet(name)
 
 # =====================
+# 🔐 パスワード処理
+# =====================
+def hash_password(password):
+    return hashlib.sha256(str(password).encode()).hexdigest()
+
+# =====================
 # 🔐 ログイン
 # =====================
 def verify_login(login_id, password):
 
-    if USE_SHEETS:
-        sheet = get_sheet("Users")
-        records = sheet.get_all_records()
+    sheet = get_sheet("Users")
+    records = sheet.get_all_records()
 
-        for user in records:
-            if (
-                user.get("login_id") == login_id and
-                user.get("password_hash") == password
-            ):
-                return {
-                    "user_id": user["user_id"],
-                    "nickname": user["nickname"]
-                }
-        return None
+    password_hash = hash_password(password)
 
-    # fallback
-    user = USERS.get(login_id)
-    if user and user["password"] == password:
-        return {"user_id": login_id, "nickname": user["nickname"]}
+    for user in records:
+        if (
+            str(user.get("login_id")).strip() == str(login_id).strip()
+            and
+            str(user.get("password_hash")).strip() == password_hash
+        ):
+            return {
+                "user_id": user["user_id"],
+                "nickname": user["nickname"]
+            }
+
     return None
 
 
 def create_user(login_id, password, nickname, birth_date):
 
-    if USE_SHEETS:
-        import uuid
-        sheet = get_sheet("Users")
+    import uuid
 
-        user_id = str(uuid.uuid4())
+    sheet = get_sheet("Users")
 
-        sheet.append_row([
-            user_id,
-            login_id,
-            password,
-            nickname,
-            datetime.now().isoformat()
-        ])
+    user_id = str(uuid.uuid4())
 
-        return {
-            "user_id": user_id,
-            "nickname": nickname
-        }
+    password_hash = hash_password(password)
 
-    USERS[login_id] = {"password": password, "nickname": nickname}
-    return {"user_id": login_id, "nickname": nickname}
+    sheet.append_row([
+        user_id,
+        str(login_id),
+        password_hash,
+        "",  # salt（未使用）
+        str(nickname),
+        str(birth_date),
+        datetime.now().isoformat(),
+        "",  # updated_at
+        True
+    ])
+
+    return {
+        "user_id": user_id,
+        "nickname": nickname
+    }
 
 
 def login_user(user):
@@ -99,45 +101,36 @@ def get_user_id():
 # =====================
 # 📒 記録保存
 # =====================
-DIET_LOGS = []
-
 def save_diet_log(user_id, data):
 
     data["created_at"] = datetime.now().isoformat()
     data["user_id"] = user_id
 
-    if USE_SHEETS:
-        sheet = get_sheet("DietLogs")
+    sheet = get_sheet("DietLogs")
 
-        sheet.append_row([
-            user_id,
-            data.get("log_date", ""),
-            data.get("weight", ""),
-            data.get("body_fat", ""),
-            data.get("meal_memo", ""),
-            data.get("exercise_memo", ""),
-            data.get("condition_note", ""),
-            data.get("mood_note", ""),
-            ", ".join(data.get("today_conditions", [])),  # ←これも重要
-            data.get("created_at", ""),
-            data.get("target_muscle_mass", ""),
-            data.get("bmi", ""),
-            data.get("goal_calories", "")
-        ])
+    sheet.append_row([
+        user_id,
+        data.get("log_date", ""),
+        data.get("weight", ""),
+        data.get("body_fat", ""),
+        data.get("meal_memo", ""),
+        data.get("exercise_memo", ""),
+        data.get("condition_note", ""),
+        data.get("mood_note", ""),
+        ", ".join(data.get("today_conditions", [])),
+        data.get("created_at", ""),
+        data.get("target_muscle_mass", ""),
+        data.get("bmi", ""),
+        data.get("goal_calories", "")
+    ])
 
-        return
-
-    DIET_LOGS.append(data)
 # =====================
 # 📊 データ取得
 # =====================
 def load_latest_log(user_id):
 
-    if USE_SHEETS:
-        sheet = get_sheet("DietLogs")
-        records = sheet.get_all_records()
-    else:
-        records = DIET_LOGS
+    sheet = get_sheet("DietLogs")
+    records = sheet.get_all_records()
 
     logs = [l for l in records if str(l.get("user_id")) == str(user_id)]
 
@@ -146,11 +139,8 @@ def load_latest_log(user_id):
 
 def load_weight_data(user_id):
 
-    if USE_SHEETS:
-        sheet = get_sheet("DietLogs")
-        records = sheet.get_all_records()
-    else:
-        records = DIET_LOGS
+    sheet = get_sheet("DietLogs")
+    records = sheet.get_all_records()
 
     df = pd.DataFrame(records)
 
@@ -213,7 +203,7 @@ def get_today_log_status(user_id):
     return {
         "is_logged": False,
         "label": "未記録",
-        "detail": "まだ今日の記録がありません"
+        "detail": "まだ記録がありません"
     }
 
 # =====================
@@ -230,45 +220,22 @@ def load_current_user_profile():
     } if user else {}
 
 # =====================
-# 💬 相談
-# =====================
-CATEGORY_OPTIONS = ["食事", "運動", "体調", "外食調整"]
-
-def get_support_focus_summary(settings, latest_log):
-    return {"points": ["体調"], "today_conditions": []}
-
-def generate_answer(category, question, settings, latest_log):
-    return f"{category}のアドバイスです\n{question}"
-
-# =====================
-# 📒 初期値
-# =====================
-def get_initial_log_values(user_id):
-    return {"weight": 50.0, "body_fat": 25.0}
-
-# =====================
-# 💬 今日の一言（体調連動）
+# 💬 今日の一言
 # =====================
 def get_today_message(settings, latest_log, state=None, weather="普通"):
 
     if state:
         if state.get("疲れ"):
-            return "今日は無理しなくて大丈夫☺️ ゆっくり整えましょう"
+            return "今日は無理しなくて大丈夫☺️"
         if state.get("食べすぎ"):
-            return "昨日は気にしなくてOK。今日は軽く整えましょう"
+            return "昨日は気にしなくてOK。今日は整えましょう"
         if state.get("冷え"):
-            return "体を温めることを優先しましょう"
+            return "体を温めましょう"
         if state.get("こり"):
-            return "少し体を動かすと楽になりますよ"
-
-    if weather == "寒い":
-        return "温かい食事で体を整えましょう"
-    if weather == "暑い":
-        return "水分をしっかりとりましょう"
+            return "少し動くと楽になります"
 
     return random.choice([
         "今日は軽く整えるだけでOK",
-        "無理せず続けるのが一番です",
-        "昨日より少し整えれば十分です",
-        "できることだけやればOKです"
+        "無理せず続けましょう",
+        "できることだけでOK"
     ])
