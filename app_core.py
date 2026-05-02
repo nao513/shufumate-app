@@ -145,3 +145,8 @@ def detect_meal_type_by_time(now):
         return "夜"
     else:
         return "間食"
+
+# =====================
+# 💬 相談カテゴリ
+# =====================
+CATEGORY_OPTIONS = ["食事", "運動", "体調", "外食調整"]
