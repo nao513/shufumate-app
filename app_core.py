@@ -129,3 +129,19 @@ def get_support_focus_summary(settings, latest_log):
         "points": ["体調", "食事"],
         "today_conditions": []
     }
+
+
+# =====================
+# 🍽 食事時間判定
+# =====================
+def detect_meal_type_by_time(now):
+    h = now.hour
+
+    if h < 10:
+        return "朝"
+    elif h < 15:
+        return "昼"
+    elif h < 20:
+        return "夜"
+    else:
+        return "間食"
