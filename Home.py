@@ -7,30 +7,57 @@ import altair as alt
 from app_core import *
 from ui_parts import render_header, render_simple_mode, render_full_mode
 
-# -----------------
+# =====================
+# 🎨 デザイン（インスタ風）
+# =====================
+st.markdown("""
+<style>
+body {
+    background-color: #f7f3ef;
+}
+.card {
+    background-color: white;
+    padding: 18px;
+    border-radius: 16px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    margin-bottom: 18px;
+}
+.title {
+    font-size: 20px;
+    font-weight: bold;
+    margin-bottom: 10px;
+}
+.small {
+    color: #777;
+    font-size: 14px;
+}
+</style>
+""", unsafe_allow_html=True)
+
+# =====================
 # 🔐 ログイン
-# -----------------
+# =====================
 require_login()
 user_id = get_user_id()
 
-# -----------------
+# =====================
 # 📊 データ取得
-# -----------------
+# =====================
 settings = load_user_settings(user_id)
 latest_log = load_latest_log(user_id)
 
 advice = get_today_advice(settings, latest_log)
 exercise = get_today_exercise(settings, latest_log)
 
-# -----------------
+# =====================
 # ⏰ 食事時間
-# -----------------
+# =====================
 hour = jst_now().hour
 main_meal = "朝" if hour < 10 else "昼" if hour < 15 else "夜"
 
-# -----------------
+# =====================
 # 📅 週間データ
-# -----------------
+# =====================
 week_key = get_week_key()
 
 if "weekly_plan" not in st.session_state or st.session_state.get("week_key") != week_key:
@@ -39,9 +66,9 @@ if "weekly_plan" not in st.session_state or st.session_state.get("week_key") != 
 
 weekly_plan = st.session_state["weekly_plan"]
 
-# -----------------
+# =====================
 # 🌤 天気
-# -----------------
+# =====================
 def get_weather():
     try:
         res = requests.get("https://wttr.in/Sendai?format=j1", timeout=3)
@@ -52,31 +79,65 @@ def get_weather():
 
 weather = get_weather()
 
-# -----------------
+# =====================
 # 🟩 UI開始
-# -----------------
+# =====================
 render_header()
 
-# -----------------
-# 📊 今日の状態（←ここ修正済）
-# -----------------
-st.markdown("### 📊 今日の状態")
-
+# =====================
+# 📊 今日の状態カード
+# =====================
 log_status = get_today_log_status(user_id)
+
+st.markdown('<div class="card">', unsafe_allow_html=True)
+st.markdown('<div class="title">📊 今日の状態</div>', unsafe_allow_html=True)
 
 if log_status["is_logged"]:
     st.success(log_status["label"])
 else:
     st.info(log_status["label"])
 
-st.caption(log_status.get("detail", ""))
+st.markdown(f'<div class="small">{log_status.get("detail","")}</div>', unsafe_allow_html=True)
+st.markdown('</div>', unsafe_allow_html=True)
 
-st.markdown("---")
+# =====================
+# 🌿 今日のおすすめ（改善版）
+# =====================
+st.markdown('<div class="card">', unsafe_allow_html=True)
+st.markdown('<div class="title">🌿 今日のおすすめ</div>', unsafe_allow_html=True)
 
-# -----------------
-# 📊 グラフ（完成版）
-# -----------------
-st.markdown("### 📊 体の変化")
+st.markdown(f"### ⭐ 今のおすすめ（{main_meal}）")
+
+recommend_text = advice.get(main_meal, "整えましょう")
+st.success(recommend_text)
+
+st.caption(f"今は「{main_meal}」を整える時間です☺️")
+
+st.markdown('</div>', unsafe_allow_html=True)
+
+# =====================
+# 🚀 すぐやる
+# =====================
+st.markdown('<div class="card">', unsafe_allow_html=True)
+st.markdown('<div class="title">🚀 すぐやる</div>', unsafe_allow_html=True)
+
+col1, col2 = st.columns(2)
+
+with col1:
+    if st.button("📷 写真で記録", use_container_width=True):
+        st.switch_page("pages/4_写真で記録.py")
+
+with col2:
+    if st.button("📝 記録する", use_container_width=True):
+        st.switch_page("pages/2_記録する.py")
+
+st.markdown('</div>', unsafe_allow_html=True)
+
+# =====================
+# 📊 グラフカード
+# =====================
+st.markdown('<div class="card">', unsafe_allow_html=True)
+st.markdown('<div class="title">📊 体の変化</div>', unsafe_allow_html=True)
 
 df = load_weight_data(user_id)
 
@@ -121,10 +182,8 @@ if df is not None and not df.empty:
         chart += target_line
 
         st.altair_chart(chart, use_container_width=True)
-
         st.caption(f"🎯 目標体重：{target_weight}kg")
 
-        # コメント
         if len(df) >= 2:
             diff = df["weight"].iloc[-1] - df["weight"].iloc[-2]
 
@@ -139,11 +198,13 @@ if df is not None and not df.empty:
         st.info("データがまだありません")
 
 else:
-    st.info("体重データがまだありません")
+    st.info("まだ記録がありません")
 
-# -----------------
+st.markdown('</div>', unsafe_allow_html=True)
+
+# =====================
 # 💬 動的アドバイス
-# -----------------
+# =====================
 def generate_dynamic_advice(meal, base, user_type, weather):
     extra = []
 
@@ -154,29 +215,14 @@ def generate_dynamic_advice(meal, base, user_type, weather):
 
     return base + ("｜" + random.choice(extra) if extra else "")
 
-# -----------------
+# =====================
 # モード
-# -----------------
+# =====================
 mode = st.radio("表示モード", ["かんたん", "しっかり"], horizontal=True)
 
 user_type = st.session_state.get("user_type", "バランス重視")
 
 if mode == "かんたん":
-    render_simple_mode(
-        main_meal,
-        advice,
-        generate_dynamic_advice,
-        user_type,
-        weather,
-        {}
-    )
+    render_simple_mode(main_meal, advice, generate_dynamic_advice, user_type, weather, {})
 else:
-    render_full_mode(
-        advice,
-        exercise,
-        weekly_plan,
-        generate_dynamic_advice,
-        user_type,
-        weather,
-        {}
-    )
+    render_full_mode(advice, exercise, weekly_plan, generate_dynamic_advice, user_type, weather, {})
