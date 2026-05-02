@@ -41,7 +41,7 @@ require_login()
 user_id = get_user_id()
 
 # =====================
-# 📊 データ
+# 📊 データ取得
 # =====================
 settings = load_user_settings(user_id)
 latest_log = load_latest_log(user_id)
@@ -56,7 +56,7 @@ hour = jst_now().hour
 main_meal = "朝" if hour < 10 else "昼" if hour < 15 else "夜"
 
 # =====================
-# 📅 週間
+# 📅 週間データ
 # =====================
 week_key = get_week_key()
 if "weekly_plan" not in st.session_state or st.session_state.get("week_key") != week_key:
@@ -77,6 +77,16 @@ def get_weather():
         return "普通"
 
 weather = get_weather()
+
+# =====================
+# 🧠 体調取得（ここ重要）
+# =====================
+state = {
+    "疲れ": st.session_state.get("fatigue", False),
+    "冷え": st.session_state.get("cold", False),
+    "こり": st.session_state.get("stiff", False),
+    "食べすぎ": st.session_state.get("overeating", False),
+}
 
 # =====================
 # 🟩 UI開始
@@ -106,18 +116,16 @@ st.markdown('<div class="card">', unsafe_allow_html=True)
 st.markdown('<div class="title">🌿 今日のおすすめ</div>', unsafe_allow_html=True)
 
 st.markdown(f"### ⭐ 今のおすすめ（{main_meal}）")
-
-recommend_text = advice.get(main_meal, "整えましょう")
-st.success(recommend_text)
+st.success(advice.get(main_meal, "整えましょう"))
 
 st.caption(f"今は「{main_meal}」を整える時間です☺️")
 
 st.markdown('</div>', unsafe_allow_html=True)
 
 # =====================
-# 💬 今日の一言（NEW）
+# 💬 今日の一言（神化）
 # =====================
-message = get_today_message(settings, latest_log, {}, weather)
+message = get_today_message(settings, latest_log, state, weather)
 
 st.markdown('<div class="card">', unsafe_allow_html=True)
 st.markdown('<div class="title">💬 今日の一言</div>', unsafe_allow_html=True)
@@ -214,26 +222,13 @@ else:
 st.markdown('</div>', unsafe_allow_html=True)
 
 # =====================
-# 💬 動的アドバイス
-# =====================
-def generate_dynamic_advice(meal, base, user_type, weather):
-    extra = []
-
-    if weather == "寒い":
-        extra.append("温かいものを取りましょう")
-    elif weather == "暑い":
-        extra.append("水分をしっかり")
-
-    return base + ("｜" + random.choice(extra) if extra else "")
-
-# =====================
-# モード
+# 💬 モード
 # =====================
 mode = st.radio("表示モード", ["かんたん", "しっかり"], horizontal=True)
 
 user_type = st.session_state.get("user_type", "バランス重視")
 
 if mode == "かんたん":
-    render_simple_mode(main_meal, advice, generate_dynamic_advice, user_type, weather, {})
+    render_simple_mode(main_meal, advice, lambda m,b,u,w: b, user_type, weather, state)
 else:
-    render_full_mode(advice, exercise, weekly_plan, generate_dynamic_advice, user_type, weather, {})
+    render_full_mode(advice, exercise, weekly_plan, lambda m,b,u,w: b, user_type, weather, state)
