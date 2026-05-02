@@ -1,6 +1,17 @@
 import random
 from collections import Counter
 
+import streamlit as st
+
+# -----------------
+# 🔐 ログインチェック
+# -----------------
+def require_login():
+
+    if "user_id" not in st.session_state:
+        st.warning("ログインしてください")
+        st.stop()
+
 # -----------------
 # 🧠 状態まとめ
 # -----------------
