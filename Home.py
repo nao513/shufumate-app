@@ -32,6 +32,7 @@ main_meal = "朝" if hour < 10 else "昼" if hour < 15 else "夜"
 # 📅 週間データ
 # -----------------
 week_key = get_week_key()
+
 if "weekly_plan" not in st.session_state or st.session_state.get("week_key") != week_key:
     st.session_state["weekly_plan"] = generate_weekly_plan(settings, latest_log)
     st.session_state["week_key"] = week_key
@@ -57,18 +58,23 @@ weather = get_weather()
 render_header()
 
 # -----------------
-# 今日の状態
+# 📊 今日の状態（←ここ修正済）
 # -----------------
 st.markdown("### 📊 今日の状態")
+
 log_status = get_today_log_status(user_id)
 
-st.success(log_status["label"]) if log_status["is_logged"] else st.info(log_status["label"])
+if log_status["is_logged"]:
+    st.success(log_status["label"])
+else:
+    st.info(log_status["label"])
+
 st.caption(log_status.get("detail", ""))
 
 st.markdown("---")
 
 # -----------------
-# 📊 グラフ（進化版）
+# 📊 グラフ（完成版）
 # -----------------
 st.markdown("### 📊 体の変化")
 
@@ -91,7 +97,6 @@ if df is not None and not df.empty:
 
         target_weight = st.session_state.get("target_weight", 48)
 
-        # グラフ構築
         base = alt.Chart(df).encode(x="log_date:T")
 
         weight_line = base.mark_line(
@@ -108,7 +113,6 @@ if df is not None and not df.empty:
             ).encode(y="body_fat:Q")
             chart += fat_line
 
-        # 目標ライン
         target_line = alt.Chart(df).mark_rule(
             color="red",
             strokeDash=[5,5]
@@ -120,7 +124,7 @@ if df is not None and not df.empty:
 
         st.caption(f"🎯 目標体重：{target_weight}kg")
 
-        # コメント強化
+        # コメント
         if len(df) >= 2:
             diff = df["weight"].iloc[-1] - df["weight"].iloc[-2]
 
@@ -142,6 +146,7 @@ else:
 # -----------------
 def generate_dynamic_advice(meal, base, user_type, weather):
     extra = []
+
     if weather == "寒い":
         extra.append("温かいものを取りましょう")
     elif weather == "暑い":
@@ -157,6 +162,21 @@ mode = st.radio("表示モード", ["かんたん", "しっかり"], horizontal=
 user_type = st.session_state.get("user_type", "バランス重視")
 
 if mode == "かんたん":
-    render_simple_mode(main_meal, advice, generate_dynamic_advice, user_type, weather, {})
+    render_simple_mode(
+        main_meal,
+        advice,
+        generate_dynamic_advice,
+        user_type,
+        weather,
+        {}
+    )
 else:
-    render_full_mode(advice, exercise, weekly_plan, generate_dynamic_advice, user_type, weather, {})
+    render_full_mode(
+        advice,
+        exercise,
+        weekly_plan,
+        generate_dynamic_advice,
+        user_type,
+        weather,
+        {}
+    )
