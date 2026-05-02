@@ -14,7 +14,6 @@ def is_logged_in():
 # 🔐 ログイン必須
 # -----------------
 def require_login():
-
     if not is_logged_in():
         st.warning("ログインしてください")
         st.stop()
@@ -25,7 +24,7 @@ def require_login():
 # -----------------
 def login(user_id, password):
 
-    # 仮ログイン（あとでシート連携）
+    # 仮ログイン（あとでGoogle Sheets連携）
     if password == "1234":
         st.session_state["user_id"] = user_id
         return True
@@ -38,7 +37,6 @@ def login(user_id, password):
 # -----------------
 def logout():
     st.session_state.clear()
-
 
 # -----------------
 # 🧠 状態まとめ
