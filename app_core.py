@@ -951,3 +951,95 @@ def generate_answer(category, question, settings=None, latest_log=None):
         return answer
 
     return base + "今日は無理せず、食事・運動・睡眠を少しずつ整えましょう。"
+
+# =====================
+# 📷 写真で記録ページ用
+# =====================
+
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
+
+def jst_now():
+    return datetime.now(ZoneInfo("Asia/Tokyo"))
+
+
+def jst_today_str():
+    return jst_now().strftime("%Y-%m-%d")
+
+
+def detect_meal_type_by_time(now=None):
+    """
+    時間帯から食事区分を自動判定する
+    """
+    if now is None:
+        now = jst_now()
+
+    hour = now.hour
+
+    if 4 <= hour < 10:
+        return "朝"
+    elif 10 <= hour < 15:
+        return "昼"
+    elif 15 <= hour < 18:
+        return "間食"
+    else:
+        return "夜"
+
+
+def _photo_logs_key(user_id=None):
+    user_id = user_id or get_user_id() or "guest"
+    return f"photo_logs_{user_id}"
+
+
+def save_photo_meal_log(user_id=None, meal_type="", food_text="", image_file=None):
+    """
+    写真つき食事記録を保存する簡易版
+    ※ 本番ではGoogle DriveやStorage保存に変更予定
+    """
+    user_id = user_id or get_user_id() or "guest"
+
+    photo_key = _photo_logs_key(user_id)
+
+    if photo_key not in st.session_state:
+        st.session_state[photo_key] = []
+
+    image_bytes = None
+    image_name = ""
+    image_type = ""
+
+    if image_file is not None:
+        image_bytes = image_file.getvalue()
+        image_name = getattr(image_file, "name", "")
+        image_type = getattr(image_file, "type", "")
+
+    photo_record = {
+        "log_date": jst_today_str(),
+        "meal_type": meal_type,
+        "food_text": food_text,
+        "image_name": image_name,
+        "image_type": image_type,
+        "image_bytes": image_bytes,
+        "created_at": jst_now().strftime("%Y-%m-%d %H:%M:%S"),
+    }
+
+    st.session_state[photo_key].append(photo_record)
+
+    # 通常の食事記録にも残す
+    save_diet_log(
+        user_id,
+        {
+            "log_date": jst_today_str(),
+            "meal_memo": f"{meal_type}：{food_text}",
+            "photo_meal_type": meal_type,
+            "has_photo": image_file is not None,
+            "created_at": jst_now().strftime("%Y-%m-%d %H:%M:%S"),
+        }
+    )
+
+    return True
+
+
+def load_photo_logs(user_id=None):
+    key = _photo_logs_key(user_id)
+    return st.session_state.get(key, [])
