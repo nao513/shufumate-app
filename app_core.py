@@ -669,3 +669,45 @@ def update_current_user_profile(user_id=None, **kwargs):
     st.session_state["shufumate_users"] = users
 
     return True
+
+# =====================
+# 📝 記録画面 初期値取得
+# =====================
+
+def get_initial_log_values(user_id=None):
+    settings = load_user_settings(user_id)
+    latest = load_latest_log(user_id)
+
+    def safe_value(value, default):
+        try:
+            if value is None or value == "":
+                return default
+            return value
+        except Exception:
+            return default
+
+    weight = None
+    body_fat = None
+
+    if isinstance(latest, dict):
+        weight = latest.get("weight")
+        body_fat = latest.get("body_fat")
+
+    if weight is None:
+        weight = (
+            settings.get("current_weight")
+            or settings.get("start_weight")
+            or 50
+        )
+
+    if body_fat is None:
+        body_fat = (
+            settings.get("current_body_fat")
+            or settings.get("start_body_fat")
+            or 30
+        )
+
+    return {
+        "weight": safe_value(weight, 50),
+        "body_fat": safe_value(body_fat, 30),
+    }
