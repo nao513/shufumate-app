@@ -1,234 +1,149 @@
 import streamlit as st
-import random
-import requests
-import pandas as pd
-import altair as alt
-
 from app_core import *
-from ui_parts import render_header, render_simple_mode, render_full_mode
 
-# =====================
-# 🎨 デザイン（統一）
-# =====================
-st.markdown("""
-<style>
-body {
-    background-color: #f7f3ef;
-}
-.card {
-    background-color: white;
-    padding: 18px;
-    border-radius: 16px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-    margin-bottom: 18px;
-}
-.title {
-    font-size: 20px;
-    font-weight: bold;
-    margin-bottom: 10px;
-}
-.small {
-    color: #777;
-    font-size: 14px;
-}
-</style>
-""", unsafe_allow_html=True)
-
-# =====================
-# 🔐 ログイン
-# =====================
+# -----------------
+# 🔐 ログインチェック
+# -----------------
 require_login()
+
 user_id = get_user_id()
 
-# =====================
-# 📊 データ取得
-# =====================
-settings = load_user_settings(user_id)
-latest_log = load_latest_log(user_id)
+# -----------------
+# 🏠 ヘッダー
+# -----------------
+st.title("🏠 ShufuMate")
+st.caption("食事も、暮らしも、ちょうどよく")
 
-advice = get_today_advice(settings, latest_log)
-exercise = get_today_exercise(settings, latest_log)
+st.markdown(f"こんにちは、**{user_id} さん** 😊")
 
-# =====================
-# ⏰ 食事時間
-# =====================
-hour = jst_now().hour
-main_meal = "朝" if hour < 10 else "昼" if hour < 15 else "夜"
+st.markdown("---")
 
-# =====================
-# 📅 週間データ
-# =====================
-week_key = get_week_key()
-if "weekly_plan" not in st.session_state or st.session_state.get("week_key") != week_key:
-    st.session_state["weekly_plan"] = generate_weekly_plan(settings, latest_log)
-    st.session_state["week_key"] = week_key
+# -----------------
+# ⚙️ モード選択
+# -----------------
+mode = st.radio("表示モード", ["かんたん", "しっかり"], horizontal=True)
 
-weekly_plan = st.session_state["weekly_plan"]
-
-# =====================
-# 🌤 天気
-# =====================
-def get_weather():
-    try:
-        res = requests.get("https://wttr.in/Sendai?format=j1", timeout=3)
-        temp = int(res.json()["current_condition"][0]["temp_C"])
-        return "寒い" if temp <= 10 else "暑い" if temp >= 28 else "普通"
-    except:
-        return "普通"
-
-weather = get_weather()
-
-# =====================
-# 🧠 体調取得（ここ重要）
-# =====================
-state = {
-    "疲れ": st.session_state.get("fatigue", False),
-    "冷え": st.session_state.get("cold", False),
-    "こり": st.session_state.get("stiff", False),
-    "食べすぎ": st.session_state.get("overeating", False),
-}
-
-# =====================
-# 🟩 UI開始
-# =====================
-render_header()
-
-# =====================
-# 📊 今日の状態
-# =====================
-log_status = get_today_log_status(user_id)
-
-st.markdown('<div class="card">', unsafe_allow_html=True)
-st.markdown('<div class="title">📊 今日の状態</div>', unsafe_allow_html=True)
-
-if log_status["is_logged"]:
-    st.success(log_status["label"])
-else:
-    st.info(log_status["label"])
-
-st.markdown(f'<div class="small">{log_status.get("detail","")}</div>', unsafe_allow_html=True)
-st.markdown('</div>', unsafe_allow_html=True)
-
-# =====================
-# 🌿 今日のおすすめ
-# =====================
-st.markdown('<div class="card">', unsafe_allow_html=True)
-st.markdown('<div class="title">🌿 今日のおすすめ</div>', unsafe_allow_html=True)
-
-st.markdown(f"### ⭐ 今のおすすめ（{main_meal}）")
-st.success(advice.get(main_meal, "整えましょう"))
-
-st.caption(f"今は「{main_meal}」を整える時間です☺️")
-
-st.markdown('</div>', unsafe_allow_html=True)
-
-# =====================
-# 💬 今日の一言（神化）
-# =====================
-message = get_today_message(settings, latest_log, state, weather)
-
-st.markdown('<div class="card">', unsafe_allow_html=True)
-st.markdown('<div class="title">💬 今日の一言</div>', unsafe_allow_html=True)
-
-st.success(message)
-
-st.markdown('</div>', unsafe_allow_html=True)
-
-# =====================
-# 🚀 すぐやる
-# =====================
-st.markdown('<div class="card">', unsafe_allow_html=True)
-st.markdown('<div class="title">🚀 すぐやる</div>', unsafe_allow_html=True)
+# -----------------
+# 🧠 状態入力
+# -----------------
+st.markdown("### 🌿 今日の状態")
 
 col1, col2 = st.columns(2)
 
 with col1:
-    if st.button("📷 写真で記録", use_container_width=True):
-        st.switch_page("pages/4_写真で記録.py")
+    state = st.selectbox("体調", ["普通", "疲れ", "むくみ"])
 
 with col2:
-    if st.button("📝 記録する", use_container_width=True):
-        st.switch_page("pages/2_記録する.py")
+    weather = st.selectbox("天気", ["普通", "暑い", "寒い"])
 
-st.markdown('</div>', unsafe_allow_html=True)
+exercise = st.selectbox("運動予定", ["なし", "ストレッチ", "有酸素", "筋トレ"])
 
-# =====================
-# 📊 グラフ
-# =====================
-st.markdown('<div class="card">', unsafe_allow_html=True)
-st.markdown('<div class="title">📊 体の変化</div>', unsafe_allow_html=True)
-
-df = load_weight_data(user_id)
-
-if df is not None and not df.empty:
-
-    df = df.copy()
-    df["log_date"] = pd.to_datetime(df["log_date"], errors="coerce")
-
-    if "weight" in df.columns:
-        df["weight"] = pd.to_numeric(df["weight"], errors="coerce")
-
-    if "body_fat" in df.columns:
-        df["body_fat"] = pd.to_numeric(df["body_fat"], errors="coerce")
-
-    df = df.dropna()
-
-    if not df.empty:
-
-        target_weight = st.session_state.get("target_weight", 48)
-
-        base = alt.Chart(df).encode(x="log_date:T")
-
-        weight_line = base.mark_line(
-            color="#4A90E2",
-            strokeWidth=3
-        ).encode(y="weight:Q")
-
-        chart = weight_line
-
-        if "body_fat" in df.columns:
-            fat_line = base.mark_line(
-                color="#F5A623",
-                strokeDash=[5,2]
-            ).encode(y="body_fat:Q")
-            chart += fat_line
-
-        target_line = alt.Chart(df).mark_rule(
-            color="red",
-            strokeDash=[5,5]
-        ).encode(y=alt.datum(target_weight))
-
-        chart += target_line
-
-        st.altair_chart(chart, use_container_width=True)
-        st.caption(f"🎯 目標体重：{target_weight}kg")
-
-        if len(df) >= 2:
-            diff = df["weight"].iloc[-1] - df["weight"].iloc[-2]
-
-            if diff < 0:
-                st.success("🔥 いい感じに減ってます！")
-            elif diff > 0.5:
-                st.warning("⚠ 少し増え気味。でも大丈夫！")
-            else:
-                st.info("👌 キープできています")
-
-    else:
-        st.info("データがまだありません")
-
-else:
-    st.info("まだ記録がありません")
-
-st.markdown('</div>', unsafe_allow_html=True)
+st.markdown("---")
 
 # =====================
-# 💬 モード
+# 🌿 かんたんモード
 # =====================
-mode = st.radio("表示モード", ["かんたん", "しっかり"], horizontal=True)
-
-user_type = st.session_state.get("user_type", "バランス重視")
-
 if mode == "かんたん":
-    render_simple_mode(main_meal, advice, lambda m,b,u,w: b, user_type, weather, state)
+
+    st.subheader("🌿 今日のおすすめ")
+
+    text = generate_simple_advice(
+        user_type="バランス",
+        weather=weather,
+        state=state,
+        exercise=exercise
+    )
+
+    st.success(text)
+
+# =====================
+# 💪 しっかりモード
+# =====================
 else:
-    render_full_mode(advice, exercise, weekly_plan, lambda m,b,u,w: b, user_type, weather, state)
+
+    st.subheader("💪 今日のプラン")
+
+    # -----------------
+    # 🍽 食事
+    # -----------------
+    st.markdown("### 🍽 食事")
+
+    plan = generate_full_plan(
+        user_type="バランス",
+        weather=weather,
+        state=state,
+        exercise=exercise
+    )
+
+    for k, v in plan.items():
+        if k == "朝":
+            icon = "🌅"
+        elif k == "昼":
+            icon = "☀️"
+        elif k == "夜":
+            icon = "🌙"
+        else:
+            icon = "🍽"
+
+        st.markdown(f"{icon} **{k}：** {v}")
+
+    # -----------------
+    # 🏃‍♀️ 運動
+    # -----------------
+    st.markdown("### 🏃‍♀️ 運動")
+
+    if exercise == "なし":
+        st.write("ストレッチがおすすめです")
+    elif exercise == "ストレッチ":
+        st.write("軽めに体をほぐしましょう")
+    elif exercise == "有酸素":
+        st.write("ウォーキングや軽い運動がおすすめ")
+    elif exercise == "筋トレ":
+        st.write("タンパク質をしっかり摂りましょう")
+
+    st.markdown("---")
+
+    # -----------------
+    # 🛒 買い物リスト
+    # -----------------
+    with st.expander("🛒 買い物リスト"):
+
+        shopping = generate_smart_shopping_list(
+            plan,
+            fridge_items=st.session_state.get("fridge_items", [])
+        )
+
+        shopping = add_deals_to_shopping(shopping)
+
+        for category, items in shopping.items():
+            st.markdown(f"**{category}**")
+
+            for item in items:
+                st.checkbox(item)
+
+# -----------------
+# 📅 1週間プラン
+# -----------------
+with st.expander("📅 1週間プラン"):
+
+    week_plan = generate_weekly_plan(
+        user_type="バランス",
+        weather=weather,
+        state=state,
+        exercise=exercise
+    )
+
+    for day, plan in week_plan.items():
+        st.markdown(f"### {day}")
+
+        for k, v in plan.items():
+            st.write(f"{k}：{v}")
+
+# -----------------
+# 🚪 ログアウト
+# -----------------
+st.markdown("---")
+
+if st.button("ログアウト"):
+    logout()
+    st.rerun()
