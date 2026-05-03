@@ -1043,3 +1043,412 @@ def save_photo_meal_log(user_id=None, meal_type="", food_text="", image_file=Non
 def load_photo_logs(user_id=None):
     key = _photo_logs_key(user_id)
     return st.session_state.get(key, [])
+
+# =====================
+# 👤 Usersシート連携版
+# ログイン・新規登録・パスワード変更
+# =====================
+
+from datetime import datetime, date
+
+USERS_SHEET_NAME = "Users"
+
+
+def _clean_text(value):
+    """
+    Google Sheetsで '1234 のように入った値も 1234 として扱う
+    """
+    if value is None:
+        return ""
+
+    value = str(value).strip()
+
+    if value.startswith("'"):
+        value = value[1:]
+
+    return value.strip()
+
+
+def _get_spreadsheet():
+    """
+    Google Sheets 接続。
+    既存の secrets 名が違っても拾いやすいようにしています。
+    """
+    import gspread
+
+    # サービスアカウント情報
+    creds_info = None
+
+    if "gcp_service_account" in st.secrets:
+        creds_info = st.secrets["gcp_service_account"]
+    elif "google_service_account" in st.secrets:
+        creds_info = st.secrets["google_service_account"]
+    elif "service_account" in st.secrets:
+        creds_info = st.secrets["service_account"]
+
+    if creds_info is None:
+        raise Exception("Google Sheetsの認証情報が st.secrets にありません")
+
+    gc = gspread.service_account_from_dict(dict(creds_info))
+
+    # スプレッドシートID
+    spreadsheet_id = (
+        st.secrets.get("SPREADSHEET_ID")
+        or st.secrets.get("SHEET_ID")
+        or st.secrets.get("sheet_id")
+        or st.secrets.get("spreadsheet_id")
+    )
+
+    if not spreadsheet_id:
+        raise Exception("スプレッドシートIDが st.secrets にありません")
+
+    return gc.open_by_key(spreadsheet_id)
+
+
+def _get_or_create_worksheet(sheet_name, headers):
+    """
+    指定シートがなければ作成。
+    ヘッダーが空なら自動追加。
+    """
+    ss = _get_spreadsheet()
+
+    try:
+        ws = ss.worksheet(sheet_name)
+    except Exception:
+        ws = ss.add_worksheet(title=sheet_name, rows=1000, cols=len(headers))
+
+    values = ws.get_all_values()
+
+    if not values:
+        ws.append_row(headers)
+
+    return ws
+
+
+def _users_headers():
+    return [
+        "login_id",
+        "password",
+        "nickname",
+        "birth_date",
+        "created_at",
+        "updated_at",
+    ]
+
+
+def _load_users_from_sheet():
+    """
+    Usersシートを辞書で読み込む
+    """
+    ws = _get_or_create_worksheet(USERS_SHEET_NAME, _users_headers())
+    records = ws.get_all_records()
+
+    users = {}
+
+    for row in records:
+        login_id = _clean_text(
+            row.get("login_id")
+            or row.get("user_id")
+            or row.get("ID")
+            or row.get("ログインID")
+        )
+
+        if not login_id:
+            continue
+
+        user_record = {
+            "login_id": login_id,
+            "password": _clean_text(
+                row.get("password")
+                or row.get("pw")
+                or row.get("PW")
+                or row.get("パスワード")
+            ),
+            "nickname": _clean_text(
+                row.get("nickname")
+                or row.get("name")
+                or row.get("ニックネーム")
+            ) or login_id,
+            "birth_date": _clean_text(
+                row.get("birth_date")
+                or row.get("birthday")
+                or row.get("生年月日")
+            ),
+            "created_at": _clean_text(row.get("created_at")),
+            "updated_at": _clean_text(row.get("updated_at")),
+        }
+
+        users[login_id] = user_record
+
+    return users
+
+
+def _find_user_row(ws, login_id):
+    """
+    login_id の行番号を探す
+    ヘッダー行が1行目なので、データは2行目から
+    """
+    values = ws.get_all_records()
+
+    for idx, row in enumerate(values, start=2):
+        row_login_id = _clean_text(
+            row.get("login_id")
+            or row.get("user_id")
+            or row.get("ID")
+            or row.get("ログインID")
+        )
+
+        if row_login_id == login_id:
+            return idx
+
+    return None
+
+
+def load_users():
+    """
+    まずGoogle Sheetsから読む。
+    失敗したら一時的にsession_stateへ退避。
+    """
+    try:
+        users = _load_users_from_sheet()
+        st.session_state["shufumate_users"] = users
+        return users
+
+    except Exception as e:
+        if "shufumate_users" not in st.session_state:
+            st.session_state["shufumate_users"] = {}
+
+        st.warning(f"Usersシートを読み込めませんでした。一時保存で動かします: {e}")
+        return st.session_state["shufumate_users"]
+
+
+def create_user(login_id, password, nickname="", birth_date=None, **kwargs):
+    """
+    新規登録：Usersシートに追加
+    """
+    login_id = _clean_text(login_id)
+    password = _clean_text(password)
+    nickname = _clean_text(nickname) or login_id
+
+    if not login_id:
+        raise ValueError("ログインIDを入力してください")
+
+    if not password:
+        raise ValueError("パスワードを入力してください")
+
+    if len(password) < 4:
+        raise ValueError("パスワードは4文字以上にしてください")
+
+    users = load_users()
+
+    if login_id in users:
+        raise ValueError("このログインIDはすでに使われています")
+
+    birth_date_text = str(birth_date) if birth_date else ""
+    now_text = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    user_record = {
+        "login_id": login_id,
+        "password": password,
+        "nickname": nickname,
+        "birth_date": birth_date_text,
+        "created_at": now_text,
+        "updated_at": now_text,
+    }
+
+    try:
+        ws = _get_or_create_worksheet(USERS_SHEET_NAME, _users_headers())
+
+        ws.append_row([
+            user_record["login_id"],
+            user_record["password"],
+            user_record["nickname"],
+            user_record["birth_date"],
+            user_record["created_at"],
+            user_record["updated_at"],
+        ])
+
+    except Exception as e:
+        st.warning(f"Usersシートに保存できませんでした。一時保存します: {e}")
+
+    users[login_id] = user_record
+    st.session_state["shufumate_users"] = users
+
+    return user_record
+
+
+def verify_login(login_id, password):
+    """
+    ログインIDとパスワード確認
+    """
+    login_id = _clean_text(login_id)
+    password = _clean_text(password)
+
+    users = load_users()
+    user_record = users.get(login_id)
+
+    if not user_record:
+        return None
+
+    stored_password = _clean_text(user_record.get("password"))
+
+    if stored_password == password:
+        return user_record
+
+    return None
+
+
+def login_user(user_record):
+    """
+    ログイン状態を保存
+    """
+    if not user_record:
+        return False
+
+    login_id = _clean_text(user_record.get("login_id"))
+    nickname = _clean_text(user_record.get("nickname")) or login_id
+
+    if not login_id:
+        return False
+
+    st.session_state["user_id"] = login_id
+    st.session_state["user_name"] = nickname
+
+    return True
+
+
+def login(user_id, password):
+    """
+    ログインページ用
+    """
+    user_record = verify_login(user_id, password)
+
+    if user_record:
+        login_user(user_record)
+        return True
+
+    return False
+
+
+def reset_password(login_id, new_pw):
+    """
+    パスワード変更
+    """
+    login_id = _clean_text(login_id)
+    new_pw = _clean_text(new_pw)
+
+    if not login_id:
+        return False
+
+    if not new_pw:
+        return False
+
+    if len(new_pw) < 4:
+        raise ValueError("パスワードは4文字以上にしてください")
+
+    users = load_users()
+
+    if login_id not in users:
+        return False
+
+    now_text = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    try:
+        ws = _get_or_create_worksheet(USERS_SHEET_NAME, _users_headers())
+
+        row_num = _find_user_row(ws, login_id)
+
+        if row_num:
+            headers = ws.row_values(1)
+
+            password_col = headers.index("password") + 1 if "password" in headers else 2
+            updated_col = headers.index("updated_at") + 1 if "updated_at" in headers else None
+
+            ws.update_cell(row_num, password_col, new_pw)
+
+            if updated_col:
+                ws.update_cell(row_num, updated_col, now_text)
+
+    except Exception as e:
+        st.warning(f"Usersシートのパスワード更新に失敗しました。一時保存します: {e}")
+
+    users[login_id]["password"] = new_pw
+    users[login_id]["updated_at"] = now_text
+    st.session_state["shufumate_users"] = users
+
+    return True
+
+
+def load_current_user_profile(user_id=None):
+    """
+    現在ログイン中のユーザープロフィール
+    """
+    user_id = user_id or get_user_id()
+
+    if not user_id:
+        return {}
+
+    users = load_users()
+    user_record = users.get(user_id, {})
+
+    nickname = _clean_text(user_record.get("nickname")) or st.session_state.get("user_name", user_id)
+    birth_date_text = _clean_text(user_record.get("birth_date"))
+
+    age = None
+
+    try:
+        if birth_date_text:
+            bd = datetime.strptime(birth_date_text, "%Y-%m-%d").date()
+            today = date.today()
+            age = today.year - bd.year - ((today.month, today.day) < (bd.month, bd.day))
+    except Exception:
+        age = None
+
+    return {
+        "login_id": user_id,
+        "nickname": nickname,
+        "birth_date": birth_date_text,
+        "age": age,
+    }
+
+
+def update_current_user_profile(user_id=None, **kwargs):
+    """
+    ニックネームなどのプロフィール更新
+    """
+    user_id = user_id or get_user_id()
+
+    if not user_id:
+        return False
+
+    users = load_users()
+
+    if user_id not in users:
+        return False
+
+    nickname = _clean_text(kwargs.get("nickname", users[user_id].get("nickname", user_id)))
+    now_text = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    users[user_id]["nickname"] = nickname
+    users[user_id]["updated_at"] = now_text
+
+    try:
+        ws = _get_or_create_worksheet(USERS_SHEET_NAME, _users_headers())
+        row_num = _find_user_row(ws, user_id)
+
+        if row_num:
+            headers = ws.row_values(1)
+
+            if "nickname" in headers:
+                ws.update_cell(row_num, headers.index("nickname") + 1, nickname)
+
+            if "updated_at" in headers:
+                ws.update_cell(row_num, headers.index("updated_at") + 1, now_text)
+
+    except Exception as e:
+        st.warning(f"Usersシートのプロフィール更新に失敗しました。一時保存します: {e}")
+
+    st.session_state["shufumate_users"] = users
+    st.session_state["user_name"] = nickname
+
+    return True
