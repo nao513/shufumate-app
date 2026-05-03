@@ -531,3 +531,78 @@ def generate_shopping_list_from_week(weekly_plan):
 def get_openai_client():
     # 今は未接続。後でOpenAI API接続時に差し替え。
     return None
+
+# =====================
+# 🆕 新規登録・ユーザー管理 互換用
+# =====================
+
+def _users_store_key():
+    return "shufumate_users"
+
+
+def load_users():
+    if _users_store_key() not in st.session_state:
+        st.session_state[_users_store_key()] = {}
+    return st.session_state[_users_store_key()]
+
+
+def create_user(login_id, password, nickname="", birth_date=None, **kwargs):
+    login_id = str(login_id).strip()
+    password = str(password).strip()
+    nickname = str(nickname).strip()
+
+    if not login_id:
+        raise ValueError("ログインIDを入力してください")
+
+    if not password:
+        raise ValueError("パスワードを入力してください")
+
+    if len(password) < 4:
+        raise ValueError("パスワードは4文字以上にしてください")
+
+    users = load_users()
+
+    if login_id in users:
+        raise ValueError("このログインIDはすでに使われています")
+
+    user_record = {
+        "login_id": login_id,
+        "password": password,
+        "nickname": nickname or login_id,
+        "birth_date": str(birth_date) if birth_date else "",
+    }
+
+    users[login_id] = user_record
+    st.session_state[_users_store_key()] = users
+
+    return user_record
+
+
+def login_user(user_record):
+    if not user_record:
+        return False
+
+    login_id = user_record.get("login_id", "")
+    nickname = user_record.get("nickname", login_id)
+
+    if not login_id:
+        return False
+
+    st.session_state["user_id"] = login_id
+    st.session_state["user_name"] = nickname
+
+    return True
+
+
+def verify_login(login_id, password):
+    login_id = str(login_id).strip()
+    password = str(password).strip()
+
+    users = load_users()
+
+    user_record = users.get(login_id)
+
+    if user_record and user_record.get("password") == password:
+        return user_record
+
+    return None
