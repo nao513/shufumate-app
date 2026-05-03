@@ -228,14 +228,7 @@ with st.form("settings_form"):
     st.markdown("---")
     st.subheader("🍽 食材・冷蔵庫")
 
-    workout_today_options = [
-        "ストレッチ",
-        "ヨガ",
-        "ピラティス",
-        "有酸素",
-        "筋トレ",
-        "なし",
-    ]
+    workout_today_options = get_exercise_options()
 
     workout_today = st.selectbox(
         "よくする運動",
