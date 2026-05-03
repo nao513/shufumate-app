@@ -1452,3 +1452,150 @@ def update_current_user_profile(user_id=None, **kwargs):
     st.session_state["user_name"] = nickname
 
     return True
+
+# =====================
+# 🔐 Usersログイン強化版
+# 数字・'1234・1234.0・全角数字対策
+# =====================
+
+import unicodedata
+from datetime import datetime, date
+
+def _clean_text(value):
+    """
+    Google Sheetsの値をログイン比較しやすい文字列に整える
+    例：
+    '1234  → 1234
+    1234.0 → 1234
+    １２３４ → 1234
+    """
+    if value is None:
+        return ""
+
+    value = str(value).strip()
+    value = unicodedata.normalize("NFKC", value)
+
+    if value.startswith("'"):
+        value = value[1:]
+
+    # 1234.0 対策
+    if value.endswith(".0"):
+        before = value[:-2]
+        if before.isdigit():
+            value = before
+
+    return value.strip()
+
+
+def _users_headers():
+    return [
+        "login_id",
+        "password",
+        "nickname",
+        "birth_date",
+        "created_at",
+        "updated_at",
+    ]
+
+
+def _load_users_from_sheet():
+    ws = _get_or_create_worksheet("Users", _users_headers())
+    records = ws.get_all_records()
+
+    users = {}
+
+    for row in records:
+        login_id = _clean_text(
+            row.get("login_id")
+            or row.get("user_id")
+            or row.get("ID")
+            or row.get("id")
+            or row.get("ログインID")
+        )
+
+        password = _clean_text(
+            row.get("password")
+            or row.get("pw")
+            or row.get("PW")
+            or row.get("パスワード")
+        )
+
+        nickname = _clean_text(
+            row.get("nickname")
+            or row.get("name")
+            or row.get("ニックネーム")
+        )
+
+        birth_date = _clean_text(
+            row.get("birth_date")
+            or row.get("birthday")
+            or row.get("生年月日")
+        )
+
+        if not login_id:
+            continue
+
+        users[login_id] = {
+            "login_id": login_id,
+            "password": password,
+            "nickname": nickname or login_id,
+            "birth_date": birth_date,
+            "created_at": _clean_text(row.get("created_at")),
+            "updated_at": _clean_text(row.get("updated_at")),
+        }
+
+    st.session_state["shufumate_users"] = users
+    return users
+
+
+def load_users():
+    try:
+        return _load_users_from_sheet()
+    except Exception as e:
+        st.warning(f"Usersシートを読み込めませんでした: {e}")
+        return st.session_state.get("shufumate_users", {})
+
+
+def verify_login(login_id, password):
+    login_id = _clean_text(login_id)
+    password = _clean_text(password)
+
+    users = load_users()
+
+    user_record = users.get(login_id)
+
+    if not user_record:
+        return None
+
+    stored_password = _clean_text(user_record.get("password"))
+
+    if stored_password == password:
+        return user_record
+
+    return None
+
+
+def login_user(user_record):
+    if not user_record:
+        return False
+
+    login_id = _clean_text(user_record.get("login_id"))
+    nickname = _clean_text(user_record.get("nickname")) or login_id
+
+    if not login_id:
+        return False
+
+    st.session_state["user_id"] = login_id
+    st.session_state["user_name"] = nickname
+
+    return True
+
+
+def login(user_id, password):
+    user_record = verify_login(user_id, password)
+
+    if user_record:
+        login_user(user_record)
+        return True
+
+    return False
