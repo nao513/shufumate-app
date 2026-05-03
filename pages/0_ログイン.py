@@ -1,29 +1,41 @@
 import streamlit as st
 from app_core import *
-st.set_page_config(page_title="ログイン", page_icon="🔐", layout="centered")
 
+# -----------------
+# ページ設定
+# -----------------
+st.set_page_config(
+    page_title="ログイン",
+    page_icon="🔐",
+    layout="centered"
+)
+
+# -----------------
+# タイトル
+# -----------------
 st.title("🔐 ログイン")
 st.caption("ShufuMateにログインします")
 
 # -----------------
-# ログイン済み
+# ログイン済みの場合
 # -----------------
 if is_logged_in():
-    st.success("ログイン済みです")
+    user_id = get_user_id()
 
-    if st.button("ホームへ", use_container_width=True):
-        st.switch_page("Home.py")
+    st.success(f"{user_id} さんはログイン済みです")
 
-    if st.button("ログアウト", use_container_width=True):
-        del st.session_state["login_user"]
-        st.rerun()
+    col1, col2 = st.columns(2)
+
+    with col1:
+        if st.button("ホームへ", use_container_width=True):
+            st.switch_page("Home.py")
+
+    with col2:
+        if st.button("ログアウト", use_container_width=True):
+            logout()
+            st.rerun()
 
     st.stop()
-
-import streamlit as st
-from app_core import *
-
-st.title("🔐 ログイン")
 
 # -----------------
 # タブ切替
@@ -50,9 +62,9 @@ with tab1:
             try:
                 if login(login_id, password):
 
-                    st.success(f"{login_id} さん、ようこそ✨")
                     st.session_state["user_name"] = login_id
 
+                    st.success(f"{login_id} さん、ようこそ✨")
                     st.switch_page("Home.py")
 
                 else:
