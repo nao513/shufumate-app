@@ -31,21 +31,44 @@ user_id = get_user_id()
 # タイトル
 # -----------------
 st.title("📷 写真で記録")
-st.caption("食事写真とメモをかんたんに残します")
+st.caption("写真をアップロードして食事を記録します")
 
 # -----------------
-# カメラ
+# 入力方法選択
 # -----------------
-img = st.camera_input("食事の写真を撮る")
+input_mode = st.radio(
+    "写真の入力方法",
+    ["写真をアップロード", "カメラで撮影"],
+    horizontal=True
+)
 
+img = None
+
+# -----------------
+# アップロード
+# -----------------
+if input_mode == "写真をアップロード":
+    img = st.file_uploader(
+        "写真を選んでください",
+        type=["jpg", "jpeg", "png"]
+    )
+
+# -----------------
+# カメラ撮影
+# -----------------
+else:
+    img = st.camera_input("食事の写真を撮る")
+
+# -----------------
+# 画像プレビュー
+# -----------------
 if img is not None:
-    st.image(img, caption="撮影した写真", use_container_width=True)
+    st.image(img, caption="選択した写真", use_container_width=True)
 
 # -----------------
 # 自動判定
 # -----------------
 auto_meal = detect_meal_type_by_time(jst_now())
-
 st.markdown(f"👉 自動判定：**{auto_meal}ごはん**")
 
 # -----------------
@@ -77,8 +100,7 @@ st.markdown("---")
 if st.button("✅ 記録する", use_container_width=True):
 
     if img is None:
-        st.warning("写真を撮ってください")
-
+        st.warning("写真を選ぶか撮影してください")
     else:
         save_photo_meal_log(
             user_id=user_id,
@@ -106,7 +128,6 @@ with st.expander("📌 最新の写真記録を確認する"):
         st.write(f"内容：{latest.get('food_text', '')}")
 
         image_bytes = latest.get("image_bytes")
-
         if image_bytes:
             st.image(image_bytes, caption="最新の写真", use_container_width=True)
 
