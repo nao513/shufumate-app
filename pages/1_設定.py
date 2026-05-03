@@ -2,6 +2,12 @@ import streamlit as st
 from datetime import date, datetime
 from app_core import *
 
+st.set_page_config(
+    page_title="設定",
+    page_icon="⚙️",
+    layout="centered"
+)
+
 require_login()
 
 st.title("⚙️ 設定")
@@ -19,6 +25,26 @@ def safe_float(value, default):
         return float(value)
     except Exception:
         return float(default)
+
+
+def safe_list(value):
+    if isinstance(value, list):
+        return value
+
+    if isinstance(value, str):
+        return [
+            x.strip()
+            for x in value.replace("、", ",").replace("\n", ",").split(",")
+            if x.strip()
+        ]
+
+    return []
+
+
+def option_index(options, value, default=0):
+    if value in options:
+        return options.index(value)
+    return default
 
 
 # -----------------
@@ -110,22 +136,111 @@ with st.form("settings_form"):
             step=0.1,
         )
 
-    st.markdown("### 🍽 食事・生活設定")
+    st.markdown("---")
+    st.subheader("🌿 相談・提案の設定")
 
-    meal_style = st.selectbox(
-        "食事スタイル",
-        ["和食中心", "洋食もOK", "家族向け", "ダイエット重視", "節約重視"],
-        index=["和食中心", "洋食もOK", "家族向け", "ダイエット重視", "節約重視"].index(
-            settings.get("meal_style", "和食中心")
-        ) if settings.get("meal_style", "和食中心") in ["和食中心", "洋食もOK", "家族向け", "ダイエット重視", "節約重視"] else 0,
+    user_type_options = [
+        "自分向け",
+        "自分＋家族向け",
+        "子ども優先",
+        "夫も満足",
+        "ダイエット重視",
+        "節約重視",
+        "忙しい日向け",
+    ]
+
+    user_type = st.selectbox(
+        "利用タイプ",
+        user_type_options,
+        index=option_index(user_type_options, settings.get("user_type", "自分向け")),
     )
+
+    activity_options = [
+        "少なめ",
+        "ふつう",
+        "多め",
+        "ヨガ・ピラティスあり",
+        "筋トレあり",
+        "外出多め",
+    ]
+
+    activity_level = st.selectbox(
+        "活動量",
+        activity_options,
+        index=option_index(activity_options, settings.get("activity_level", "ふつう")),
+    )
+
+    food_style_options = [
+        "和食中心",
+        "洋食もOK",
+        "家族向け",
+        "ダイエット重視",
+        "節約重視",
+        "外食あり",
+        "コンビニ活用",
+    ]
+
+    food_style = st.selectbox(
+        "食事スタイル",
+        food_style_options,
+        index=option_index(
+            food_style_options,
+            settings.get("food_style") or settings.get("meal_style", "和食中心")
+        ),
+    )
+
+    constitution_options = [
+        "冷えやすい",
+        "むくみやすい",
+        "疲れやすい",
+        "寝不足になりやすい",
+        "肩こり",
+        "便秘気味",
+        "胃腸が弱い",
+        "甘いものが欲しくなる",
+        "外食が多い",
+        "運動不足",
+    ]
+
+    constitution_traits = st.multiselect(
+        "体質・傾向",
+        constitution_options,
+        default=[
+            x for x in safe_list(settings.get("constitution_traits"))
+            if x in constitution_options
+        ],
+    )
+
+    advice_tone_options = [
+        "やさしく",
+        "具体的に",
+        "短く",
+        "励ましてほしい",
+        "はっきり言ってほしい",
+    ]
+
+    advice_tone = st.selectbox(
+        "アドバイスの言い方",
+        advice_tone_options,
+        index=option_index(advice_tone_options, settings.get("advice_tone", "やさしく")),
+    )
+
+    st.markdown("---")
+    st.subheader("🍽 食材・冷蔵庫")
+
+    workout_today_options = [
+        "ストレッチ",
+        "ヨガ",
+        "ピラティス",
+        "有酸素",
+        "筋トレ",
+        "なし",
+    ]
 
     workout_today = st.selectbox(
         "よくする運動",
-        ["ストレッチ", "ヨガ", "ピラティス", "有酸素", "筋トレ", "なし"],
-        index=["ストレッチ", "ヨガ", "ピラティス", "有酸素", "筋トレ", "なし"].index(
-            settings.get("workout_today", "ストレッチ")
-        ) if settings.get("workout_today", "ストレッチ") in ["ストレッチ", "ヨガ", "ピラティス", "有酸素", "筋トレ", "なし"] else 0,
+        workout_today_options,
+        index=option_index(workout_today_options, settings.get("workout_today", "ストレッチ")),
     )
 
     fridge_items = st.text_area(
@@ -158,7 +273,14 @@ if submitted:
             "target_weight": target_weight,
             "current_body_fat": current_body_fat,
             "target_body_fat": target_body_fat,
-            "meal_style": meal_style,
+
+            "user_type": user_type,
+            "activity_level": activity_level,
+            "food_style": food_style,
+            "meal_style": food_style,
+            "constitution_traits": constitution_traits,
+            "advice_tone": advice_tone,
+
             "workout_today": workout_today,
             "fridge_items": fridge_items,
             "avoid_foods": avoid_foods,
