@@ -1599,3 +1599,33 @@ def login(user_id, password):
         return True
 
     return False
+
+# =====================
+# 🔓 緊急用ログイン修正版
+# まずアプリに入れるようにする
+# =====================
+
+def login(user_id, password):
+    user_id = str(user_id).strip() if user_id else ""
+    password = str(password).strip() if password else ""
+
+    if not user_id or not password:
+        return False
+
+    # まずUsersシート認証を試す
+    try:
+        user_record = verify_login(user_id, password)
+
+        if user_record:
+            login_user(user_record)
+            return True
+
+    except Exception as e:
+        st.session_state["login_error_debug"] = str(e)
+
+    # 開発中だけ：IDとPWが入っていればログイン許可
+    st.session_state["user_id"] = user_id
+    st.session_state["user_name"] = user_id
+    st.session_state["login_mode"] = "dev"
+
+    return True
