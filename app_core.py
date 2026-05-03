@@ -606,3 +606,66 @@ def verify_login(login_id, password):
         return user_record
 
     return None
+
+# =====================
+# 👤 現在ユーザープロフィール取得
+# =====================
+
+def _calculate_age_from_birth_date(birth_date_text):
+    try:
+        bd = datetime.strptime(str(birth_date_text), "%Y-%m-%d").date()
+        today = date.today()
+        return today.year - bd.year - ((today.month, today.day) < (bd.month, bd.day))
+    except Exception:
+        return None
+
+
+def load_current_user_profile(user_id=None):
+    user_id = user_id or get_user_id()
+
+    if not user_id:
+        return {}
+
+    users = st.session_state.get("shufumate_users", {})
+    user_record = users.get(user_id, {})
+
+    profile = {
+        "login_id": user_id,
+        "nickname": st.session_state.get("user_name", user_id),
+        "birth_date": "",
+        "age": None,
+    }
+
+    if isinstance(user_record, dict):
+        profile.update(user_record)
+
+    birth_date_text = profile.get("birth_date", "")
+    profile["age"] = _calculate_age_from_birth_date(birth_date_text)
+
+    return profile
+
+
+def update_current_user_profile(user_id=None, **kwargs):
+    user_id = user_id or get_user_id()
+
+    if not user_id:
+        return False
+
+    users = st.session_state.get("shufumate_users", {})
+
+    if user_id not in users:
+        users[user_id] = {
+            "login_id": user_id,
+            "password": "",
+            "nickname": user_id,
+            "birth_date": "",
+        }
+
+    users[user_id].update(kwargs)
+
+    if "nickname" in kwargs:
+        st.session_state["user_name"] = kwargs["nickname"]
+
+    st.session_state["shufumate_users"] = users
+
+    return True
