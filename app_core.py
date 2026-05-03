@@ -1629,3 +1629,45 @@ def login(user_id, password):
     st.session_state["login_mode"] = "dev"
 
     return True
+
+# =====================
+# ⚙️ ユーザー設定 初期値 強化版
+# 相談ページと設定ページをそろえる
+# =====================
+
+def get_default_user_settings():
+    return {
+        "nickname": "",
+        "gender": "",
+        "age": "",
+        "height_cm": 155,
+        "start_weight": "",
+        "current_weight": 50,
+        "target_weight": 48,
+        "start_body_fat": "",
+        "current_body_fat": 30,
+        "target_body_fat": 28,
+
+        # 相談ページで使う項目
+        "user_type": "自分向け",
+        "activity_level": "ふつう",
+        "food_style": "和食中心",
+        "meal_style": "和食中心",
+        "constitution_traits": [],
+        "advice_tone": "やさしく",
+
+        # 食事・運動
+        "ease_level": "かんたん",
+        "staple_preference": "ごはん",
+        "fridge_items": "",
+        "avoid_foods": "",
+        "favorite_meals": "",
+        "favorite_protein_onigiri": "鮭・しらす・枝豆のおにぎり",
+        "favorite_misodama_soup": "味噌玉の味噌汁",
+        "plan_type": "バランス",
+        "lunch_style": "家・弁当",
+        "real_mode": "やさしめ",
+        "daily_flow": "",
+        "workout_today": "ストレッチ",
+        "body_goal": "無理なく整える",
+    }
