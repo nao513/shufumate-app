@@ -1671,3 +1671,77 @@ def get_default_user_settings():
         "workout_today": "ストレッチ",
         "body_goal": "無理なく整える",
     }
+
+# =====================
+# 🏃‍♀️ 運動オプション共通化
+# =====================
+
+def get_exercise_options():
+    return [
+        "ストレッチ",
+        "ヨガ",
+        "ピラティス",
+        "有酸素",
+        "筋トレ",
+        "なし",
+    ]
+
+
+def get_exercise_advice(exercise):
+    if exercise == "なし":
+        return "今日は無理に運動しなくて大丈夫です。肩まわしや深呼吸だけでもOKです。"
+
+    if exercise == "ストレッチ":
+        return "首・肩・股関節を中心に、5〜10分ゆっくり伸ばしましょう。"
+
+    if exercise == "ヨガ":
+        return "今日は呼吸を意識して、リラックス系のヨガがおすすめです。"
+
+    if exercise == "ピラティス":
+        return "体幹を意識して、無理のない範囲で整えましょう。運動後はたんぱく質も少し入れると◎です。"
+
+    if exercise == "有酸素":
+        return "軽いウォーキングや家事のついで運動で十分です。汗をかきすぎない程度でOKです。"
+
+    if exercise == "筋トレ":
+        return "筋肉を使う日は、運動後に卵・豆腐・魚・鶏むね肉などのたんぱく質を入れましょう。"
+
+    return "今日は体調に合わせて、できる範囲で整えましょう。"
+
+
+# =====================
+# 🧭 食事タイプ決定 強化版
+# ヨガ・ピラティス対応
+# =====================
+
+def decide_meal_type(condition):
+
+    state = condition.get("state", "普通")
+    exercise = condition.get("exercise", "なし")
+    weather = condition.get("weather", "普通")
+
+    if state == "疲れ":
+        return "軽め"
+
+    if state == "むくみ":
+        return "さっぱり"
+
+    if exercise == "筋トレ":
+        return "しっかり"
+
+    if exercise == "ピラティス":
+        return "バランス"
+
+    if exercise == "ヨガ":
+        return "軽め"
+
+    if exercise == "有酸素":
+        return "バランス"
+
+    if weather == "暑い":
+        return "さっぱり"
+
+    if weather == "寒い":
+        return "あたたかい"
+
+    return "バランス"
