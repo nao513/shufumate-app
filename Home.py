@@ -92,14 +92,7 @@ else:
     # -----------------
     st.markdown("### 🏃‍♀️ 運動")
 
-    if exercise == "なし":
-        st.write("ストレッチがおすすめです")
-    elif exercise == "ストレッチ":
-        st.write("軽めに体をほぐしましょう")
-    elif exercise == "有酸素":
-        st.write("ウォーキングや軽い運動がおすすめ")
-    elif exercise == "筋トレ":
-        st.write("タンパク質をしっかり摂りましょう")
+    st.write(get_exercise_advice(exercise))
 
     st.markdown("---")
 
