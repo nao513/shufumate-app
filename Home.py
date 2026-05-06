@@ -78,13 +78,14 @@ try:
     exercise_options = get_exercise_options()
 except Exception:
     exercise_options = [
-        "ストレッチ",
-        "ヨガ",
-        "ピラティス",
-        "有酸素",
-        "筋トレ",
-        "なし",
-    ]
+         "ストレッチ",
+         "ヨガ",
+         "ピラティス",
+         "ウォーキング",
+         "ランニング",
+         "筋トレ",
+         "なし",
+ ]
 
 default_exercise = settings.get("workout_today", "ストレッチ")
 
