@@ -74,20 +74,21 @@ weather_value = weather_map.get(weather_label, "普通")
 # -----------------
 # 運動予定
 # -----------------
-try:
-    exercise_options = get_exercise_options()
-except Exception:
-    exercise_options = [
-         "ストレッチ",
-         "ヨガ",
-         "ピラティス",
-         "ウォーキング",
-         "ランニング",
-         "筋トレ",
-         "なし",
- ]
+exercise_options = [
+    "ストレッチ",
+    "ヨガ",
+    "ピラティス",
+    "ウォーキング",
+    "ランニング",
+    "筋トレ",
+    "なし",
+]
 
 default_exercise = settings.get("workout_today", "ストレッチ")
+
+# 古い設定で「有酸素」が残っている場合はウォーキングに変換
+if default_exercise == "有酸素":
+    default_exercise = "ウォーキング"
 
 if default_exercise not in exercise_options:
     default_exercise = "ストレッチ"
@@ -97,8 +98,6 @@ exercise = st.selectbox(
     exercise_options,
     index=exercise_options.index(default_exercise)
 )
-
-st.markdown("---")
 
 # =====================
 # 🌿 かんたんモード
