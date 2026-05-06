@@ -292,28 +292,31 @@ with st.form("settings_form"):
     # -----------------
     # 運動設定
     # -----------------
-    st.subheader("🏃‍♀️ 運動設定")
+        st.subheader("🏃‍♀️ 運動設定")
 
-    try:
-        workout_today_options = get_exercise_options()
-    except Exception:
-        workout_today_options = [
-            "ストレッチ",
-            "ヨガ",
-            "ピラティス",
-            "ウォーキング",
-            "ランニング",
-            "筋トレ",
-            "なし",
-        ]
+    workout_today_options = [
+        "ストレッチ",
+        "ヨガ",
+        "ピラティス",
+        "ウォーキング",
+        "ランニング",
+        "筋トレ",
+        "なし",
+    ]
+
+    current_workout = settings.get("workout_today", "ストレッチ")
+
+    # 古い設定で「有酸素」が保存されている場合の置き換え
+    if current_workout == "有酸素":
+        current_workout = "ウォーキング"
+
+    if current_workout not in workout_today_options:
+        current_workout = "ストレッチ"
 
     workout_today = st.selectbox(
         "よくする運動",
         workout_today_options,
-        index=option_index(
-            workout_today_options,
-            settings.get("workout_today", "ストレッチ")
-        )
+        index=workout_today_options.index(current_workout)
     )
 
     st.markdown("---")
