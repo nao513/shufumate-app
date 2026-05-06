@@ -408,38 +408,37 @@ st.text_input(
     disabled=True
 )
 
-# -----------------
-# パスワード変更
-# -----------------
-st.subheader("🔑 パスワード変更")
+    # -----------------
+    # 運動設定
+    # -----------------
+    st.subheader("🏃‍♀️ 運動設定")
 
-new_pw = st.text_input(
-    "新しいパスワード",
-    type="password"
-)
+    workout_today_options = [
+        "ストレッチ",
+        "ヨガ",
+        "ピラティス",
+        "ウォーキング",
+        "ランニング",
+        "筋トレ",
+        "なし",
+    ]
 
-new_pw2 = st.text_input(
-    "確認",
-    type="password"
-)
+    current_workout = settings.get("workout_today", "ストレッチ")
 
-if st.button("変更する", use_container_width=True):
+    # 古い設定で「有酸素」が保存されている場合の置き換え
+    if current_workout == "有酸素":
+        current_workout = "ウォーキング"
 
-    if not new_pw:
-        st.warning("パスワードを入力してください")
+    if current_workout not in workout_today_options:
+        current_workout = "ストレッチ"
 
-    elif new_pw != new_pw2:
-        st.error("一致しません")
+    workout_today = st.selectbox(
+        "よくする運動",
+        workout_today_options,
+        index=workout_today_options.index(current_workout)
+    )
 
-    elif len(new_pw) < 4:
-        st.warning("パスワードは4文字以上にしてください")
-
-    else:
-        try:
-            reset_password(login_id_text, new_pw)
-            st.success("変更しました")
-        except Exception as e:
-            st.error(f"変更に失敗しました: {e}")
+    st.markdown("---")
 
 # -----------------
 # ログアウト
