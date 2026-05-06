@@ -120,11 +120,11 @@ else:
 with st.expander("📅 1週間プラン"):
 
     week_plan = generate_weekly_plan(
-        user_type="バランス",
-        weather=weather,
-        state=state,
-        exercise=exercise
-    )
+    user_type="バランス",
+    weather=weather_value,
+    state=state,
+    exercise=exercise
+)
 
     for day, plan in week_plan.items():
         st.markdown(f"### {day}")
