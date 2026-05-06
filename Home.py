@@ -1,4 +1,5 @@
 import streamlit as st
+import pandas as pd
 from app_core import *
 
 # -----------------
@@ -24,14 +25,15 @@ try:
 except Exception:
     settings = {}
 
+if not isinstance(settings, dict):
+    settings = {}
+
 # -----------------
 # ヘッダー
 # -----------------
 st.title("🏠 ShufuMate")
 st.caption("食事も、暮らしも、ちょうどよく")
-
 st.markdown(f"こんにちは、**{user_id} さん** 😊")
-
 st.markdown("---")
 
 # -----------------
@@ -62,13 +64,11 @@ with col2:
         ["普通", "暑く感じる", "寒く感じる"]
     )
 
-# 内部処理用に変換
 weather_map = {
     "普通": "普通",
     "暑く感じる": "暑い",
     "寒く感じる": "寒い",
 }
-
 weather_value = weather_map.get(weather_label, "普通")
 
 # -----------------
@@ -86,7 +86,6 @@ exercise_options = [
 
 default_exercise = settings.get("workout_today", "ストレッチ")
 
-# 古い設定で「有酸素」が残っている場合はウォーキングに変換
 if default_exercise == "有酸素":
     default_exercise = "ウォーキング"
 
@@ -99,6 +98,21 @@ exercise = st.selectbox(
     index=exercise_options.index(default_exercise)
 )
 
+st.markdown("---")
+
+# -----------------
+# 今日のプランを先に作成
+# -----------------
+try:
+    today_plan = generate_full_plan(
+        user_type=settings.get("user_type", "自分向け"),
+        weather=weather_value,
+        state=state,
+        exercise=exercise
+    )
+except Exception:
+    today_plan = {}
+
 # =====================
 # 🌿 かんたんモード
 # =====================
@@ -106,14 +120,16 @@ if mode == "かんたん":
 
     st.subheader("🌿 今日のおすすめ")
 
-    text = generate_simple_advice(
-        user_type=settings.get("user_type", "自分向け"),
-        weather=weather_value,
-        state=state,
-        exercise=exercise
-    )
-
-    st.success(text)
+    try:
+        text = generate_simple_advice(
+            user_type=settings.get("user_type", "自分向け"),
+            weather=weather_value,
+            state=state,
+            exercise=exercise
+        )
+        st.success(text)
+    except Exception as e:
+        st.warning(f"今日のおすすめを作成できませんでした: {e}")
 
     st.markdown("### 🏃‍♀️ 今日の運動ヒント")
 
@@ -129,34 +145,23 @@ else:
 
     st.subheader("💪 今日のプラン")
 
-    # -----------------
-    # 食事プラン
-    # -----------------
-    plan = generate_full_plan(
-        user_type=settings.get("user_type", "自分向け"),
-        weather=weather_value,
-        state=state,
-        exercise=exercise
-    )
-
     st.markdown("### 🍽 食事")
 
-    for meal_time, menu in plan.items():
+    if today_plan:
+        for meal_time, menu in today_plan.items():
+            if meal_time == "朝":
+                icon = "🌅"
+            elif meal_time == "昼":
+                icon = "☀️"
+            elif meal_time == "夜":
+                icon = "🌙"
+            else:
+                icon = "🍽"
 
-        if meal_time == "朝":
-            icon = "🌅"
-        elif meal_time == "昼":
-            icon = "☀️"
-        elif meal_time == "夜":
-            icon = "🌙"
-        else:
-            icon = "🍽"
+            st.markdown(f"{icon} **{meal_time}：** {menu}")
+    else:
+        st.info("今日の食事プランはまだありません。")
 
-        st.markdown(f"{icon} **{meal_time}：** {menu}")
-
-    # -----------------
-    # 運動
-    # -----------------
     st.markdown("### 🏃‍♀️ 運動")
 
     try:
@@ -164,15 +169,14 @@ else:
     except Exception:
         st.write("今日は体調に合わせて、できる範囲で整えましょう。")
 
-    st.markdown("---")
-
-    # -----------------
+# -----------------
 # 🛒 買い物リスト
 # -----------------
+st.markdown("---")
+
 with st.expander("🛒 買い物リスト"):
 
     try:
-        # 1週間プランから買い物リストを作る
         shopping_week_plan = generate_weekly_plan(
             user_type=settings.get("user_type", "自分向け"),
             weather=weather_value,
@@ -204,16 +208,12 @@ with st.expander("🛒 買い物リスト"):
                             item,
                             key=f"home_week_shopping_{category}_{item}"
                         )
-
                         shopping_rows.append({
                             "カテゴリ": category,
                             "商品": item,
                         })
 
-            # CSV出力
             if shopping_rows:
-                import pandas as pd
-
                 df = pd.DataFrame(shopping_rows)
                 csv = df.to_csv(index=False).encode("utf-8-sig")
 
@@ -224,14 +224,14 @@ with st.expander("🛒 買い物リスト"):
                     mime="text/csv",
                     use_container_width=True
                 )
-
         else:
             st.info("買い物リストはありません")
 
     except Exception as e:
         st.warning(f"買い物リストを作成できませんでした: {e}")
+
 # -----------------
-# 1週間プラン
+# 📅 1週間プラン
 # -----------------
 with st.expander("📅 1週間プラン"):
 
@@ -245,7 +245,6 @@ with st.expander("📅 1週間プラン"):
 
         for day, day_plan in week_plan.items():
             st.markdown(f"### {day}")
-
             st.write(f"朝：{day_plan.get('朝', '')}")
             st.write(f"昼：{day_plan.get('昼', '')}")
             st.write(f"夜：{day_plan.get('夜', '')}")
