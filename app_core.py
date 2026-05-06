@@ -2012,3 +2012,162 @@ def generate_simple_advice(user_type=None, weather=None, state=None, exercise=No
     )
 
     return f"今日は「{meal_type}」がおすすめです → {meal}"
+
+# =====================
+# 🛒 買い物リスト 最終安定版
+# 1日分・1週間分どちらにも対応
+# =====================
+
+from collections import Counter
+
+def _normalize_fridge_items(fridge_items=None):
+    if fridge_items is None:
+        return []
+
+    if isinstance(fridge_items, list):
+        return [str(x).strip() for x in fridge_items if str(x).strip()]
+
+    if isinstance(fridge_items, str):
+        return [
+            x.strip()
+            for x in fridge_items.replace("、", ",").replace("\n", ",").split(",")
+            if x.strip()
+        ]
+
+    return []
+
+
+def _extract_meal_texts(plan):
+    """
+    plan が
+    1日分：{"朝": "...", "昼": "...", "夜": "..."}
+    週間分：{"月": {"朝": "...", ...}, ...}
+    どちらでも食事テキストに変換する
+    """
+    meal_texts = []
+
+    if not isinstance(plan, dict):
+        return meal_texts
+
+    for value in plan.values():
+
+        # 週間プランの場合
+        if isinstance(value, dict):
+            for meal in value.values():
+                meal_texts.append(str(meal))
+
+        # 1日プランの場合
+        else:
+            meal_texts.append(str(value))
+
+    return meal_texts
+
+
+def generate_smart_shopping_list(plan, fridge_items=None):
+
+    fridge_items = _normalize_fridge_items(fridge_items)
+
+    mapping = {
+        "具だくさん味噌汁": ["味噌", "豆腐", "わかめ", "きのこ"],
+        "豆腐味噌汁": ["味噌", "豆腐"],
+        "わかめ味噌汁": ["味噌", "わかめ"],
+        "味噌汁": ["味噌", "豆腐"],
+
+        "鮭おにぎり": ["ごはん", "鮭", "海苔"],
+        "しらすおにぎり": ["ごはん", "しらす", "海苔"],
+        "おにぎり": ["ごはん", "海苔"],
+
+        "納豆ごはん": ["ごはん", "納豆"],
+        "卵かけごはん": ["ごはん", "卵"],
+        "雑穀ごはん": ["雑穀米"],
+
+        "ゆで卵": ["卵"],
+        "温泉卵": ["卵"],
+        "卵焼き": ["卵"],
+        "卵": ["卵"],
+
+        "ヨーグルト": ["ヨーグルト"],
+        "バナナ": ["バナナ"],
+        "フルーツ": ["りんご", "バナナ"],
+
+        "トースト": ["食パン"],
+        "野菜スープ": ["キャベツ", "にんじん", "玉ねぎ"],
+        "スープ": ["キャベツ", "にんじん"],
+
+        "豚しゃぶ": ["豚肉", "レタス"],
+        "冷しゃぶ": ["豚肉", "レタス"],
+        "鶏むね肉": ["鶏むね肉"],
+        "鶏そぼろ": ["鶏ひき肉"],
+        "鶏団子": ["鶏ひき肉"],
+
+        "豆腐ハンバーグ": ["豆腐", "ひき肉", "玉ねぎ"],
+        "ハンバーグ": ["ひき肉", "玉ねぎ"],
+
+        "焼き魚": ["魚"],
+        "焼き鮭": ["鮭"],
+        "鮭": ["鮭"],
+        "しらす": ["しらす"],
+        "冷奴": ["豆腐"],
+
+        "そば": ["そば"],
+        "うどん": ["うどん"],
+        "雑炊": ["ごはん", "卵"],
+        "鍋": ["白菜", "豆腐", "きのこ"],
+
+        "サラダチキン": ["サラダチキン"],
+        "サラダ": ["レタス", "トマト"],
+        "副菜": ["小松菜", "にんじん"],
+    }
+
+    category_map = {
+        "野菜": ["レタス", "トマト", "キャベツ", "にんじん", "玉ねぎ", "白菜", "きのこ", "小松菜"],
+        "肉": ["豚肉", "鶏むね肉", "鶏ひき肉", "ひき肉", "サラダチキン"],
+        "魚": ["鮭", "しらす", "魚"],
+        "卵・乳製品": ["卵", "ヨーグルト"],
+        "豆腐・納豆": ["豆腐", "納豆"],
+        "主食": ["ごはん", "雑穀米", "食パン", "そば", "うどん"],
+        "調味料・乾物": ["味噌", "わかめ", "海苔"],
+        "果物": ["りんご", "バナナ"],
+    }
+
+    items = []
+
+    meal_texts = _extract_meal_texts(plan)
+
+    # 長いキーワードを先に見る
+    sorted_keys = sorted(mapping.keys(), key=len, reverse=True)
+
+    for meal_text in meal_texts:
+        matched_keys = []
+
+        for key in sorted_keys:
+            if key in meal_text:
+
+                # 例：具だくさん味噌汁に反応したら、味噌汁の重複は避ける
+                if any(key in matched for matched in matched_keys):
+                    continue
+
+                items.extend(mapping[key])
+                matched_keys.append(key)
+
+    # 冷蔵庫にあるものは除外
+    items = [item for item in items if item not in fridge_items]
+
+    counted = Counter(items)
+
+    result = {}
+
+    for item, count in counted.items():
+        category = "その他"
+
+        for cat, cat_items in category_map.items():
+            if item in cat_items:
+                category = cat
+                break
+
+        if category not in result:
+            result[category] = []
+
+        result[category].append(f"{item} × {count}")
+
+    return result
