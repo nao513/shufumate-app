@@ -48,11 +48,11 @@ if mode == "かんたん":
     st.subheader("🌿 今日のおすすめ")
 
     text = generate_simple_advice(
-        user_type="バランス",
-        weather=weather,
-        state=state,
-        exercise=exercise
-    )
+    user_type="バランス",
+    weather=weather_value,
+    state=state,
+    exercise=exercise
+)
 
     st.success(text)
 
