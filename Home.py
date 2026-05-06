@@ -182,7 +182,7 @@ with st.expander("🛒 買い物リスト"):
 
         fridge_items = settings.get("fridge_items", "")
 
-        shopping = generate_smart_shopping_list(
+        shopping = generate_supermarket_shopping_list(
             shopping_week_plan,
             fridge_items=fridge_items
         )
