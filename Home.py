@@ -68,12 +68,12 @@ else:
     # -----------------
     st.markdown("### 🍽 食事")
 
-    plan = generate_full_plan(
-        user_type="バランス",
-        weather=weather,
-        state=state,
-        exercise=exercise
-    )
+   plan = generate_full_plan(
+    user_type="バランス",
+    weather=weather_value,
+    state=state,
+    exercise=exercise
+)
 
     for k, v in plan.items():
         if k == "朝":
