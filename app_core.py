@@ -1745,3 +1745,270 @@ def decide_meal_type(condition):
         return "あたたかい"
 
     return "バランス"
+
+# =====================
+# 🍽 メニュー提案 最終版
+# 朝・昼・夜で必ず変える
+# =====================
+
+WEEK_DAYS = ["月", "火", "水", "木", "金", "土", "日"]
+MEAL_TIMINGS = ["朝", "昼", "夜"]
+
+
+def _menu_index(timing=None, day=None):
+    day_num = 0
+
+    if day in WEEK_DAYS:
+        day_num = WEEK_DAYS.index(day)
+    else:
+        try:
+            day_num = jst_now().weekday()
+        except Exception:
+            day_num = 0
+
+    timing_num = 0
+    if timing in MEAL_TIMINGS:
+        timing_num = MEAL_TIMINGS.index(timing)
+
+    return day_num + timing_num
+
+
+def _pick_menu(options, timing=None, day=None):
+    if not options:
+        return ""
+
+    idx = _menu_index(timing, day) % len(options)
+    return options[idx]
+
+
+def convert_to_meal(meal_type, condition=None, timing=None, day=None):
+    condition = condition or {}
+
+    state = condition.get("state", "普通")
+    exercise = condition.get("exercise", "なし")
+    weather = condition.get("weather", "普通")
+
+    # -----------------
+    # 朝
+    # -----------------
+    breakfast_balance = [
+        "鮭おにぎり＋味噌汁＋ゆで卵",
+        "納豆ごはん＋味噌汁＋ヨーグルト",
+        "しらすおにぎり＋具だくさん味噌汁",
+        "卵かけごはん＋わかめ味噌汁",
+        "トースト＋ゆで卵＋野菜スープ",
+        "雑穀ごはん＋納豆＋味噌汁",
+        "おにぎり＋豆腐味噌汁＋フルーツ",
+    ]
+
+    breakfast_light = [
+        "小さめおにぎり＋味噌汁",
+        "ヨーグルト＋バナナ＋温かいお茶",
+        "味噌汁＋ゆで卵",
+        "豆腐味噌汁＋フルーツ",
+        "トースト半分＋スープ",
+    ]
+
+    # -----------------
+    # 昼
+    # -----------------
+    lunch_balance = [
+        "鶏そぼろごはん＋サラダ＋味噌汁",
+        "鮭おにぎり＋具だくさん味噌汁＋卵焼き",
+        "豚しゃぶサラダ＋ごはん",
+        "焼き魚定食風＋ごはん＋副菜",
+        "ツナ卵サンド＋野菜スープ",
+        "そば＋温泉卵＋小鉢",
+        "鶏むね肉丼＋味噌汁",
+    ]
+
+    lunch_light = [
+        "おにぎり＋味噌汁",
+        "そば＋温泉卵",
+        "雑炊＋豆腐",
+        "サラダチキン＋スープ",
+        "豆腐丼＋味噌汁",
+    ]
+
+    # -----------------
+    # 夜
+    # -----------------
+    dinner_balance = [
+        "ごはん少なめ＋焼き魚＋味噌汁＋副菜",
+        "鶏むね肉の蒸し焼き＋サラダ＋味噌汁",
+        "豚しゃぶ＋野菜＋ごはん少なめ",
+        "豆腐ハンバーグ＋味噌汁＋副菜",
+        "野菜たっぷり鍋＋ごはん少なめ",
+        "鶏団子スープ＋ごはん少なめ",
+        "焼き鮭＋冷奴＋味噌汁",
+    ]
+
+    dinner_light = [
+        "具だくさん味噌汁＋小さめおにぎり",
+        "豆腐と野菜のスープ",
+        "雑炊＋温かいお茶",
+        "冷しゃぶサラダ＋味噌汁",
+        "野菜スープ＋ゆで卵",
+    ]
+
+    dinner_protein = [
+        "鶏むね肉＋ごはん＋サラダ＋味噌汁",
+        "豚しゃぶ＋ごはん＋副菜",
+        "豆腐ハンバーグ＋ごはん＋スープ",
+        "焼き魚＋ごはん＋味噌汁＋納豆",
+    ]
+
+    # -----------------
+    # 体調優先
+    # -----------------
+    if state == "疲れ":
+        if timing == "朝":
+            return _pick_menu(breakfast_light, timing, day)
+        if timing == "昼":
+            return _pick_menu(lunch_light, timing, day)
+        return _pick_menu(dinner_light, timing, day)
+
+    if state == "むくみ" or meal_type == "さっぱり":
+        if timing == "朝":
+            return _pick_menu([
+                "しらすおにぎり＋わかめ味噌汁",
+                "ヨーグルト＋バナナ＋温かいお茶",
+                "豆腐味噌汁＋フルーツ",
+            ], timing, day)
+        if timing == "昼":
+            return _pick_menu([
+                "そば＋温泉卵",
+                "冷しゃぶサラダ＋小さめごはん",
+                "サラダチキン＋スープ",
+            ], timing, day)
+        return _pick_menu([
+            "豆腐と野菜のスープ",
+            "冷しゃぶサラダ＋味噌汁",
+            "雑炊＋温かいお茶",
+        ], timing, day)
+
+    if weather == "寒い" or meal_type == "あたたかい":
+        if timing == "朝":
+            return _pick_menu([
+                "雑炊＋味噌汁",
+                "おにぎり＋具だくさん味噌汁",
+                "スープ＋ゆで卵",
+            ], timing, day)
+        if timing == "昼":
+            return _pick_menu([
+                "うどん＋温泉卵",
+                "鶏団子スープ＋ごはん",
+                "雑炊＋豆腐",
+            ], timing, day)
+        return _pick_menu([
+            "野菜たっぷり鍋＋ごはん少なめ",
+            "うどん＋卵",
+            "具だくさん味噌汁＋豆腐",
+        ], timing, day)
+
+    # -----------------
+    # 運動別
+    # -----------------
+    if exercise == "筋トレ":
+        if timing == "朝":
+            return _pick_menu(breakfast_balance, timing, day)
+        if timing == "昼":
+            return _pick_menu(dinner_protein, timing, day)
+        return _pick_menu(dinner_balance, timing, day)
+
+    if exercise == "ヨガ":
+        if timing == "夜":
+            return _pick_menu(dinner_light, timing, day)
+
+    if exercise == "ピラティス":
+        if timing == "夜":
+            return _pick_menu(dinner_balance, timing, day)
+
+    # -----------------
+    # 通常
+    # -----------------
+    if meal_type == "軽め":
+        if timing == "朝":
+            return _pick_menu(breakfast_light, timing, day)
+        if timing == "昼":
+            return _pick_menu(lunch_light, timing, day)
+        return _pick_menu(dinner_light, timing, day)
+
+    if meal_type == "しっかり":
+        if timing == "朝":
+            return _pick_menu(breakfast_balance, timing, day)
+        if timing == "昼":
+            return _pick_menu(lunch_balance, timing, day)
+        return _pick_menu(dinner_protein, timing, day)
+
+    # バランス
+    if timing == "朝":
+        return _pick_menu(breakfast_balance, timing, day)
+    if timing == "昼":
+        return _pick_menu(lunch_balance, timing, day)
+    if timing == "夜":
+        return _pick_menu(dinner_balance, timing, day)
+
+    return "鮭おにぎり＋味噌汁＋ゆで卵"
+
+
+def generate_full_plan(user_type=None, weather=None, state=None, exercise=None, day=None):
+    condition = build_condition(user_type, weather, state, exercise)
+
+    plan = {}
+
+    for timing in ["朝", "昼", "夜"]:
+        meal_type = decide_meal_type(condition)
+
+        if timing == "夜" and meal_type == "しっかり":
+            meal_type = "バランス"
+
+        plan[timing] = convert_to_meal(
+            meal_type=meal_type,
+            condition=condition,
+            timing=timing,
+            day=day
+        )
+
+    return plan
+
+
+def generate_weekly_plan(user_type=None, weather=None, state=None, exercise=None):
+    week = {}
+
+    for day in WEEK_DAYS:
+        week[day] = generate_full_plan(
+            user_type=user_type,
+            weather=weather,
+            state=state,
+            exercise=exercise,
+            day=day
+        )
+
+    return week
+
+
+def generate_simple_advice(user_type=None, weather=None, state=None, exercise=None):
+    condition = build_condition(user_type, weather, state, exercise)
+    meal_type = decide_meal_type(condition)
+
+    try:
+        hour = jst_now().hour
+    except Exception:
+        hour = 12
+
+    if 4 <= hour < 10:
+        timing = "朝"
+    elif 10 <= hour < 15:
+        timing = "昼"
+    else:
+        timing = "夜"
+
+    meal = convert_to_meal(
+        meal_type=meal_type,
+        condition=condition,
+        timing=timing,
+        day=None
+    )
+
+    return f"今日は「{meal_type}」がおすすめです → {meal}"
