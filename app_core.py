@@ -2769,13 +2769,13 @@ def generate_smart_shopping_list(plan, fridge_items=None):
     return result
 
 # =====================
-# 🛒 スーパー買い物リスト 最終版
-# 同名関数の混乱を避けるため、別名で作る
+# 🛒 スーパー買い物リスト 安定版
+# generate_smart_shopping_list と分けて使う
 # =====================
 
 from collections import Counter
 
-def _supermarket_normalize_fridge(fridge_items=None):
+def supermarket_normalize_fridge(fridge_items=None):
     if fridge_items is None:
         return []
 
@@ -2792,7 +2792,7 @@ def _supermarket_normalize_fridge(fridge_items=None):
     return []
 
 
-def _supermarket_extract_meals(plan):
+def supermarket_extract_meals(plan):
     meals = []
 
     if not isinstance(plan, dict):
@@ -2808,20 +2808,16 @@ def _supermarket_extract_meals(plan):
     return meals
 
 
-def _supermarket_amount(item, count):
-
-    # 家にあることが多いもの
+def supermarket_amount(item, count):
     if item in ["米", "味噌", "わかめ", "海苔"]:
         return "家になければ"
 
-    # 卵・乳製品
     if item == "卵":
         return "1パック"
 
     if item == "ヨーグルト":
         return "1パック"
 
-    # 豆腐・納豆
     if item == "豆腐":
         if count <= 3:
             return "1丁"
@@ -2833,7 +2829,6 @@ def _supermarket_amount(item, count):
     if item == "納豆":
         return "1パック"
 
-    # 野菜
     if item == "レタス":
         if count <= 4:
             return "1/2玉"
@@ -2882,7 +2877,6 @@ def _supermarket_amount(item, count):
     if item == "小松菜":
         return "1袋"
 
-    # 肉
     if item == "豚肉":
         if count <= 2:
             return "200g"
@@ -2892,13 +2886,7 @@ def _supermarket_amount(item, count):
             return "500g"
 
     if item == "鶏むね肉":
-        if count <= 2g"
-        elif count <= 5:
-            return "300〜400g"
-        else:
-            return "500g"
-
-    if item == "鶏むね:
+        if count <= 2:
             return "1枚"
         else:
             return "2枚"
@@ -2912,7 +2900,6 @@ def _supermarket_amount(item, count):
     if item == "サラダチキン":
         return "1〜2個"
 
-    # 魚
     if item == "鮭":
         if count <= 2:
             return "2切れ"
@@ -2930,7 +2917,6 @@ def _supermarket_amount(item, count):
         else:
             return "3〜4切れ"
 
-    # 主食
     if item == "食パン":
         return "1袋"
 
@@ -2940,7 +2926,6 @@ def _supermarket_amount(item, count):
     if item == "うどん":
         return "1袋"
 
-    # 果物
     if item == "バナナ":
         return "1房"
 
@@ -2951,8 +2936,7 @@ def _supermarket_amount(item, count):
 
 
 def generate_supermarket_shopping_list(plan, fridge_items=None):
-
-    fridge_items = _supermarket_normalize_fridge(fridge_items)
+    fridge_items = supermarket_normalize_fridge(fridge_items)
 
     mapping = {
         "具だくさん味噌汁": ["味噌", "豆腐", "わかめ", "きのこ"],
@@ -3015,7 +2999,7 @@ def generate_supermarket_shopping_list(plan, fridge_items=None):
         "果物": ["りんご", "バナナ"],
     }
 
-    meals = _supermarket_extract_meals(plan)
+    meals = supermarket_extract_meals(plan)
     items = []
 
     sorted_keys = sorted(mapping.keys(), key=len, reverse=True)
@@ -3025,18 +3009,13 @@ def generate_supermarket_shopping_list(plan, fridge_items=None):
 
         for key in sorted_keys:
             if key in meal_text:
-                # 「具だくさん味噌汁」と「味噌汁」の二重カウント防止
                 if any(key in matched for matched in matched_keys):
                     continue
 
                 items.extend(mapping[key])
                 matched_keys.append(key)
 
-    # 冷蔵庫にあるものは除外
-    items = [
-        item for item in items
-        if item not in fridge_items
-    ]
+    items = [item for item in items if item not in fridge_items]
 
     counted = Counter(items)
 
@@ -3053,13 +3032,13 @@ def generate_supermarket_shopping_list(plan, fridge_items=None):
         if category not in result:
             result[category] = []
 
-        amount = _supermarket_amount(item, count)
+        amount = supermarket_amount(item, count)
         result[category].append(f"{item} × {amount}")
 
     return result
 
 
-# 特売表示は初期版ではオフ
+# 初期版では特売表示はオフ
 def get_local_deals():
     return {}
 
