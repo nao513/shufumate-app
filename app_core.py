@@ -2767,3 +2767,302 @@ def generate_smart_shopping_list(plan, fridge_items=None):
         result[category].append(f"{item} × {amount}")
 
     return result
+
+# =====================
+# 🛒 スーパー買い物リスト 最終版
+# 同名関数の混乱を避けるため、別名で作る
+# =====================
+
+from collections import Counter
+
+def _supermarket_normalize_fridge(fridge_items=None):
+    if fridge_items is None:
+        return []
+
+    if isinstance(fridge_items, list):
+        return [str(x).strip() for x in fridge_items if str(x).strip()]
+
+    if isinstance(fridge_items, str):
+        return [
+            x.strip()
+            for x in fridge_items.replace("、", ",").replace("\n", ",").split(",")
+            if x.strip()
+        ]
+
+    return []
+
+
+def _supermarket_extract_meals(plan):
+    meals = []
+
+    if not isinstance(plan, dict):
+        return meals
+
+    for value in plan.values():
+        if isinstance(value, dict):
+            for meal in value.values():
+                meals.append(str(meal))
+        else:
+            meals.append(str(value))
+
+    return meals
+
+
+def _supermarket_amount(item, count):
+
+    # 家にあることが多いもの
+    if item in ["米", "味噌", "わかめ", "海苔"]:
+        return "家になければ"
+
+    # 卵・乳製品
+    if item == "卵":
+        return "1パック"
+
+    if item == "ヨーグルト":
+        return "1パック"
+
+    # 豆腐・納豆
+    if item == "豆腐":
+        if count <= 3:
+            return "1丁"
+        elif count <= 8:
+            return "2丁"
+        else:
+            return "3丁"
+
+    if item == "納豆":
+        return "1パック"
+
+    # 野菜
+    if item == "レタス":
+        if count <= 4:
+            return "1/2玉"
+        elif count <= 8:
+            return "1玉"
+        else:
+            return "1〜2玉"
+
+    if item == "トマト":
+        if count <= 3:
+            return "2〜3個"
+        else:
+            return "1パック"
+
+    if item == "キャベツ":
+        if count <= 4:
+            return "1/2玉"
+        else:
+            return "1玉"
+
+    if item == "にんじん":
+        if count <= 3:
+            return "1本"
+        elif count <= 6:
+            return "2本"
+        else:
+            return "3本"
+
+    if item == "玉ねぎ":
+        if count <= 3:
+            return "1個"
+        elif count <= 6:
+            return "2個"
+        else:
+            return "3個"
+
+    if item == "白菜":
+        return "1/4〜1/2株"
+
+    if item == "きのこ":
+        if count <= 4:
+            return "1パック"
+        else:
+            return "2パック"
+
+    if item == "小松菜":
+        return "1袋"
+
+    # 肉
+    if item == "豚肉":
+        if count <= 2:
+            return "200g"
+        elif count <= 5:
+            return "300〜400g"
+        else:
+            return "500g"
+
+    if item == "鶏むね肉":
+        if count <= 2g"
+        elif count <= 5:
+            return "300〜400g"
+        else:
+            return "500g"
+
+    if item == "鶏むね:
+            return "1枚"
+        else:
+            return "2枚"
+
+    if item in ["鶏ひき肉", "ひき肉"]:
+        if count <= 2:
+            return "200g"
+        else:
+            return "300g"
+
+    if item == "サラダチキン":
+        return "1〜2個"
+
+    # 魚
+    if item == "鮭":
+        if count <= 2:
+            return "2切れ"
+        elif count <= 5:
+            return "3〜4切れ"
+        else:
+            return "5切れ前後"
+
+    if item == "しらす":
+        return "1パック"
+
+    if item == "魚":
+        if count <= 2:
+            return "2切れ"
+        else:
+            return "3〜4切れ"
+
+    # 主食
+    if item == "食パン":
+        return "1袋"
+
+    if item == "そば":
+        return "1袋"
+
+    if item == "うどん":
+        return "1袋"
+
+    # 果物
+    if item == "バナナ":
+        return "1房"
+
+    if item == "りんご":
+        return "2個"
+
+    return f"{count}回分"
+
+
+def generate_supermarket_shopping_list(plan, fridge_items=None):
+
+    fridge_items = _supermarket_normalize_fridge(fridge_items)
+
+    mapping = {
+        "具だくさん味噌汁": ["味噌", "豆腐", "わかめ", "きのこ"],
+        "豆腐味噌汁": ["味噌", "豆腐"],
+        "わかめ味噌汁": ["味噌", "わかめ"],
+        "味噌汁": ["味噌", "豆腐"],
+
+        "鮭おにぎり": ["米", "鮭", "海苔"],
+        "しらすおにぎり": ["米", "しらす", "海苔"],
+        "おにぎり": ["米", "海苔"],
+
+        "納豆ごはん": ["米", "納豆"],
+        "卵かけごはん": ["米", "卵"],
+        "雑穀ごはん": ["米"],
+        "ごはん": ["米"],
+
+        "ゆで卵": ["卵"],
+        "温泉卵": ["卵"],
+        "卵焼き": ["卵"],
+
+        "ヨーグルト": ["ヨーグルト"],
+        "バナナ": ["バナナ"],
+        "フルーツ": ["りんご", "バナナ"],
+
+        "トースト": ["食パン"],
+        "野菜スープ": ["キャベツ", "にんじん", "玉ねぎ"],
+        "スープ": ["キャベツ", "にんじん"],
+
+        "豚しゃぶ": ["豚肉", "レタス"],
+        "冷しゃぶ": ["豚肉", "レタス"],
+        "鶏むね肉": ["鶏むね肉"],
+        "鶏そぼろ": ["鶏ひき肉"],
+        "鶏団子": ["鶏ひき肉"],
+
+        "豆腐ハンバーグ": ["豆腐", "ひき肉", "玉ねぎ"],
+        "ハンバーグ": ["ひき肉", "玉ねぎ"],
+
+        "焼き魚": ["魚"],
+        "焼き鮭": ["鮭"],
+        "冷奴": ["豆腐"],
+
+        "そば": ["そば"],
+        "うどん": ["うどん"],
+        "雑炊": ["米", "卵"],
+        "鍋": ["白菜", "豆腐", "きのこ"],
+
+        "サラダチキン": ["サラダチキン"],
+        "サラダ": ["レタス", "トマト"],
+        "副菜": ["小松菜", "にんじん"],
+    }
+
+    category_map = {
+        "家にあるか確認": ["米", "味噌", "わかめ", "海苔"],
+        "野菜": ["レタス", "トマト", "キャベツ", "にんじん", "玉ねぎ", "白菜", "きのこ", "小松菜"],
+        "肉": ["豚肉", "鶏むね肉", "鶏ひき肉", "ひき肉", "サラダチキン"],
+        "魚": ["鮭", "しらす", "魚"],
+        "卵・乳製品": ["卵", "ヨーグルト"],
+        "豆腐・納豆": ["豆腐", "納豆"],
+        "主食": ["食パン", "そば", "うどん"],
+        "果物": ["りんご", "バナナ"],
+    }
+
+    meals = _supermarket_extract_meals(plan)
+    items = []
+
+    sorted_keys = sorted(mapping.keys(), key=len, reverse=True)
+
+    for meal_text in meals:
+        matched_keys = []
+
+        for key in sorted_keys:
+            if key in meal_text:
+                # 「具だくさん味噌汁」と「味噌汁」の二重カウント防止
+                if any(key in matched for matched in matched_keys):
+                    continue
+
+                items.extend(mapping[key])
+                matched_keys.append(key)
+
+    # 冷蔵庫にあるものは除外
+    items = [
+        item for item in items
+        if item not in fridge_items
+    ]
+
+    counted = Counter(items)
+
+    result = {}
+
+    for item, count in counted.items():
+        category = "その他"
+
+        for cat, cat_items in category_map.items():
+            if item in cat_items:
+                category = cat
+                break
+
+        if category not in result:
+            result[category] = []
+
+        amount = _supermarket_amount(item, count)
+        result[category].append(f"{item} × {amount}")
+
+    return result
+
+
+# 特売表示は初期版ではオフ
+def get_local_deals():
+    return {}
+
+
+def add_deals_to_shopping(shopping):
+    return shopping
