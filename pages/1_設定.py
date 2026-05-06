@@ -1,22 +1,29 @@
 import streamlit as st
-from datetime import date, datetime
 from app_core import *
 
+# -----------------
+# ページ設定
+# -----------------
 st.set_page_config(
-    page_title="設定",
+    page_title="設定｜ShufuMate",
     page_icon="⚙️",
     layout="centered"
 )
 
+# -----------------
+# ログインチェック
+# -----------------
 require_login()
-
-st.title("⚙️ 設定")
-st.caption("基本設定とアカウント設定を管理します")
-
 user_id = get_user_id()
 
 # -----------------
-# 安全変換
+# タイトル
+# -----------------
+st.title("⚙️ 設定")
+st.caption("基本設定とアカウント設定を管理します")
+
+# -----------------
+# 安全関数
 # -----------------
 def safe_float(value, default):
     try:
@@ -25,6 +32,15 @@ def safe_float(value, default):
         return float(value)
     except Exception:
         return float(default)
+
+
+def safe_text(value, default=""):
+    try:
+        if value is None:
+            return default
+        return str(value)
+    except Exception:
+        return default
 
 
 def safe_list(value):
@@ -48,14 +64,18 @@ def option_index(options, value, default=0):
 
 
 # -----------------
-# データ取得
+# データ読み込み
 # -----------------
 try:
     settings = load_user_settings(user_id)
-    profile = load_current_user_profile(user_id)
 except Exception as e:
-    st.error(f"設定の読込に失敗しました: {e}")
-    st.stop()
+    st.error(f"設定の読み込みに失敗しました: {e}")
+    settings = {}
+
+try:
+    profile = load_current_user_profile(user_id)
+except Exception:
+    profile = {}
 
 if not isinstance(settings, dict):
     settings = {}
@@ -63,37 +83,55 @@ if not isinstance(settings, dict):
 if not isinstance(profile, dict):
     profile = {}
 
-nickname_default = profile.get("nickname") or settings.get("nickname") or user_id
-login_id_text = profile.get("login_id") or user_id
+# -----------------
+# プロフィール初期値
+# -----------------
+nickname_default = (
+    profile.get("nickname")
+    or settings.get("nickname")
+    or user_id
+)
 
+login_id_text = profile.get("login_id") or user_id
 birth_date_text = profile.get("birth_date") or "未設定"
 
 age_val = profile.get("age")
 age_text = f"{age_val}歳" if age_val is not None else "未設定"
 
-# -----------------
-# 基本設定
-# -----------------
-st.subheader("基本設定")
-
+# =====================
+# ⚙️ 基本設定フォーム
+# =====================
 with st.form("settings_form"):
 
-    nickname = st.text_input("ニックネーム", value=nickname_default)
+    st.subheader("基本設定")
+
+    nickname = st.text_input(
+        "ニックネーム",
+        value=safe_text(nickname_default, user_id)
+    )
 
     col1, col2 = st.columns(2)
 
     with col1:
-        st.text_input("生年月日", value=birth_date_text, disabled=True)
+        st.text_input(
+            "生年月日",
+            value=safe_text(birth_date_text, "未設定"),
+            disabled=True
+        )
 
     with col2:
-        st.text_input("年齢", value=age_text, disabled=True)
+        st.text_input(
+            "年齢",
+            value=age_text,
+            disabled=True
+        )
 
     height_cm = st.number_input(
         "身長(cm)",
         min_value=100.0,
         max_value=220.0,
         value=safe_float(settings.get("height_cm"), 155),
-        step=0.1,
+        step=0.1
     )
 
     col3, col4 = st.columns(2)
@@ -103,8 +141,12 @@ with st.form("settings_form"):
             "現在体重(kg)",
             min_value=20.0,
             max_value=150.0,
-            value=safe_float(settings.get("current_weight") or settings.get("start_weight"), 50),
-            step=0.1,
+            value=safe_float(
+                settings.get("current_weight")
+                or settings.get("start_weight"),
+                50
+            ),
+            step=0.1
         )
 
     with col4:
@@ -113,7 +155,7 @@ with st.form("settings_form"):
             min_value=20.0,
             max_value=150.0,
             value=safe_float(settings.get("target_weight"), 48),
-            step=0.1,
+            step=0.1
         )
 
     col5, col6 = st.columns(2)
@@ -123,8 +165,12 @@ with st.form("settings_form"):
             "現在体脂肪(%)",
             min_value=5.0,
             max_value=60.0,
-            value=safe_float(settings.get("current_body_fat") or settings.get("start_body_fat"), 30),
-            step=0.1,
+            value=safe_float(
+                settings.get("current_body_fat")
+                or settings.get("start_body_fat"),
+                30
+            ),
+            step=0.1
         )
 
     with col6:
@@ -133,10 +179,14 @@ with st.form("settings_form"):
             min_value=5.0,
             max_value=60.0,
             value=safe_float(settings.get("target_body_fat"), 28),
-            step=0.1,
+            step=0.1
         )
 
     st.markdown("---")
+
+    # -----------------
+    # 相談・提案設定
+    # -----------------
     st.subheader("🌿 相談・提案の設定")
 
     user_type_options = [
@@ -152,7 +202,10 @@ with st.form("settings_form"):
     user_type = st.selectbox(
         "利用タイプ",
         user_type_options,
-        index=option_index(user_type_options, settings.get("user_type", "自分向け")),
+        index=option_index(
+            user_type_options,
+            settings.get("user_type", "自分向け")
+        )
     )
 
     activity_options = [
@@ -160,6 +213,8 @@ with st.form("settings_form"):
         "ふつう",
         "多め",
         "ヨガ・ピラティスあり",
+        "ウォーキングあり",
+        "ランニングあり",
         "筋トレあり",
         "外出多め",
     ]
@@ -167,7 +222,10 @@ with st.form("settings_form"):
     activity_level = st.selectbox(
         "活動量",
         activity_options,
-        index=option_index(activity_options, settings.get("activity_level", "ふつう")),
+        index=option_index(
+            activity_options,
+            settings.get("activity_level", "ふつう")
+        )
     )
 
     food_style_options = [
@@ -185,8 +243,9 @@ with st.form("settings_form"):
         food_style_options,
         index=option_index(
             food_style_options,
-            settings.get("food_style") or settings.get("meal_style", "和食中心")
-        ),
+            settings.get("food_style")
+            or settings.get("meal_style", "和食中心")
+        )
     )
 
     constitution_options = [
@@ -208,7 +267,7 @@ with st.form("settings_form"):
         default=[
             x for x in safe_list(settings.get("constitution_traits"))
             if x in constitution_options
-        ],
+        ]
     )
 
     advice_tone_options = [
@@ -222,87 +281,144 @@ with st.form("settings_form"):
     advice_tone = st.selectbox(
         "アドバイスの言い方",
         advice_tone_options,
-        index=option_index(advice_tone_options, settings.get("advice_tone", "やさしく")),
+        index=option_index(
+            advice_tone_options,
+            settings.get("advice_tone", "やさしく")
+        )
     )
 
     st.markdown("---")
-    st.subheader("🍽 食材・冷蔵庫")
 
-    workout_today_options = get_exercise_options()
+    # -----------------
+    # 運動設定
+    # -----------------
+    st.subheader("🏃‍♀️ 運動設定")
+
+    try:
+        workout_today_options = get_exercise_options()
+    except Exception:
+        workout_today_options = [
+            "ストレッチ",
+            "ヨガ",
+            "ピラティス",
+            "ウォーキング",
+            "ランニング",
+            "筋トレ",
+            "なし",
+        ]
 
     workout_today = st.selectbox(
         "よくする運動",
         workout_today_options,
-        index=option_index(workout_today_options, settings.get("workout_today", "ストレッチ")),
+        index=option_index(
+            workout_today_options,
+            settings.get("workout_today", "ストレッチ")
+        )
     )
+
+    st.markdown("---")
+
+    # -----------------
+    # 食材・冷蔵庫
+    # -----------------
+    st.subheader("🍽 食材・冷蔵庫")
 
     fridge_items = st.text_area(
         "冷蔵庫にあるもの",
-        value=settings.get("fridge_items", ""),
+        value=safe_text(settings.get("fridge_items"), ""),
         placeholder="例：卵、豆腐、納豆、キャベツ、鮭",
-        height=100,
+        height=100
     )
 
     avoid_foods = st.text_area(
         "避けたい食材",
-        value=settings.get("avoid_foods", ""),
+        value=safe_text(settings.get("avoid_foods"), ""),
         placeholder="例：辛いもの、揚げ物、牛乳",
-        height=80,
+        height=80
     )
 
-    submitted = st.form_submit_button("保存", use_container_width=True)
+    favorite_meals = st.text_area(
+        "好きな定番メニュー",
+        value=safe_text(settings.get("favorite_meals"), ""),
+        placeholder="例：鮭おにぎり、味噌玉の味噌汁、納豆ごはん",
+        height=80
+    )
 
-# -----------------
+    submitted = st.form_submit_button(
+        "保存",
+        use_container_width=True
+    )
+
+# =====================
 # 保存処理
-# -----------------
+# =====================
 if submitted:
 
-    save_user_settings(
-        user_id,
-        {
-            "nickname": nickname,
-            "height_cm": height_cm,
-            "current_weight": current_weight,
-            "target_weight": target_weight,
-            "current_body_fat": current_body_fat,
-            "target_body_fat": target_body_fat,
+    try:
+        save_user_settings(
+            user_id,
+            {
+                "nickname": nickname,
+                "height_cm": height_cm,
+                "current_weight": current_weight,
+                "target_weight": target_weight,
+                "current_body_fat": current_body_fat,
+                "target_body_fat": target_body_fat,
 
-            "user_type": user_type,
-            "activity_level": activity_level,
-            "food_style": food_style,
-            "meal_style": food_style,
-            "constitution_traits": constitution_traits,
-            "advice_tone": advice_tone,
+                "user_type": user_type,
+                "activity_level": activity_level,
+                "food_style": food_style,
+                "meal_style": food_style,
+                "constitution_traits": constitution_traits,
+                "advice_tone": advice_tone,
 
-            "workout_today": workout_today,
-            "fridge_items": fridge_items,
-            "avoid_foods": avoid_foods,
-        },
-    )
+                "workout_today": workout_today,
+                "fridge_items": fridge_items,
+                "avoid_foods": avoid_foods,
+                "favorite_meals": favorite_meals,
+            }
+        )
 
-    update_current_user_profile(
-        user_id,
-        nickname=nickname,
-    )
+        try:
+            update_current_user_profile(
+                user_id,
+                nickname=nickname
+            )
+        except Exception:
+            pass
 
-    st.success("保存しました")
-    st.rerun()
+        st.success("保存しました")
+        st.rerun()
 
-# -----------------
+    except Exception as e:
+        st.error(f"保存に失敗しました: {e}")
+
+# =====================
 # アカウント情報
-# -----------------
+# =====================
 st.divider()
 st.subheader("アカウント")
 
-st.text_input("ログインID", value=login_id_text, disabled=True)
+st.text_input(
+    "ログインID",
+    value=safe_text(login_id_text, user_id),
+    disabled=True
+)
 
 # -----------------
 # パスワード変更
 # -----------------
 st.subheader("🔑 パスワード変更")
 
-new_pw = st.text_input("新しいパスワード", type="password")
-new_pw2 = st.text_input("確認", type="password")
+new_pw = st.text_input(
+    "新しいパスワード",
+    type="password"
+)
+
+new_pw2 = st.text_input(
+    "確認",
+    type="password"
+)
 
 if st.button("変更する", use_container_width=True):
 
@@ -316,8 +432,11 @@ if st.button("変更する", use_container_width=True):
         st.warning("パスワードは4文字以上にしてください")
 
     else:
-        reset_password(login_id_text, new_pw)
-        st.success("変更しました")
+        try:
+            reset_password(login_id_text, new_pw)
+            st.success("変更しました")
+        except Exception as e:
+            st.error(f"変更に失敗しました: {e}")
 
 # -----------------
 # ログアウト
