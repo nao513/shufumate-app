@@ -167,36 +167,69 @@ else:
     st.markdown("---")
 
     # -----------------
-    # 買い物リスト
-    # -----------------
-    with st.expander("🛒 買い物リスト"):
+# 🛒 買い物リスト
+# -----------------
+with st.expander("🛒 買い物リスト"):
+
+    try:
+        # 1週間プランから買い物リストを作る
+        shopping_week_plan = generate_weekly_plan(
+            user_type=settings.get("user_type", "自分向け"),
+            weather=weather_value,
+            state=state,
+            exercise=exercise
+        )
+
+        fridge_items = settings.get("fridge_items", "")
+
+        shopping = generate_smart_shopping_list(
+            shopping_week_plan,
+            fridge_items=fridge_items
+        )
 
         try:
-            shopping = generate_smart_shopping_list(
-                plan,
-                fridge_items=st.session_state.get("fridge_items", [])
-            )
+            shopping = add_deals_to_shopping(shopping)
+        except Exception:
+            pass
 
-            try:
-                shopping = add_deals_to_shopping(shopping)
-            except Exception:
-                pass
+        if shopping:
+            shopping_rows = []
 
-            if shopping:
-                for category, items in shopping.items():
+            for category, items in shopping.items():
+                if items:
                     st.markdown(f"**{category}**")
 
                     for item in items:
                         st.checkbox(
                             item,
-                            key=f"home_shopping_{category}_{item}"
+                            key=f"home_week_shopping_{category}_{item}"
                         )
-            else:
-                st.info("買い物リストはありません")
 
-        except Exception as e:
-            st.warning(f"買い物リストを作成できませんでした: {e}")
+                        shopping_rows.append({
+                            "カテゴリ": category,
+                            "商品": item,
+                        })
 
+            # CSV出力
+            if shopping_rows:
+                import pandas as pd
+
+                df = pd.DataFrame(shopping_rows)
+                csv = df.to_csv(index=False).encode("utf-8-sig")
+
+                st.download_button(
+                    "📥 買い物リストCSVをダウンロード",
+                    data=csv,
+                    file_name="shopping_list_week.csv",
+                    mime="text/csv",
+                    use_container_width=True
+                )
+
+        else:
+            st.info("買い物リストはありません")
+
+    except Exception as e:
+        st.warning(f"買い物リストを作成できませんでした: {e}")
 # -----------------
 # 1週間プラン
 # -----------------
