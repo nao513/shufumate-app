@@ -2171,3 +2171,54 @@ def generate_smart_shopping_list(plan, fridge_items=None):
         result[category].append(f"{item} × {count}")
 
     return result
+
+# =====================
+# 🏃‍♀️ 運動メニュー強化版
+# ウォーキング・ランニング追加
+# =====================
+
+def get_exercise_options():
+    return [
+        "ストレッチ",
+        "ヨガ",
+        "ピラティス",
+        "ウォーキング",
+        "ランニング",
+        "筋トレ",
+        "なし",
+    ]
+
+
+def normalize_exercise(exercise):
+    """
+    表示名を内部判定用に変換する
+    """
+    if exercise in ["ウォーキング", "ランニング"]:
+        return "有酸素"
+
+    return exercise
+
+
+def get_exercise_advice(exercise):
+    if exercise == "なし":
+        return "今日は無理に運動しなくて大丈夫です。肩まわしや深呼吸だけでもOKです。"
+
+    if exercise == "ストレッチ":
+        return "首・肩・股関節を中心に、5〜10分ゆっくり伸ばしましょう。"
+
+    if exercise == "ヨガ":
+        return "呼吸を意識して、リラックス系のヨガがおすすめです。"
+
+    if exercise == "ピラティス":
+        return "体幹を意識して、無理のない範囲で整えましょう。運動後はたんぱく質も少し入れると◎です。"
+
+    if exercise == "ウォーキング":
+        return "10〜20分の軽いウォーキングがおすすめです。脂肪燃焼よりも、まずは巡りをよくするイメージでOKです。"
+
+    if exercise == "ランニング":
+        return "ランニングの日は、無理に距離を伸ばさず短めでOKです。運動後は水分とたんぱく質を意識しましょう。"
+
+    if exercise == "筋トレ":
+        return "筋肉を使う日は、運動後に卵・豆腐・魚・鶏むね肉などのたんぱく質を入れましょう。"
+
+    return "今日は体調に合わせて、できる範囲で整えましょう。"
