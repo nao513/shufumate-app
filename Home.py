@@ -28,13 +28,46 @@ except Exception:
 if not isinstance(settings, dict):
     settings = {}
 
+def get_weight_goal_status(settings):
+    try:
+        current_weight = float(
+            settings.get("current_weight")
+            or settings.get("start_weight")
+            or 0
+        )
+        target_weight = float(settings.get("target_weight") or 0)
+    except Exception:
+        return "整える"
+
+    if current_weight <= 0 or target_weight <= 0:
+        return "整える"
+
+    diff = current_weight - target_weight
+
+    if diff >= 1.0:
+        return "減量優先"
+
+    if diff <= -1.0:
+        return "落としすぎ注意"
+
+    return "維持"
+
+weight_goal_status = get_weight_goal_status(settings)
+user_type_for_plan = f"{settings.get('user_type', '自分向け')}｜{weight_goal_status}"
+
 # -----------------
 # ヘッダー
 # -----------------
 st.title("🏠 ShufuMate")
 st.caption("食事も、暮らしも、ちょうどよく")
+
+weekday_jp = ["月", "火", "水", "木", "金", "土", "日"]
+now = jst_now()
+today_text = now.strftime("%Y年%m月%d日")
+weekday_text = weekday_jp[now.weekday()]
+
+st.markdown(f"### 📅 {today_text}（{weekday_text}）")
 st.markdown(f"こんにちは、**{user_id} さん** 😊")
-st.markdown("---")
 
 # -----------------
 # 表示モード
@@ -105,7 +138,7 @@ st.markdown("---")
 # -----------------
 try:
     today_plan = generate_full_plan(
-        user_type=settings.get("user_type", "自分向け"),
+        user_type=user_type_for_plan,
         weather=weather_value,
         state=state,
         exercise=exercise
