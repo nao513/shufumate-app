@@ -28,6 +28,10 @@ except Exception:
 if not isinstance(settings, dict):
     settings = {}
 
+
+# -----------------
+# 目標体重との距離を判定
+# -----------------
 def get_weight_goal_status(settings):
     try:
         current_weight = float(
@@ -52,6 +56,7 @@ def get_weight_goal_status(settings):
 
     return "維持"
 
+
 weight_goal_status = get_weight_goal_status(settings)
 user_type_for_plan = f"{settings.get('user_type', '自分向け')}｜{weight_goal_status}"
 
@@ -68,6 +73,17 @@ weekday_text = weekday_jp[now.weekday()]
 
 st.markdown(f"### 📅 {today_text}（{weekday_text}）")
 st.markdown(f"こんにちは、**{user_id} さん** 😊")
+
+if weight_goal_status == "減量優先":
+    st.caption("今は目標体重に向けて、夜を少し軽めに整える提案にしています。")
+elif weight_goal_status == "落としすぎ注意":
+    st.caption("今は落としすぎに注意して、軽くしすぎない提案にしています。")
+elif weight_goal_status == "維持":
+    st.caption("今は目標体重付近なので、維持しながら整える提案にしています。")
+else:
+    st.caption("今は基本の整え提案にしています。")
+
+st.markdown("---")
 
 # -----------------
 # 表示モード
@@ -155,7 +171,7 @@ if mode == "かんたん":
 
     try:
         text = generate_simple_advice(
-            user_type=settings.get("user_type", "自分向け"),
+            user_type=user_type_for_plan,
             weather=weather_value,
             state=state,
             exercise=exercise
@@ -211,7 +227,7 @@ with st.expander("🛒 買い物リスト"):
 
     try:
         shopping_week_plan = generate_weekly_plan(
-            user_type=settings.get("user_type", "自分向け"),
+            user_type=user_type_for_plan,
             weather=weather_value,
             state=state,
             exercise=exercise
@@ -270,7 +286,7 @@ with st.expander("📅 1週間プラン"):
 
     try:
         week_plan = generate_weekly_plan(
-            user_type=settings.get("user_type", "自分向け"),
+            user_type=user_type_for_plan,
             weather=weather_value,
             state=state,
             exercise=exercise
