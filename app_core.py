@@ -644,6 +644,7 @@ def convert_to_meal(meal_type, condition=None, timing=None, day=None):
     state = condition.get("state", "普通")
     exercise = condition.get("exercise", "なし")
     weather = condition.get("weather", "普通")
+    goal = str(condition.get("goal", ""))
 
     breakfast_balance = [
         "鮭おにぎり＋味噌汁＋ゆで卵",
@@ -712,6 +713,13 @@ def convert_to_meal(meal_type, condition=None, timing=None, day=None):
         if timing == "昼":
             return _pick_menu(lunch_light, timing, day)
         return _pick_menu(dinner_light, timing, day)
+
+    # 目標体重との距離を反映
+    if "減量優先" in goal and timing == "夜":
+        return _pick_menu(dinner_light, timing, day)
+
+    if "落としすぎ注意" in goal and timing in ["昼", "夜"]:
+        return _pick_menu(dinner_balance, timing, day)
 
     if state == "むくみ" or meal_type == "さっぱり":
         if timing == "朝":
