@@ -228,7 +228,7 @@ st.markdown(
     .section-icon-calendar img {
         width: 52px;
         height: 52px;
-        transform: scale(1.35);
+        transform: scale(1.6);
     }
 
     .section-icon-food img {
