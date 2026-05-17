@@ -44,7 +44,6 @@ def load_top_visual():
     """
     トップ画像専用。
     基本は assets/home_icons/top/top_visual.png を読む。
-    予備で assets/top_visual.png も読む。
     """
     root = Path(__file__).resolve().parent
     cwd = Path.cwd()
@@ -121,18 +120,21 @@ st.markdown(
         padding-bottom: 2.5rem;
     }
 
+    /* トップ画像を本文カードより大きめに表示 */
     .top-visual-wrap {
+        width: calc(100% + 160px);
+        margin-left: -80px;
         background: #ffffff;
-        border-radius: 28px;
-        padding: 10px;
-        box-shadow: 0 8px 26px rgba(96, 65, 45, 0.12);
+        border-radius: 30px;
+        padding: 12px;
+        box-shadow: 0 10px 28px rgba(96, 65, 45, 0.12);
         border: 1px solid rgba(139, 100, 72, 0.12);
-        margin-bottom: 16px;
+        margin-bottom: 20px;
     }
 
     .top-visual {
         width: 100%;
-        border-radius: 22px;
+        border-radius: 24px;
         display: block;
     }
 
@@ -205,6 +207,7 @@ st.markdown(
         margin-bottom: 12px;
     }
 
+    /* 見出しアイコン */
     .section-head {
         display: flex;
         align-items: center;
@@ -213,13 +216,13 @@ st.markdown(
     }
 
     .section-head-icon {
-        width: 42px;
-        min-width: 42px;
-        height: 42px;
-        border-radius: 14px;
+        width: 52px;
+        min-width: 52px;
+        height: 52px;
+        border-radius: 17px;
         background: #ffffff;
         border: 1px solid rgba(139, 100, 72, 0.12);
-        box-shadow: 0 4px 10px rgba(96, 65, 45, 0.08);
+        box-shadow: 0 4px 12px rgba(96, 65, 45, 0.09);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -227,13 +230,13 @@ st.markdown(
     }
 
     .section-head-icon img {
-        width: 27px;
-        height: 27px;
+        width: 42px;
+        height: 42px;
         object-fit: contain;
     }
 
     .section-head-emoji {
-        font-size: 1.25rem;
+        font-size: 1.35rem;
         line-height: 1;
     }
 
@@ -247,7 +250,7 @@ st.markdown(
     .sub-expander-note {
         font-size: 0.84rem;
         color: #8a7465;
-        margin: -2px 0 10px 54px;
+        margin: -2px 0 10px 64px;
     }
 
     .advice-card {
@@ -377,6 +380,19 @@ st.markdown(
         font-weight: 700;
     }
 
+    @media (max-width: 900px) {
+        .top-visual-wrap {
+            width: 100%;
+            margin-left: 0;
+            padding: 10px;
+            border-radius: 24px;
+        }
+
+        .top-visual {
+            border-radius: 18px;
+        }
+    }
+
     @media (max-width: 640px) {
         .block-container {
             padding-left: 1rem;
@@ -392,15 +408,15 @@ st.markdown(
         }
 
         .section-head-icon {
-            width: 38px;
-            min-width: 38px;
-            height: 38px;
-            border-radius: 12px;
+            width: 46px;
+            min-width: 46px;
+            height: 46px;
+            border-radius: 15px;
         }
 
         .section-head-icon img {
-            width: 24px;
-            height: 24px;
+            width: 36px;
+            height: 36px;
         }
 
         .section-head-title {
@@ -408,7 +424,7 @@ st.markdown(
         }
 
         .sub-expander-note {
-            margin-left: 50px;
+            margin-left: 58px;
             font-size: 0.78rem;
         }
 
@@ -658,7 +674,7 @@ st.markdown(
 # -----------------
 # 今日の状態
 # -----------------
-render_section_header("今日の状態", icon_file=None, emoji="🌿")
+render_section_header("今日の状態", icon_file="state.png", emoji="🌿")
 
 mode = st.radio(
     "表示モード",
