@@ -1,61 +1,26 @@
 import streamlit as st
-from datetime import datetime
-from zoneinfo import ZoneInfo
+import pandas as pd
+from app_core import *
+
 from pathlib import Path
 import base64
 import html
 from urllib.parse import quote
 
 
-# =========================
+# -----------------
 # ページ設定
-# =========================
+# -----------------
 st.set_page_config(
-    page_title="ShufuMate｜主婦の味方アプリ",
-    page_icon="🌿",
+    page_title="ShufuMate",
+    page_icon="🏠",
     layout="centered"
 )
 
 
-# =========================
-# 基本関数
-# =========================
-def jst_now():
-    return datetime.now(ZoneInfo("Asia/Tokyo"))
-
-
-def japanese_date():
-    now = jst_now()
-    weekdays = ["月", "火", "水", "木", "金", "土", "日"]
-    return f"{now.year}年{now.month}月{now.day}日（{weekdays[now.weekday()]}）"
-
-
-def greeting():
-    hour = jst_now().hour
-    if 5 <= hour < 10:
-        return "おはようございます"
-    elif 10 <= hour < 17:
-        return "こんにちは"
-    elif 17 <= hour < 22:
-        return "こんばんは"
-    else:
-        return "今日もおつかれさまです"
-
-
-def page_url(page_name):
-    if page_name == "home":
-        return "/"
-    return "/" + quote(page_name)
-
-
-def get_login_user():
-    for key in ["login_user", "login_id", "user_id", "username", "current_user"]:
-        value = st.session_state.get(key)
-        if value:
-            return value
-    return None
-
-
+# -----------------
+# 画像読み込み
+# -----------------
 def file_to_base64(path):
     if not path.exists():
         return None
@@ -107,9 +72,15 @@ def load_home_icon(filename):
     return None
 
 
-# =========================
+def page_url(page_name):
+    if page_name == "home":
+        return "/"
+    return "/" + quote(page_name)
+
+
+# -----------------
 # CSS
-# =========================
+# -----------------
 st.markdown(
     """
 <style>
@@ -118,9 +89,9 @@ st.markdown(
     }
 
     .block-container {
+        max-width: 780px;
         padding-top: 1.2rem;
         padding-bottom: 2rem;
-        max-width: 760px;
     }
 
     .top-visual-wrap {
@@ -172,22 +143,23 @@ st.markdown(
         line-height: 1.7;
     }
 
-    .recommend-box {
+    .status-card {
         background: #fff8ef;
         border-radius: 22px;
-        padding: 16px 16px;
+        padding: 16px;
         border: 1px solid rgba(139, 100, 72, 0.10);
+        box-shadow: 0 5px 16px rgba(96, 65, 45, 0.07);
         margin-bottom: 18px;
     }
 
-    .recommend-title {
+    .status-title {
         font-size: 1.05rem;
-        font-weight: 800;
+        font-weight: 900;
         color: #5c4033;
         margin-bottom: 6px;
     }
 
-    .recommend-text {
+    .status-text {
         font-size: 0.9rem;
         color: #7b6658;
         line-height: 1.6;
@@ -277,6 +249,15 @@ st.markdown(
         padding-left: 2px;
     }
 
+    .soft-box {
+        background: #ffffff;
+        border-radius: 22px;
+        padding: 16px;
+        box-shadow: 0 5px 16px rgba(96, 65, 45, 0.08);
+        border: 1px solid rgba(139, 100, 72, 0.10);
+        margin-bottom: 16px;
+    }
+
     .bottom-message {
         background: #ffffff;
         border-radius: 22px;
@@ -333,9 +314,9 @@ st.markdown(
 )
 
 
-# =========================
+# -----------------
 # 表示用関数
-# =========================
+# -----------------
 def render_top_visual():
     top_img = load_asset("top_visual.png")
 
@@ -379,22 +360,95 @@ def render_nav_card(title, desc, icon_file, emoji, href):
     )
 
 
-# =========================
-# トップページ本体
-# =========================
+def render_status_message(weight_goal_status):
+    if weight_goal_status == "減量優先":
+        return "今は目標体重に向けて、夜を少し軽めに整える提案にしています。"
+    elif weight_goal_status == "落としすぎ注意":
+        return "今は落としすぎに注意して、軽くしすぎない提案にしています。"
+    elif weight_goal_status == "維持":
+        return "今は目標体重付近なので、維持しながら整える提案にしています。"
+    else:
+        return "今は基本の整え提案にしています。"
+
+
+# -----------------
+# ログインチェック
+# -----------------
+require_login()
+user_id = get_user_id()
+
+
+# -----------------
+# 設定読み込み
+# -----------------
+try:
+    settings = load_user_settings(user_id)
+except Exception:
+    settings = {}
+
+if not isinstance(settings, dict):
+    settings = {}
+
+
+# -----------------
+# 目標体重との距離を判定
+# -----------------
+def get_weight_goal_status(settings):
+    try:
+        current_weight = float(
+            settings.get("current_weight")
+            or settings.get("start_weight")
+            or 0
+        )
+        target_weight = float(settings.get("target_weight") or 0)
+    except Exception:
+        return "整える"
+
+    if current_weight <= 0 or target_weight <= 0:
+        return "整える"
+
+    diff = current_weight - target_weight
+
+    if diff >= 1.0:
+        return "減量優先"
+
+    if diff <= -1.0:
+        return "落としすぎ注意"
+
+    return "維持"
+
+
+weight_goal_status = get_weight_goal_status(settings)
+user_type_for_plan = f"{settings.get('user_type', '自分向け')}｜{weight_goal_status}"
+
+
+# -----------------
+# 日付
+# -----------------
+weekday_jp = ["月", "火", "水", "木", "金", "土", "日"]
+now = jst_now()
+today_text = now.strftime("%Y年%m月%d日")
+weekday_text = weekday_jp[now.weekday()]
+
+
+# -----------------
+# トップ画像
+# -----------------
 render_top_visual()
 
-login_user = get_login_user()
-user_text = f"{login_user} さん、" if login_user else ""
 
+# -----------------
+# ヘッダー
+# -----------------
 st.markdown(
     f"""
 <div class="top-card">
-    <div class="date-pill">{japanese_date()}</div>
+    <div class="date-pill">{today_text}（{weekday_text}）</div>
     <div class="main-title">🌿 ShufuMate</div>
     <div class="main-message">
-        {html.escape(user_text)}{greeting()}。<br>
-        今日の食事・運動・記録・相談を、ここからまとめて始められます。
+        こんにちは、<strong>{html.escape(str(user_id))} さん</strong> 😊<br>
+        食事も、暮らしも、ちょうどよく。<br>
+        今日の記録・相談・献立・運動をここから始められます。
     </div>
 </div>
 """,
@@ -402,30 +456,29 @@ st.markdown(
 )
 
 
+# -----------------
+# 体重目標メッセージ
+# -----------------
 st.markdown(
-    """
-<div class="recommend-box">
-    <div class="recommend-title">🌸 今日のおすすめ</div>
-    <div class="recommend-text">
-        まずは「記録する」から今日の体調や食事を残してみましょう。<br>
-        無理に完璧を目指さなくて大丈夫。続けられることが一番です。
-    </div>
+    f"""
+<div class="status-card">
+    <div class="status-title">今日の整え方</div>
+    <div class="status-text">{html.escape(render_status_message(weight_goal_status))}</div>
 </div>
 """,
     unsafe_allow_html=True
 )
 
 
+# -----------------
+# カードメニュー
+# -----------------
 st.markdown('<div class="section-title">メニュー</div>', unsafe_allow_html=True)
 st.markdown(
     '<div class="section-subtitle">使いたいメニューを選んでください。</div>',
     unsafe_allow_html=True
 )
 
-
-# =========================
-# カードメニュー
-# =========================
 cards = [
     {
         "title": "記録する",
@@ -464,10 +517,10 @@ cards = [
     },
     {
         "title": "買い物",
-        "desc": "献立に合わせた買い物メモを作ります",
+        "desc": "1週間分の買い物リストを確認します",
         "icon": "cart.png",
         "emoji": "🛒",
-        "href": page_url("3_相談する"),
+        "href": page_url("home"),
     },
     {
         "title": "運動",
@@ -485,7 +538,6 @@ cards = [
     },
 ]
 
-
 cols = st.columns(2)
 
 for i, card in enumerate(cards):
@@ -499,6 +551,238 @@ for i, card in enumerate(cards):
         )
 
 
+st.markdown("---")
+
+
+# -----------------
+# 表示モード
+# -----------------
+st.markdown("### 今日のおすすめ")
+
+mode = st.radio(
+    "表示モード",
+    ["かんたん", "しっかり"],
+    horizontal=True
+)
+
+
+# -----------------
+# 今日の状態
+# -----------------
+st.markdown("### 🌿 今日の状態")
+
+col1, col2 = st.columns(2)
+
+with col1:
+    state = st.selectbox(
+        "体調",
+        ["普通", "疲れ", "むくみ"]
+    )
+
+with col2:
+    weather_label = st.selectbox(
+        "今日の体感",
+        ["普通", "暑く感じる", "寒く感じる"]
+    )
+
+weather_map = {
+    "普通": "普通",
+    "暑く感じる": "暑い",
+    "寒く感じる": "寒い",
+}
+weather_value = weather_map.get(weather_label, "普通")
+
+
+# -----------------
+# 運動予定
+# -----------------
+exercise_options = [
+    "ストレッチ",
+    "ヨガ",
+    "ピラティス",
+    "ウォーキング",
+    "ランニング",
+    "筋トレ",
+    "なし",
+]
+
+default_exercise = settings.get("workout_today", "ストレッチ")
+
+if default_exercise == "有酸素":
+    default_exercise = "ウォーキング"
+
+if default_exercise not in exercise_options:
+    default_exercise = "ストレッチ"
+
+exercise = st.selectbox(
+    "運動予定",
+    exercise_options,
+    index=exercise_options.index(default_exercise)
+)
+
+st.markdown("---")
+
+
+# -----------------
+# 今日のプランを先に作成
+# -----------------
+try:
+    today_plan = generate_full_plan(
+        user_type=user_type_for_plan,
+        weather=weather_value,
+        state=state,
+        exercise=exercise
+    )
+except Exception:
+    today_plan = {}
+
+
+# =====================
+# 🌿 かんたんモード
+# =====================
+if mode == "かんたん":
+
+    st.subheader("🌿 今日のおすすめ")
+
+    try:
+        text = generate_simple_advice(
+            user_type=user_type_for_plan,
+            weather=weather_value,
+            state=state,
+            exercise=exercise
+        )
+        st.success(text)
+    except Exception as e:
+        st.warning(f"今日のおすすめを作成できませんでした: {e}")
+
+    st.markdown("### 🏃‍♀️ 今日の運動ヒント")
+
+    try:
+        st.write(get_exercise_advice(exercise))
+    except Exception:
+        st.write("今日は無理のない範囲で、少し体を動かしましょう。")
+
+
+# =====================
+# 💪 しっかりモード
+# =====================
+else:
+
+    st.subheader("💪 今日のプラン")
+
+    st.markdown("### 🍽 食事")
+
+    if today_plan:
+        for meal_time, menu in today_plan.items():
+            if meal_time == "朝":
+                icon = "🌅"
+            elif meal_time == "昼":
+                icon = "☀️"
+            elif meal_time == "夜":
+                icon = "🌙"
+            else:
+                icon = "🍽"
+
+            st.markdown(f"{icon} **{meal_time}：** {menu}")
+    else:
+        st.info("今日の食事プランはまだありません。")
+
+    st.markdown("### 🏃‍♀️ 運動")
+
+    try:
+        st.write(get_exercise_advice(exercise))
+    except Exception:
+        st.write("今日は体調に合わせて、できる範囲で整えましょう。")
+
+
+# -----------------
+# 🛒 買い物リスト
+# -----------------
+st.markdown("---")
+
+with st.expander("🛒 買い物リスト"):
+
+    try:
+        shopping_week_plan = generate_weekly_plan(
+            user_type=user_type_for_plan,
+            weather=weather_value,
+            state=state,
+            exercise=exercise
+        )
+
+        fridge_items = settings.get("fridge_items", "")
+
+        shopping = generate_supermarket_shopping_list(
+            shopping_week_plan,
+            fridge_items=fridge_items
+        )
+
+        try:
+            shopping = add_deals_to_shopping(shopping)
+        except Exception:
+            pass
+
+        if shopping:
+            shopping_rows = []
+
+            for category, items in shopping.items():
+                if items:
+                    st.markdown(f"**{category}**")
+
+                    for item in items:
+                        st.checkbox(
+                            item,
+                            key=f"home_week_shopping_{category}_{item}"
+                        )
+                        shopping_rows.append({
+                            "カテゴリ": category,
+                            "商品": item,
+                        })
+
+            if shopping_rows:
+                df = pd.DataFrame(shopping_rows)
+                csv = df.to_csv(index=False).encode("utf-8-sig")
+
+                st.download_button(
+                    "📥 買い物リストCSVをダウンロード",
+                    data=csv,
+                    file_name="shopping_list_week.csv",
+                    mime="text/csv",
+                    use_container_width=True
+                )
+        else:
+            st.info("買い物リストはありません")
+
+    except Exception as e:
+        st.warning(f"買い物リストを作成できませんでした: {e}")
+
+
+# -----------------
+# 📅 1週間プラン
+# -----------------
+with st.expander("📅 1週間プラン"):
+
+    try:
+        week_plan = generate_weekly_plan(
+            user_type=user_type_for_plan,
+            weather=weather_value,
+            state=state,
+            exercise=exercise
+        )
+
+        for day, day_plan in week_plan.items():
+            st.markdown(f"### {day}")
+            st.write(f"朝：{day_plan.get('朝', '')}")
+            st.write(f"昼：{day_plan.get('昼', '')}")
+            st.write(f"夜：{day_plan.get('夜', '')}")
+
+    except Exception as e:
+        st.warning(f"1週間プランを作成できませんでした: {e}")
+
+
+# -----------------
+# 下部メッセージ
+# -----------------
 st.markdown(
     """
 <div class="bottom-message">
@@ -508,3 +792,13 @@ st.markdown(
 """,
     unsafe_allow_html=True
 )
+
+
+# -----------------
+# ログアウト
+# -----------------
+st.markdown("---")
+
+if st.button("ログアウト", use_container_width=True):
+    logout()
+    st.rerun()
