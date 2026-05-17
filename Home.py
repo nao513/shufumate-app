@@ -2,6 +2,12 @@ import streamlit as st
 import pandas as pd
 from app_core import *
 
+from pathlib import Path
+import base64
+import html
+from urllib.parse import quote
+
+
 # -----------------
 # ページ設定
 # -----------------
@@ -11,11 +17,467 @@ st.set_page_config(
     layout="centered"
 )
 
+
+# -----------------
+# 画像読み込み
+# -----------------
+def file_to_base64(path):
+    if not path.exists():
+        return None
+
+    suffix = path.suffix.lower()
+
+    if suffix == ".png":
+        mime = "image/png"
+    elif suffix in [".jpg", ".jpeg"]:
+        mime = "image/jpeg"
+    elif suffix == ".webp":
+        mime = "image/webp"
+    else:
+        mime = "image/png"
+
+    data = base64.b64encode(path.read_bytes()).decode("utf-8")
+    return f"data:{mime};base64,{data}"
+
+
+def load_top_visual():
+    """
+    トップ画像を複数候補から探す。
+    今のGitHub上の配置が多少ずれていても表示できるようにしてあります。
+    """
+    root = Path(__file__).resolve().parent
+    cwd = Path.cwd()
+
+    candidates = [
+        root / "assets" / "top_visual.png",
+        root / "assets" / "home_icons" / "top" / "top_visual.png",
+        root / "assets" / "icons" / "top_visual.png",
+
+        # 今のスクショのように深く入ってしまった場合の保険
+        root / "assets" / "home_icons" / "top" / "assets" / "home_icons" / "top" / "top_visual.png",
+
+        cwd / "assets" / "top_visual.png",
+        cwd / "assets" / "home_icons" / "top" / "top_visual.png",
+        cwd / "assets" / "icons" / "top_visual.png",
+        cwd / "assets" / "home_icons" / "top" / "assets" / "home_icons" / "top" / "top_visual.png",
+    ]
+
+    for path in candidates:
+        if path.exists():
+            return file_to_base64(path)
+
+    return None
+
+
+def load_icon(filename):
+    """
+    アイコンは assets/icons/ を優先。
+    念のため home_icons 側も探します。
+    """
+    root = Path(__file__).resolve().parent
+    cwd = Path.cwd()
+
+    candidates = [
+        root / "assets" / "icons" / filename,
+        root / "assets" / "home_icons" / filename,
+        root / "assets" / filename,
+
+        cwd / "assets" / "icons" / filename,
+        cwd / "assets" / "home_icons" / filename,
+        cwd / "assets" / filename,
+    ]
+
+    for path in candidates:
+        if path.exists():
+            return file_to_base64(path)
+
+    return None
+
+
+def page_url(page_name):
+    if page_name == "home":
+        return "/"
+    return "/" + quote(page_name)
+
+
+def safe_text(value):
+    return html.escape(str(value))
+
+
+def safe_html_with_br(value):
+    return html.escape(str(value)).replace("\n", "<br>")
+
+
+# -----------------
+# CSS
+# -----------------
+st.markdown(
+    """
+<style>
+    .stApp {
+        background: linear-gradient(180deg, #fffaf4 0%, #fff4e8 45%, #fffaf4 100%);
+    }
+
+    .block-container {
+        max-width: 760px;
+        padding-top: 1.1rem;
+        padding-bottom: 2.5rem;
+    }
+
+    .top-visual-wrap {
+        background: #ffffff;
+        border-radius: 28px;
+        padding: 10px;
+        box-shadow: 0 8px 26px rgba(96, 65, 45, 0.12);
+        border: 1px solid rgba(139, 100, 72, 0.12);
+        margin-bottom: 16px;
+    }
+
+    .top-visual {
+        width: 100%;
+        border-radius: 22px;
+        display: block;
+    }
+
+    .top-card {
+        background: #ffffff;
+        border-radius: 26px;
+        padding: 22px 20px;
+        box-shadow: 0 8px 24px rgba(96, 65, 45, 0.10);
+        border: 1px solid rgba(139, 100, 72, 0.12);
+        margin-bottom: 16px;
+    }
+
+    .date-pill {
+        display: inline-block;
+        background: #f4e5d6;
+        color: #6b4c3b;
+        border-radius: 999px;
+        padding: 7px 14px;
+        font-size: 0.9rem;
+        font-weight: 700;
+        margin-bottom: 12px;
+    }
+
+    .main-title {
+        font-size: 1.85rem;
+        font-weight: 900;
+        color: #5c4033;
+        margin-bottom: 6px;
+        letter-spacing: 0.02em;
+    }
+
+    .main-message {
+        font-size: 0.98rem;
+        color: #7b6658;
+        line-height: 1.75;
+    }
+
+    .status-card {
+        background: #fff8ef;
+        border-radius: 22px;
+        padding: 16px;
+        border: 1px solid rgba(139, 100, 72, 0.10);
+        box-shadow: 0 5px 16px rgba(96, 65, 45, 0.07);
+        margin-bottom: 18px;
+    }
+
+    .status-title {
+        font-size: 1.03rem;
+        font-weight: 900;
+        color: #5c4033;
+        margin-bottom: 6px;
+    }
+
+    .status-text {
+        font-size: 0.9rem;
+        color: #7b6658;
+        line-height: 1.65;
+    }
+
+    .section-title {
+        font-size: 1.22rem;
+        font-weight: 900;
+        color: #5c4033;
+        margin: 26px 0 10px 0;
+    }
+
+    .section-subtitle {
+        font-size: 0.9rem;
+        color: #8a7465;
+        margin-bottom: 12px;
+    }
+
+    .advice-card {
+        background: #eef8ef;
+        border-radius: 18px;
+        padding: 15px 16px;
+        border: 1px solid rgba(78, 140, 82, 0.14);
+        color: #316c37;
+        font-size: 0.95rem;
+        font-weight: 700;
+        line-height: 1.7;
+        margin-bottom: 18px;
+    }
+
+    .hint-card {
+        background: #fffdf8;
+        border-radius: 18px;
+        padding: 15px 16px;
+        border: 1px solid rgba(139, 100, 72, 0.10);
+        color: #6b4c3b;
+        font-size: 0.92rem;
+        line-height: 1.7;
+        margin-bottom: 18px;
+        box-shadow: 0 4px 12px rgba(96, 65, 45, 0.06);
+    }
+
+    .plan-card {
+        background: #ffffff;
+        border-radius: 18px;
+        padding: 14px 15px;
+        border: 1px solid rgba(139, 100, 72, 0.10);
+        box-shadow: 0 4px 12px rgba(96, 65, 45, 0.06);
+        margin-bottom: 10px;
+        color: #5c4033;
+        font-size: 0.92rem;
+        line-height: 1.6;
+    }
+
+    .small-menu-card {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        background: #ffffff;
+        border-radius: 20px;
+        padding: 12px 12px;
+        margin-bottom: 12px;
+        min-height: 78px;
+        text-decoration: none !important;
+        color: inherit !important;
+        box-shadow: 0 5px 15px rgba(96, 65, 45, 0.09);
+        border: 1px solid rgba(139, 100, 72, 0.12);
+        transition: all 0.18s ease;
+    }
+
+    .small-menu-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 22px rgba(96, 65, 45, 0.14);
+        background: #fffdf8;
+    }
+
+    .icon-box {
+        width: 48px;
+        min-width: 48px;
+        height: 48px;
+        border-radius: 16px;
+        background: #f8eadc;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+    }
+
+    .icon-img {
+        width: 36px;
+        height: 36px;
+        object-fit: contain;
+    }
+
+    .emoji-icon {
+        font-size: 1.6rem;
+        line-height: 1;
+    }
+
+    .menu-text {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .menu-title {
+        font-size: 0.92rem;
+        font-weight: 900;
+        color: #5c4033;
+        margin-bottom: 3px;
+    }
+
+    .menu-desc {
+        font-size: 0.72rem;
+        color: #8a7465;
+        line-height: 1.35;
+    }
+
+    .arrow {
+        color: #b28b6c;
+        font-size: 1.1rem;
+        font-weight: 800;
+        padding-left: 2px;
+    }
+
+    .bottom-message {
+        background: #ffffff;
+        border-radius: 22px;
+        padding: 16px;
+        color: #7b6658;
+        font-size: 0.9rem;
+        line-height: 1.7;
+        box-shadow: 0 5px 16px rgba(96, 65, 45, 0.08);
+        border: 1px solid rgba(139, 100, 72, 0.10);
+        margin-top: 16px;
+    }
+
+    div[data-testid="stRadio"] label {
+        color: #5c4033;
+    }
+
+    div[data-testid="stSelectbox"] label {
+        color: #5c4033;
+        font-weight: 700;
+    }
+
+    @media (max-width: 640px) {
+        .block-container {
+            padding-left: 1rem;
+            padding-right: 1rem;
+        }
+
+        .main-title {
+            font-size: 1.5rem;
+        }
+
+        .top-card {
+            padding: 20px 17px;
+        }
+
+        .small-menu-card {
+            min-height: 74px;
+            padding: 11px;
+        }
+
+        .icon-box {
+            width: 44px;
+            min-width: 44px;
+            height: 44px;
+        }
+
+        .icon-img {
+            width: 34px;
+            height: 34px;
+        }
+
+        .menu-title {
+            font-size: 0.88rem;
+        }
+
+        .menu-desc {
+            font-size: 0.7rem;
+        }
+    }
+</style>
+""",
+    unsafe_allow_html=True
+)
+
+
+# -----------------
+# 表示用関数
+# -----------------
+def render_top_visual():
+    top_img = load_top_visual()
+
+    if top_img:
+        st.markdown(
+            f"""
+<div class="top-visual-wrap">
+    <img class="top-visual" src="{top_img}" alt="ShufuMateトップ画像">
+</div>
+""",
+            unsafe_allow_html=True
+        )
+    else:
+        st.warning("トップ画像が見つかりません。assets/top_visual.png または assets/home_icons/top/top_visual.png を確認してください。")
+
+
+def render_menu_card(title, desc, icon_file, emoji, href):
+    icon_src = load_icon(icon_file)
+
+    safe_title = safe_text(title)
+    safe_desc = safe_text(desc)
+    safe_href = safe_text(href)
+
+    if icon_src:
+        icon_html = f'<img class="icon-img" src="{icon_src}" alt="{safe_title}">'
+    else:
+        icon_html = f'<div class="emoji-icon">{safe_text(emoji)}</div>'
+
+    st.markdown(
+        f"""
+<a class="small-menu-card" href="{safe_href}" target="_self">
+    <div class="icon-box">
+        {icon_html}
+    </div>
+    <div class="menu-text">
+        <div class="menu-title">{safe_title}</div>
+        <div class="menu-desc">{safe_desc}</div>
+    </div>
+    <div class="arrow">›</div>
+</a>
+""",
+        unsafe_allow_html=True
+    )
+
+
+def render_status_message(weight_goal_status):
+    if weight_goal_status == "減量優先":
+        return "今は目標体重に向けて、夜を少し軽めに整える提案にしています。"
+    elif weight_goal_status == "落としすぎ注意":
+        return "今は落としすぎに注意して、軽くしすぎない提案にしています。"
+    elif weight_goal_status == "維持":
+        return "今は目標体重付近なので、維持しながら整える提案にしています。"
+    else:
+        return "今は基本の整え提案にしています。"
+
+
+def render_advice_card(text):
+    st.markdown(
+        f"""
+<div class="advice-card">
+    {safe_html_with_br(text)}
+</div>
+""",
+        unsafe_allow_html=True
+    )
+
+
+def render_hint_card(text):
+    st.markdown(
+        f"""
+<div class="hint-card">
+    {safe_html_with_br(text)}
+</div>
+""",
+        unsafe_allow_html=True
+    )
+
+
+def render_plan_card(title, body):
+    st.markdown(
+        f"""
+<div class="plan-card">
+    <strong>{safe_text(title)}</strong><br>
+    {safe_html_with_br(body)}
+</div>
+""",
+        unsafe_allow_html=True
+    )
+
+
 # -----------------
 # ログインチェック
 # -----------------
 require_login()
 user_id = get_user_id()
+
 
 # -----------------
 # 設定読み込み
@@ -60,57 +522,81 @@ def get_weight_goal_status(settings):
 weight_goal_status = get_weight_goal_status(settings)
 user_type_for_plan = f"{settings.get('user_type', '自分向け')}｜{weight_goal_status}"
 
-# -----------------
-# ヘッダー
-# -----------------
-st.title("🏠 ShufuMate")
-st.caption("食事も、暮らしも、ちょうどよく")
 
+# -----------------
+# 日付
+# -----------------
 weekday_jp = ["月", "火", "水", "木", "金", "土", "日"]
 now = jst_now()
 today_text = now.strftime("%Y年%m月%d日")
 weekday_text = weekday_jp[now.weekday()]
 
-st.markdown(f"### 📅 {today_text}（{weekday_text}）")
-st.markdown(f"こんにちは、**{user_id} さん** 😊")
-
-if weight_goal_status == "減量優先":
-    st.caption("今は目標体重に向けて、夜を少し軽めに整える提案にしています。")
-elif weight_goal_status == "落としすぎ注意":
-    st.caption("今は落としすぎに注意して、軽くしすぎない提案にしています。")
-elif weight_goal_status == "維持":
-    st.caption("今は目標体重付近なので、維持しながら整える提案にしています。")
-else:
-    st.caption("今は基本の整え提案にしています。")
-
-st.markdown("---")
 
 # -----------------
-# 表示モード
+# トップ画像
 # -----------------
-mode = st.radio(
-    "表示モード",
-    ["かんたん", "しっかり"],
-    horizontal=True
+render_top_visual()
+
+
+# -----------------
+# ヘッダーカード
+# -----------------
+st.markdown(
+    f"""
+<div class="top-card">
+    <div class="date-pill">📅 {today_text}（{weekday_text}）</div>
+    <div class="main-title">🌿 ShufuMate</div>
+    <div class="main-message">
+        こんにちは、<strong>{safe_text(user_id)} さん</strong> 😊<br>
+        食事も、暮らしも、ちょうどよく。<br>
+        今日の記録・相談・献立・運動をここから始められます。
+    </div>
+</div>
+""",
+    unsafe_allow_html=True
 )
+
+
+# -----------------
+# 今日の整え方カード
+# -----------------
+st.markdown(
+    f"""
+<div class="status-card">
+    <div class="status-title">今日の整え方</div>
+    <div class="status-text">{safe_text(render_status_message(weight_goal_status))}</div>
+</div>
+""",
+    unsafe_allow_html=True
+)
+
 
 # -----------------
 # 今日の状態
 # -----------------
-st.markdown("### 🌿 今日の状態")
+st.markdown('<div class="section-title">🌿 今日の状態</div>', unsafe_allow_html=True)
+
+mode = st.radio(
+    "表示モード",
+    ["かんたん", "しっかり"],
+    horizontal=True,
+    key="home_mode"
+)
 
 col1, col2 = st.columns(2)
 
 with col1:
     state = st.selectbox(
         "体調",
-        ["普通", "疲れ", "むくみ"]
+        ["普通", "疲れ", "むくみ"],
+        key="home_state"
     )
 
 with col2:
     weather_label = st.selectbox(
         "今日の体感",
-        ["普通", "暑く感じる", "寒く感じる"]
+        ["普通", "暑く感じる", "寒く感じる"],
+        key="home_weather_label"
     )
 
 weather_map = {
@@ -119,6 +605,7 @@ weather_map = {
     "寒く感じる": "寒い",
 }
 weather_value = weather_map.get(weather_label, "普通")
+
 
 # -----------------
 # 運動予定
@@ -144,13 +631,13 @@ if default_exercise not in exercise_options:
 exercise = st.selectbox(
     "運動予定",
     exercise_options,
-    index=exercise_options.index(default_exercise)
+    index=exercise_options.index(default_exercise),
+    key="home_exercise"
 )
 
-st.markdown("---")
 
 # -----------------
-# 今日のプランを先に作成
+# 今日のプランを作成
 # -----------------
 try:
     today_plan = generate_full_plan(
@@ -162,12 +649,13 @@ try:
 except Exception:
     today_plan = {}
 
+
 # =====================
 # 🌿 かんたんモード
 # =====================
 if mode == "かんたん":
 
-    st.subheader("🌿 今日のおすすめ")
+    st.markdown('<div class="section-title">🌿 今日のおすすめ</div>', unsafe_allow_html=True)
 
     try:
         text = generate_simple_advice(
@@ -176,23 +664,25 @@ if mode == "かんたん":
             state=state,
             exercise=exercise
         )
-        st.success(text)
-    except Exception as e:
-        st.warning(f"今日のおすすめを作成できませんでした: {e}")
+        render_advice_card(text)
+    except Exception:
+        st.warning("今日のおすすめを作成できませんでした。時間をおいてもう一度お試しください。")
 
-    st.markdown("### 🏃‍♀️ 今日の運動ヒント")
+    st.markdown('<div class="section-title">🏃‍♀️ 今日の運動ヒント</div>', unsafe_allow_html=True)
 
     try:
-        st.write(get_exercise_advice(exercise))
+        exercise_text = get_exercise_advice(exercise)
+        render_hint_card(exercise_text)
     except Exception:
-        st.write("今日は無理のない範囲で、少し体を動かしましょう。")
+        render_hint_card("今日は無理のない範囲で、少し体を動かしましょう。")
+
 
 # =====================
 # 💪 しっかりモード
 # =====================
 else:
 
-    st.subheader("💪 今日のプラン")
+    st.markdown('<div class="section-title">💪 今日のプラン</div>', unsafe_allow_html=True)
 
     st.markdown("### 🍽 食事")
 
@@ -207,16 +697,18 @@ else:
             else:
                 icon = "🍽"
 
-            st.markdown(f"{icon} **{meal_time}：** {menu}")
+            render_plan_card(f"{icon} {meal_time}", menu)
     else:
         st.info("今日の食事プランはまだありません。")
 
     st.markdown("### 🏃‍♀️ 運動")
 
     try:
-        st.write(get_exercise_advice(exercise))
+        exercise_text = get_exercise_advice(exercise)
+        render_hint_card(exercise_text)
     except Exception:
-        st.write("今日は体調に合わせて、できる範囲で整えましょう。")
+        render_hint_card("今日は体調に合わせて、できる範囲で整えましょう。")
+
 
 # -----------------
 # 🛒 買い物リスト
@@ -276,8 +768,9 @@ with st.expander("🛒 買い物リスト"):
         else:
             st.info("買い物リストはありません")
 
-    except Exception as e:
-        st.warning(f"買い物リストを作成できませんでした: {e}")
+    except Exception:
+        st.warning("買い物リストを作成できませんでした。時間をおいてもう一度お試しください。")
+
 
 # -----------------
 # 📅 1週間プラン
@@ -298,8 +791,77 @@ with st.expander("📅 1週間プラン"):
             st.write(f"昼：{day_plan.get('昼', '')}")
             st.write(f"夜：{day_plan.get('夜', '')}")
 
-    except Exception as e:
-        st.warning(f"1週間プランを作成できませんでした: {e}")
+    except Exception:
+        st.warning("1週間プランを作成できませんでした。時間をおいてもう一度お試しください。")
+
+
+# -----------------
+# 下部メニュー
+# 今あるページだけ表示
+# -----------------
+st.markdown('<div class="section-title">メニュー</div>', unsafe_allow_html=True)
+st.markdown(
+    '<div class="section-subtitle">よく使うページへ移動できます。</div>',
+    unsafe_allow_html=True
+)
+
+cards = [
+    {
+        "title": "記録する",
+        "desc": "体重・食事・体調を記録",
+        "icon": "note.png",
+        "emoji": "📝",
+        "href": page_url("2_記録する"),
+    },
+    {
+        "title": "相談する",
+        "desc": "食事・運動・体調を相談",
+        "icon": "chat.png",
+        "emoji": "💬",
+        "href": page_url("3_相談する"),
+    },
+    {
+        "title": "写真で記録",
+        "desc": "食事写真から記録",
+        "icon": "camera.png",
+        "emoji": "📷",
+        "href": page_url("4_写真で記録"),
+    },
+    {
+        "title": "設定",
+        "desc": "目標・体質を設定",
+        "icon": "settings.png",
+        "emoji": "⚙️",
+        "href": page_url("1_設定"),
+    },
+]
+
+cols = st.columns(2)
+
+for i, card in enumerate(cards):
+    with cols[i % 2]:
+        render_menu_card(
+            title=card["title"],
+            desc=card["desc"],
+            icon_file=card["icon"],
+            emoji=card["emoji"],
+            href=card["href"],
+        )
+
+
+# -----------------
+# 下部メッセージ
+# -----------------
+st.markdown(
+    """
+<div class="bottom-message">
+    今日できることを1つだけ選べば大丈夫です。<br>
+    記録だけでも、相談だけでも、ShufuMateが少しずつ整えていきます。
+</div>
+""",
+    unsafe_allow_html=True
+)
+
 
 # -----------------
 # ログアウト
