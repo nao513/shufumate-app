@@ -42,23 +42,22 @@ def file_to_base64(path):
 
 def load_top_visual():
     """
-    トップ画像を複数候補から探す。
-    今のGitHub上の配置が多少ずれていても表示できるようにしてあります。
+    トップ画像専用。
+    基本は assets/home_icons/top/top_visual.png を読む。
+    予備で assets/top_visual.png も読む。
     """
     root = Path(__file__).resolve().parent
     cwd = Path.cwd()
 
     candidates = [
-        root / "assets" / "top_visual.png",
         root / "assets" / "home_icons" / "top" / "top_visual.png",
-        root / "assets" / "icons" / "top_visual.png",
+        root / "assets" / "top_visual.png",
 
-        # 今のスクショのように深く入ってしまった場合の保険
-        root / "assets" / "home_icons" / "top" / "assets" / "home_icons" / "top" / "top_visual.png",
-
-        cwd / "assets" / "top_visual.png",
         cwd / "assets" / "home_icons" / "top" / "top_visual.png",
-        cwd / "assets" / "icons" / "top_visual.png",
+        cwd / "assets" / "top_visual.png",
+
+        # フォルダごと二重に入ってしまった時の保険
+        root / "assets" / "home_icons" / "top" / "assets" / "home_icons" / "top" / "top_visual.png",
         cwd / "assets" / "home_icons" / "top" / "assets" / "home_icons" / "top" / "top_visual.png",
     ]
 
@@ -71,20 +70,18 @@ def load_top_visual():
 
 def load_icon(filename):
     """
-    アイコンは assets/icons/ を優先。
-    念のため home_icons 側も探します。
+    トップページ以外のアイコン専用。
+    assets/icons/ から読む。
     """
+    if not filename:
+        return None
+
     root = Path(__file__).resolve().parent
     cwd = Path.cwd()
 
     candidates = [
         root / "assets" / "icons" / filename,
-        root / "assets" / "home_icons" / filename,
-        root / "assets" / filename,
-
         cwd / "assets" / "icons" / filename,
-        cwd / "assets" / "home_icons" / filename,
-        cwd / "assets" / filename,
     ]
 
     for path in candidates:
@@ -206,6 +203,51 @@ st.markdown(
         font-size: 0.9rem;
         color: #8a7465;
         margin-bottom: 12px;
+    }
+
+    .section-head {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin: 26px 0 10px 0;
+    }
+
+    .section-head-icon {
+        width: 42px;
+        min-width: 42px;
+        height: 42px;
+        border-radius: 14px;
+        background: #ffffff;
+        border: 1px solid rgba(139, 100, 72, 0.12);
+        box-shadow: 0 4px 10px rgba(96, 65, 45, 0.08);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+    }
+
+    .section-head-icon img {
+        width: 27px;
+        height: 27px;
+        object-fit: contain;
+    }
+
+    .section-head-emoji {
+        font-size: 1.25rem;
+        line-height: 1;
+    }
+
+    .section-head-title {
+        font-size: 1.22rem;
+        font-weight: 900;
+        color: #5c4033;
+        line-height: 1.2;
+    }
+
+    .sub-expander-note {
+        font-size: 0.84rem;
+        color: #8a7465;
+        margin: -2px 0 10px 54px;
     }
 
     .advice-card {
@@ -349,6 +391,27 @@ st.markdown(
             padding: 20px 17px;
         }
 
+        .section-head-icon {
+            width: 38px;
+            min-width: 38px;
+            height: 38px;
+            border-radius: 12px;
+        }
+
+        .section-head-icon img {
+            width: 24px;
+            height: 24px;
+        }
+
+        .section-head-title {
+            font-size: 1.08rem;
+        }
+
+        .sub-expander-note {
+            margin-left: 50px;
+            font-size: 0.78rem;
+        }
+
         .small-menu-card {
             min-height: 74px;
             padding: 11px;
@@ -395,7 +458,28 @@ def render_top_visual():
             unsafe_allow_html=True
         )
     else:
-        st.warning("トップ画像が見つかりません。assets/top_visual.png または assets/home_icons/top/top_visual.png を確認してください。")
+        st.warning("トップ画像が見つかりません。assets/home_icons/top/top_visual.png を確認してください。")
+
+
+def render_section_header(title, icon_file=None, emoji=""):
+    icon_src = load_icon(icon_file) if icon_file else None
+
+    if icon_src:
+        icon_html = f'<img src="{icon_src}" alt="{safe_text(title)}">'
+    else:
+        icon_html = f'<div class="section-head-emoji">{safe_text(emoji)}</div>'
+
+    st.markdown(
+        f"""
+<div class="section-head">
+    <div class="section-head-icon">
+        {icon_html}
+    </div>
+    <div class="section-head-title">{safe_text(title)}</div>
+</div>
+""",
+        unsafe_allow_html=True
+    )
 
 
 def render_menu_card(title, desc, icon_file, emoji, href):
@@ -574,7 +658,7 @@ st.markdown(
 # -----------------
 # 今日の状態
 # -----------------
-st.markdown('<div class="section-title">🌿 今日の状態</div>', unsafe_allow_html=True)
+render_section_header("今日の状態", icon_file=None, emoji="🌿")
 
 mode = st.radio(
     "表示モード",
@@ -655,7 +739,7 @@ except Exception:
 # =====================
 if mode == "かんたん":
 
-    st.markdown('<div class="section-title">🌿 今日のおすすめ</div>', unsafe_allow_html=True)
+    render_section_header("今日のおすすめ", icon_file="food.png", emoji="🌿")
 
     try:
         text = generate_simple_advice(
@@ -668,7 +752,7 @@ if mode == "かんたん":
     except Exception:
         st.warning("今日のおすすめを作成できませんでした。時間をおいてもう一度お試しください。")
 
-    st.markdown('<div class="section-title">🏃‍♀️ 今日の運動ヒント</div>', unsafe_allow_html=True)
+    render_section_header("今日の運動ヒント", icon_file="exercise.png", emoji="🏃‍♀️")
 
     try:
         exercise_text = get_exercise_advice(exercise)
@@ -682,7 +766,7 @@ if mode == "かんたん":
 # =====================
 else:
 
-    st.markdown('<div class="section-title">💪 今日のプラン</div>', unsafe_allow_html=True)
+    render_section_header("今日のプラン", icon_file="food.png", emoji="🍽")
 
     st.markdown("### 🍽 食事")
 
@@ -701,7 +785,7 @@ else:
     else:
         st.info("今日の食事プランはまだありません。")
 
-    st.markdown("### 🏃‍♀️ 運動")
+    render_section_header("今日の運動ヒント", icon_file="exercise.png", emoji="🏃‍♀️")
 
     try:
         exercise_text = get_exercise_advice(exercise)
@@ -715,7 +799,13 @@ else:
 # -----------------
 st.markdown("---")
 
-with st.expander("🛒 買い物リスト"):
+render_section_header("買い物リスト", icon_file="cart.png", emoji="🛒")
+st.markdown(
+    '<div class="sub-expander-note">必要なものを確認できます。</div>',
+    unsafe_allow_html=True
+)
+
+with st.expander("買い物リストを開く"):
 
     try:
         shopping_week_plan = generate_weekly_plan(
@@ -775,7 +865,13 @@ with st.expander("🛒 買い物リスト"):
 # -----------------
 # 📅 1週間プラン
 # -----------------
-with st.expander("📅 1週間プラン"):
+render_section_header("1週間プラン", icon_file="calendar.png", emoji="📅")
+st.markdown(
+    '<div class="sub-expander-note">1週間の食事プランを確認できます。</div>',
+    unsafe_allow_html=True
+)
+
+with st.expander("1週間プランを開く"):
 
     try:
         week_plan = generate_weekly_plan(
@@ -799,7 +895,7 @@ with st.expander("📅 1週間プラン"):
 # 下部メニュー
 # 今あるページだけ表示
 # -----------------
-st.markdown('<div class="section-title">メニュー</div>', unsafe_allow_html=True)
+render_section_header("メニュー", icon_file="home.png", emoji="💻")
 st.markdown(
     '<div class="section-subtitle">よく使うページへ移動できます。</div>',
     unsafe_allow_html=True
