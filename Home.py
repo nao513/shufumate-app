@@ -41,17 +41,12 @@ def file_to_base64(path):
 
 
 def load_top_visual():
-    """
-    トップ画像専用。
-    基本は assets/home_icons/top/top_visual.png を読む。
-    """
     root = Path(__file__).resolve().parent
     cwd = Path.cwd()
 
     candidates = [
         root / "assets" / "home_icons" / "top" / "top_visual.png",
         root / "assets" / "top_visual.png",
-
         cwd / "assets" / "home_icons" / "top" / "top_visual.png",
         cwd / "assets" / "top_visual.png",
 
@@ -68,10 +63,6 @@ def load_top_visual():
 
 
 def load_icon(filename):
-    """
-    トップページ以外のアイコン専用。
-    assets/icons/ から読む。
-    """
     if not filename:
         return None
 
@@ -120,7 +111,6 @@ st.markdown(
         padding-bottom: 2.5rem;
     }
 
-    /* トップ画像を本文カードより大きめに表示 */
     .top-visual-wrap {
         width: calc(100% + 160px);
         margin-left: -80px;
@@ -154,22 +144,15 @@ st.markdown(
         border-radius: 999px;
         padding: 7px 14px;
         font-size: 0.9rem;
-        font-weight: 700;
-        margin-bottom: 12px;
-    }
-
-    .main-title {
-        font-size: 1.85rem;
-        font-weight: 900;
-        color: #5c4033;
-        margin-bottom: 6px;
-        letter-spacing: 0.02em;
+        font-weight: 800;
+        margin-bottom: 14px;
     }
 
     .main-message {
-        font-size: 0.98rem;
+        font-size: 1.02rem;
         color: #7b6658;
-        line-height: 1.75;
+        line-height: 1.8;
+        font-weight: 600;
     }
 
     .status-card {
@@ -194,20 +177,12 @@ st.markdown(
         line-height: 1.65;
     }
 
-    .section-title {
-        font-size: 1.22rem;
-        font-weight: 900;
-        color: #5c4033;
-        margin: 26px 0 10px 0;
-    }
-
     .section-subtitle {
         font-size: 0.9rem;
         color: #8a7465;
         margin-bottom: 12px;
     }
 
-    /* 見出しアイコン */
     .section-head {
         display: flex;
         align-items: center;
@@ -230,9 +205,40 @@ st.markdown(
     }
 
     .section-head-icon img {
+        width: 38px;
+        height: 38px;
+        object-fit: contain;
+    }
+
+    .section-icon-state img {
+        width: 44px;
+        height: 44px;
+    }
+
+    .section-icon-exercise img {
+        width: 40px;
+        height: 40px;
+    }
+
+    .section-icon-cart img {
         width: 42px;
         height: 42px;
-        object-fit: contain;
+    }
+
+    .section-icon-calendar img {
+        width: 52px;
+        height: 52px;
+        transform: scale(1.35);
+    }
+
+    .section-icon-food img {
+        width: 42px;
+        height: 42px;
+    }
+
+    .section-icon-home img {
+        width: 40px;
+        height: 40px;
     }
 
     .section-head-emoji {
@@ -399,12 +405,12 @@ st.markdown(
             padding-right: 1rem;
         }
 
-        .main-title {
-            font-size: 1.5rem;
-        }
-
         .top-card {
             padding: 20px 17px;
+        }
+
+        .main-message {
+            font-size: 0.95rem;
         }
 
         .section-head-icon {
@@ -415,8 +421,19 @@ st.markdown(
         }
 
         .section-head-icon img {
-            width: 36px;
-            height: 36px;
+            width: 34px;
+            height: 34px;
+        }
+
+        .section-icon-state img {
+            width: 38px;
+            height: 38px;
+        }
+
+        .section-icon-calendar img {
+            width: 48px;
+            height: 48px;
+            transform: scale(1.3);
         }
 
         .section-head-title {
@@ -480,6 +497,11 @@ def render_top_visual():
 def render_section_header(title, icon_file=None, emoji=""):
     icon_src = load_icon(icon_file) if icon_file else None
 
+    icon_class = ""
+    if icon_file:
+        icon_name = Path(icon_file).stem
+        icon_class = f"section-icon-{icon_name}"
+
     if icon_src:
         icon_html = f'<img src="{icon_src}" alt="{safe_text(title)}">'
     else:
@@ -488,7 +510,7 @@ def render_section_header(title, icon_file=None, emoji=""):
     st.markdown(
         f"""
 <div class="section-head">
-    <div class="section-head-icon">
+    <div class="section-head-icon {icon_class}">
         {icon_html}
     </div>
     <div class="section-head-title">{safe_text(title)}</div>
@@ -645,7 +667,6 @@ st.markdown(
     f"""
 <div class="top-card">
     <div class="date-pill">📅 {today_text}（{weekday_text}）</div>
-    <div class="main-title">🌿 ShufuMate</div>
     <div class="main-message">
         こんにちは、<strong>{safe_text(user_id)} さん</strong> 😊<br>
         食事も、暮らしも、ちょうどよく。<br>
@@ -909,7 +930,6 @@ with st.expander("1週間プランを開く"):
 
 # -----------------
 # 下部メニュー
-# 今あるページだけ表示
 # -----------------
 render_section_header("メニュー", icon_file="home.png", emoji="💻")
 st.markdown(
