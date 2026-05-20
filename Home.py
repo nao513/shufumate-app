@@ -112,15 +112,15 @@ st.markdown(
     }
 
     .top-visual-wrap {
-        width: calc(100% + 160px);
-        margin-left: -80px;
-        background: #ffffff;
-        border-radius: 30px;
-        padding: 12px;
-        box-shadow: 0 10px 28px rgba(96, 65, 45, 0.12);
-        border: 1px solid rgba(139, 100, 72, 0.12);
-        margin-bottom: 20px;
-    }
+    width: 100%;
+    max-width: 820px;
+    margin: 0 auto 20px auto;
+    background: #ffffff;
+    border-radius: 30px;
+    padding: 12px;
+    box-shadow: 0 10px 28px rgba(96, 65, 45, 0.12);
+    border: 1px solid rgba(139, 100, 72, 0.12);
+}
 
     .top-visual {
         width: 100%;
