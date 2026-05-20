@@ -931,7 +931,7 @@ with st.expander("1週間プランを開く"):
 # -----------------
 # 下部メニュー
 # -----------------
-render_section_header("メニュー", icon_file=None, emoji="📋")
+render_section_header("メニュー", icon_file="menu.png", emoji="📋")
 st.markdown(
     '<div class="section-subtitle">よく使うページへ移動できます。</div>',
     unsafe_allow_html=True
