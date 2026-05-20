@@ -106,10 +106,10 @@ st.markdown(
     }
 
     .block-container {
-        max-width: 760px;
-        padding-top: 1.1rem;
-        padding-bottom: 2.5rem;
-    }
+    max-width: 820px;
+    padding-top: 1.8rem;
+    padding-bottom: 2.5rem;
+}
 
     .top-visual-wrap {
     width: 100%;
