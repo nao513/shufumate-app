@@ -106,21 +106,21 @@ st.markdown(
     }
 
     .block-container {
-    max-width: 820px;
-    padding-top: 1.8rem;
-    padding-bottom: 2.5rem;
-}
+        max-width: 820px;
+        padding-top: 1.8rem;
+        padding-bottom: 2.5rem;
+    }
 
     .top-visual-wrap {
-    width: 100%;
-    max-width: 820px;
-    margin: 0 auto 20px auto;
-    background: #ffffff;
-    border-radius: 30px;
-    padding: 12px;
-    box-shadow: 0 10px 28px rgba(96, 65, 45, 0.12);
-    border: 1px solid rgba(139, 100, 72, 0.12);
-}
+        width: 100%;
+        max-width: 820px;
+        margin: 0 auto 20px auto;
+        background: #ffffff;
+        border-radius: 30px;
+        padding: 12px;
+        box-shadow: 0 10px 28px rgba(96, 65, 45, 0.12);
+        border: 1px solid rgba(139, 100, 72, 0.12);
+    }
 
     .top-visual {
         width: 100%;
@@ -216,8 +216,8 @@ st.markdown(
     }
 
     .section-icon-exercise img {
-        width: 42px;
-        height: 42px;
+        width: 40px;
+        height: 40px;
     }
 
     .section-icon-cart img {
@@ -226,9 +226,9 @@ st.markdown(
     }
 
     .section-icon-calendar img {
-        width: 52px;
-        height: 52px;
-        transform: scale(1.6);
+        width: 58px;
+        height: 58px;
+        transform: scale(1.5);
     }
 
     .section-icon-food img {
@@ -236,13 +236,8 @@ st.markdown(
         height: 42px;
     }
 
-    .section-icon-home img {
-        width: 40px;
-        height: 40px;
-    }
-
     .section-head-emoji {
-        font-size: 1.35rem;
+        font-size: 1.45rem;
         line-height: 1;
     }
 
@@ -387,6 +382,11 @@ st.markdown(
     }
 
     @media (max-width: 900px) {
+        .block-container {
+            max-width: 760px;
+            padding-top: 1.2rem;
+        }
+
         .top-visual-wrap {
             width: 100%;
             margin-left: 0;
@@ -431,9 +431,9 @@ st.markdown(
         }
 
         .section-icon-calendar img {
-            width: 48px;
-            height: 48px;
-            transform: scale(1.3);
+            width: 54px;
+            height: 54px;
+            transform: scale(1.45);
         }
 
         .section-head-title {
@@ -931,7 +931,7 @@ with st.expander("1週間プランを開く"):
 # -----------------
 # 下部メニュー
 # -----------------
-render_section_header("メニュー", icon_file="home.png", emoji="💻")
+render_section_header("メニュー", icon_file=None, emoji="📋")
 st.markdown(
     '<div class="section-subtitle">よく使うページへ移動できます。</div>',
     unsafe_allow_html=True
