@@ -1,26 +1,89 @@
 import streamlit as st
 from app_core import *
 
+from pathlib import Path
+from PIL import Image
+import base64
+import html
+
+
+# =========================
+# パス・アイコン設定
+# =========================
+THIS_FILE = Path(__file__).resolve()
+
+if THIS_FILE.parent.name == "pages":
+    APP_ROOT = THIS_FILE.parent.parent
+else:
+    APP_ROOT = THIS_FILE.parent
+
+ICON_DIR = APP_ROOT / "assets" / "icons"
+
+
+def get_page_icon(filename, fallback="⚙️"):
+    path = ICON_DIR / filename
+    if path.exists():
+        try:
+            return Image.open(path)
+        except Exception:
+            return fallback
+    return fallback
+
+
 # -----------------
 # ページ設定
 # -----------------
 st.set_page_config(
     page_title="設定｜ShufuMate",
-    page_icon="⚙️",
+    page_icon=get_page_icon("settings.png", "⚙️"),
     layout="centered"
 )
 
-# -----------------
-# ログインチェック
-# -----------------
-require_login()
-user_id = get_user_id()
 
-# -----------------
-# タイトル
-# -----------------
-st.title("⚙️ 設定")
-st.caption("基本設定とアカウント設定を管理します")
+# =========================
+# 画像読み込み
+# =========================
+def file_to_base64(path):
+    if not path.exists():
+        return None
+
+    suffix = path.suffix.lower()
+
+    if suffix == ".png":
+        mime = "image/png"
+    elif suffix in [".jpg", ".jpeg"]:
+        mime = "image/jpeg"
+    elif suffix == ".webp":
+        mime = "image/webp"
+    else:
+        mime = "image/png"
+
+    data = base64.b64encode(path.read_bytes()).decode("utf-8")
+    return f"data:{mime};base64,{data}"
+
+
+def load_icon(filename):
+    if not filename:
+        return None
+
+    candidates = [
+        ICON_DIR / filename,
+        APP_ROOT / "assets" / "icons" / filename,
+    ]
+
+    for path in candidates:
+        if path.exists():
+            return file_to_base64(path)
+
+    return None
+
+
+def safe_text(value):
+    return html.escape(str(value))
+
+
+def safe_html_with_br(value):
+    return html.escape(str(value)).replace("\n", "<br>")
 
 
 # -----------------
@@ -30,6 +93,8 @@ def local_safe_float(value, default):
     try:
         if value is None or value == "":
             return float(default)
+
+        value = str(value).replace(",", "").replace("'", "").strip()
         return float(value)
     except Exception:
         return float(default)
@@ -64,19 +129,345 @@ def option_index(options, value, default=0):
     return default
 
 
-# -----------------
+def call_optional(func_name, default, *args, **kwargs):
+    func = globals().get(func_name)
+
+    if callable(func):
+        try:
+            return func(*args, **kwargs)
+        except Exception:
+            return default
+
+    return default
+
+
+# =========================
+# CSS
+# =========================
+st.markdown(
+    """
+<style>
+    .stApp {
+        background: linear-gradient(180deg, #fffaf4 0%, #fff4e8 45%, #fffaf4 100%);
+    }
+
+    .block-container {
+        max-width: 820px;
+        padding-top: 1.8rem;
+        padding-bottom: 2.5rem;
+    }
+
+    .top-card {
+        background: #ffffff;
+        border-radius: 26px;
+        padding: 22px 20px;
+        box-shadow: 0 8px 24px rgba(96, 65, 45, 0.10);
+        border: 1px solid rgba(139, 100, 72, 0.12);
+        margin-bottom: 18px;
+    }
+
+    .page-head {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+    }
+
+    .page-head-icon {
+        width: 74px;
+        min-width: 74px;
+        height: 74px;
+        border-radius: 22px;
+        background: #fff8ef;
+        border: 1px solid rgba(139, 100, 72, 0.12);
+        box-shadow: 0 4px 12px rgba(96, 65, 45, 0.09);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+    }
+
+    .page-head-icon img {
+        width: 58px;
+        height: 58px;
+        object-fit: contain;
+    }
+
+    .page-title {
+        font-size: 1.75rem;
+        font-weight: 900;
+        color: #5c4033;
+        margin-bottom: 5px;
+    }
+
+    .page-subtitle {
+        font-size: 0.95rem;
+        color: #7b6658;
+        line-height: 1.7;
+        font-weight: 600;
+    }
+
+    .card {
+        background: #ffffff;
+        border-radius: 24px;
+        padding: 20px 18px;
+        box-shadow: 0 6px 18px rgba(96, 65, 45, 0.08);
+        border: 1px solid rgba(139, 100, 72, 0.10);
+        margin-bottom: 18px;
+    }
+
+    .section-head {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin: 26px 0 10px 0;
+    }
+
+    .section-head-icon {
+        width: 52px;
+        min-width: 52px;
+        height: 52px;
+        border-radius: 17px;
+        background: #ffffff;
+        border: 1px solid rgba(139, 100, 72, 0.12);
+        box-shadow: 0 4px 12px rgba(96, 65, 45, 0.09);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+    }
+
+    .section-head-icon img {
+        width: 40px;
+        height: 40px;
+        object-fit: contain;
+    }
+
+    .section-icon-settings img {
+        width: 42px;
+        height: 42px;
+    }
+
+    .section-icon-state img {
+        width: 42px;
+        height: 42px;
+    }
+
+    .section-icon-food img {
+        width: 42px;
+        height: 42px;
+    }
+
+    .section-icon-exercise img {
+        width: 42px;
+        height: 42px;
+    }
+
+    .section-head-emoji {
+        font-size: 1.45rem;
+        line-height: 1;
+    }
+
+    .section-head-title {
+        font-size: 1.2rem;
+        font-weight: 900;
+        color: #5c4033;
+        line-height: 1.2;
+    }
+
+    .soft-card {
+        background: #fffdf8;
+        border-radius: 20px;
+        padding: 16px;
+        border: 1px solid rgba(139, 100, 72, 0.10);
+        color: #6b4c3b;
+        font-size: 0.92rem;
+        line-height: 1.7;
+        margin-bottom: 14px;
+    }
+
+    .account-card {
+        background: #ffffff;
+        border-radius: 24px;
+        padding: 20px 18px;
+        box-shadow: 0 6px 18px rgba(96, 65, 45, 0.08);
+        border: 1px solid rgba(139, 100, 72, 0.10);
+        margin-bottom: 18px;
+    }
+
+    .note-card {
+        background: #fff8ef;
+        border-radius: 20px;
+        padding: 14px 16px;
+        color: #7b6658;
+        font-size: 0.88rem;
+        line-height: 1.7;
+        border: 1px solid rgba(139, 100, 72, 0.10);
+        margin-top: 14px;
+        margin-bottom: 18px;
+    }
+
+    .stButton > button,
+    .stFormSubmitButton > button {
+        background-color: #8d6e63;
+        color: #ffffff;
+        border: none;
+        border-radius: 14px;
+        padding: 0.75rem 1rem;
+        font-size: 1rem;
+        font-weight: 800;
+    }
+
+    .stButton > button:hover,
+    .stFormSubmitButton > button:hover {
+        background-color: #76594f;
+        color: #ffffff;
+    }
+
+    div[data-testid="stTextInput"] label,
+    div[data-testid="stTextArea"] label,
+    div[data-testid="stNumberInput"] label,
+    div[data-testid="stSelectbox"] label,
+    div[data-testid="stMultiSelect"] label {
+        color: #5c4033;
+        font-weight: 700;
+    }
+
+    @media (max-width: 640px) {
+        .block-container {
+            padding-left: 1rem;
+            padding-right: 1rem;
+            padding-top: 1.2rem;
+        }
+
+        .top-card {
+            padding: 18px 16px;
+        }
+
+        .page-head-icon {
+            width: 62px;
+            min-width: 62px;
+            height: 62px;
+            border-radius: 19px;
+        }
+
+        .page-head-icon img {
+            width: 48px;
+            height: 48px;
+        }
+
+        .page-title {
+            font-size: 1.45rem;
+        }
+
+        .page-subtitle {
+            font-size: 0.88rem;
+        }
+
+        .section-head-icon {
+            width: 46px;
+            min-width: 46px;
+            height: 46px;
+            border-radius: 15px;
+        }
+
+        .section-head-icon img {
+            width: 35px;
+            height: 35px;
+        }
+
+        .section-head-title {
+            font-size: 1.08rem;
+        }
+    }
+</style>
+""",
+    unsafe_allow_html=True
+)
+
+
+# =========================
+# 表示用関数
+# =========================
+def render_page_header(title, subtitle, icon_file="settings.png"):
+    icon_src = load_icon(icon_file)
+
+    if icon_src:
+        icon_html = f'<img src="{icon_src}" alt="{safe_text(title)}">'
+    else:
+        icon_html = '<div class="section-head-emoji">⚙️</div>'
+
+    st.markdown(
+        f"""
+<div class="top-card">
+    <div class="page-head">
+        <div class="page-head-icon">
+            {icon_html}
+        </div>
+        <div>
+            <div class="page-title">{safe_text(title)}</div>
+            <div class="page-subtitle">{safe_html_with_br(subtitle)}</div>
+        </div>
+    </div>
+</div>
+""",
+        unsafe_allow_html=True,
+    )
+
+
+def render_section_header(title, icon_file=None, emoji=""):
+    icon_src = load_icon(icon_file) if icon_file else None
+
+    icon_class = ""
+    if icon_file:
+        icon_name = Path(icon_file).stem
+        icon_class = f"section-icon-{icon_name}"
+
+    if icon_src:
+        icon_html = f'<img src="{icon_src}" alt="{safe_text(title)}">'
+    else:
+        icon_html = f'<div class="section-head-emoji">{safe_text(emoji)}</div>'
+
+    st.markdown(
+        f"""
+<div class="section-head">
+    <div class="section-head-icon {icon_class}">
+        {icon_html}
+    </div>
+    <div class="section-head-title">{safe_text(title)}</div>
+</div>
+""",
+        unsafe_allow_html=True,
+    )
+
+
+def render_note(text):
+    st.markdown(
+        f"""
+<div class="note-card">
+    {safe_html_with_br(text)}
+</div>
+""",
+        unsafe_allow_html=True,
+    )
+
+
+# =========================
+# ログインチェック
+# =========================
+require_login()
+user_id = get_user_id()
+
+
+# =========================
 # データ読み込み
-# -----------------
+# =========================
 try:
     settings = load_user_settings(user_id)
-except Exception as e:
-    st.error(f"設定の読み込みに失敗しました: {e}")
+except Exception:
+    st.warning("設定の読み込みに失敗しました。初期値で表示します。")
     settings = {}
 
-try:
-    profile = load_current_user_profile(user_id)
-except Exception:
-    profile = {}
+profile = call_optional("load_current_user_profile", {}, user_id)
 
 if not isinstance(settings, dict):
     settings = {}
@@ -97,12 +488,29 @@ age_val = profile.get("age")
 age_text = f"{age_val}歳" if age_val is not None else "未設定"
 
 
+# =========================
+# ヘッダー
+# =========================
+render_page_header(
+    title="設定",
+    subtitle="基本設定・相談の好み・アカウント情報を管理します。",
+    icon_file="settings.png",
+)
+
+
+render_note(
+    "ここで設定した内容は、HOMEの今日のおすすめ・相談する・献立や運動の提案に使われます。"
+)
+
+
 # =====================
-# ⚙️ 基本設定フォーム
+# 基本設定フォーム
 # =====================
 with st.form("settings_form"):
 
-    st.subheader("基本設定")
+    render_section_header("基本設定", icon_file="settings.png", emoji="⚙️")
+
+    st.markdown("<div class='card'>", unsafe_allow_html=True)
 
     nickname = st.text_input(
         "ニックネーム",
@@ -181,9 +589,15 @@ with st.form("settings_form"):
             step=0.1
         )
 
-    st.markdown("---")
+    st.markdown("</div>", unsafe_allow_html=True)
 
-    st.subheader("🌿 相談・提案の設定")
+
+    # -----------------
+    # 相談・提案の設定
+    # -----------------
+    render_section_header("相談・提案の設定", icon_file="state.png", emoji="🌿")
+
+    st.markdown("<div class='card'>", unsafe_allow_html=True)
 
     user_type_options = [
         "自分向け",
@@ -283,9 +697,15 @@ with st.form("settings_form"):
         )
     )
 
-    st.markdown("---")
+    st.markdown("</div>", unsafe_allow_html=True)
 
-    st.subheader("🏃‍♀️ 運動設定")
+
+    # -----------------
+    # 運動設定
+    # -----------------
+    render_section_header("運動設定", icon_file="exercise.png", emoji="🏃‍♀️")
+
+    st.markdown("<div class='card'>", unsafe_allow_html=True)
 
     workout_today_options = [
         "ストレッチ",
@@ -311,9 +731,15 @@ with st.form("settings_form"):
         index=workout_today_options.index(current_workout)
     )
 
-    st.markdown("---")
+    st.markdown("</div>", unsafe_allow_html=True)
 
-    st.subheader("🍽 食材・冷蔵庫")
+
+    # -----------------
+    # 食材・冷蔵庫
+    # -----------------
+    render_section_header("食材・冷蔵庫", icon_file="food.png", emoji="🍽")
+
+    st.markdown("<div class='card'>", unsafe_allow_html=True)
 
     fridge_items = st.text_area(
         "冷蔵庫にあるもの",
@@ -336,8 +762,10 @@ with st.form("settings_form"):
         height=80
     )
 
+    st.markdown("</div>", unsafe_allow_html=True)
+
     submitted = st.form_submit_button(
-        "保存",
+        "保存する",
         use_container_width=True
     )
 
@@ -354,8 +782,10 @@ if submitted:
                 "nickname": nickname,
                 "height_cm": height_cm,
                 "current_weight": current_weight,
+                "start_weight": settings.get("start_weight") or current_weight,
                 "target_weight": target_weight,
                 "current_body_fat": current_body_fat,
+                "start_body_fat": settings.get("start_body_fat") or current_body_fat,
                 "target_body_fat": target_body_fat,
                 "user_type": user_type,
                 "activity_level": activity_level,
@@ -370,26 +800,30 @@ if submitted:
             }
         )
 
-        try:
-            update_current_user_profile(
-                user_id,
-                nickname=nickname
-            )
-        except Exception:
-            pass
+        update_func = globals().get("update_current_user_profile")
+
+        if callable(update_func):
+            try:
+                update_func(
+                    user_id,
+                    nickname=nickname
+                )
+            except Exception:
+                pass
 
         st.success("保存しました")
         st.rerun()
 
-    except Exception as e:
-        st.error(f"保存に失敗しました: {e}")
+    except Exception:
+        st.error("保存に失敗しました。時間をおいてもう一度お試しください。")
 
 
 # =====================
 # アカウント情報
 # =====================
-st.divider()
-st.subheader("アカウント")
+render_section_header("アカウント", icon_file="settings.png", emoji="👤")
+
+st.markdown("<div class='account-card'>", unsafe_allow_html=True)
 
 st.text_input(
     "ログインID",
@@ -397,7 +831,19 @@ st.text_input(
     disabled=True
 )
 
-st.subheader("🔑 パスワード変更")
+st.markdown("</div>", unsafe_allow_html=True)
+
+
+# =====================
+# パスワード変更
+# =====================
+render_section_header("パスワード変更", icon_file=None, emoji="🔑")
+
+st.markdown("<div class='account-card'>", unsafe_allow_html=True)
+
+render_note(
+    "数字だけのパスワードも使えますが、4文字以上にしてください。"
+)
 
 new_pw = st.text_input(
     "新しいパスワード",
@@ -415,20 +861,36 @@ if st.button("変更する", use_container_width=True):
         st.warning("パスワードを入力してください")
 
     elif new_pw != new_pw2:
-        st.error("一致しません")
+        st.error("パスワードが一致しません")
 
     elif len(new_pw) < 4:
         st.warning("パスワードは4文字以上にしてください")
 
     else:
         try:
-            reset_password(login_id_text, new_pw)
-            st.success("変更しました")
-        except Exception as e:
-            st.error(f"変更に失敗しました: {e}")
+            reset_func = globals().get("reset_password")
 
-st.divider()
+            if callable(reset_func):
+                reset_func(login_id_text, new_pw)
+                st.success("パスワードを変更しました")
+            else:
+                st.error("パスワード変更機能が見つかりません")
+
+        except Exception:
+            st.error("パスワード変更に失敗しました。時間をおいてもう一度お試しください。")
+
+st.markdown("</div>", unsafe_allow_html=True)
+
+
+# =====================
+# ログアウト
+# =====================
+st.markdown("---")
 
 if st.button("ログアウト", use_container_width=True):
     logout()
-    st.switch_page("pages/0_ログイン.py")
+
+    try:
+        st.switch_page("pages/0_ログイン.py")
+    except Exception:
+        st.rerun()
