@@ -3,6 +3,11 @@ from datetime import datetime, date
 from zoneinfo import ZoneInfo
 from collections import Counter
 import unicodedata
+import hashlib
+import hmac
+import secrets as secrets_lib
+import base64
+
 
 # ==================================================
 # 共通：日時・文字整形
@@ -59,9 +64,84 @@ def safe_float(value, default):
     try:
         if value is None or value == "":
             return float(default)
+
+        value = str(value).replace(",", "").replace("'", "").strip()
         return float(value)
+
     except Exception:
         return float(default)
+
+
+# ==================================================
+# パスワード安全化
+# ==================================================
+
+PASSWORD_HASH_PREFIX = "pbkdf2_sha256"
+PASSWORD_ITERATIONS = 200_000
+
+
+def _hash_password(password):
+    password = clean_text(password)
+
+    salt = secrets_lib.token_hex(16)
+
+    dk = hashlib.pbkdf2_hmac(
+        "sha256",
+        password.encode("utf-8"),
+        salt.encode("utf-8"),
+        PASSWORD_ITERATIONS,
+    )
+
+    hashed = base64.b64encode(dk).decode("utf-8")
+
+    return f"{PASSWORD_HASH_PREFIX}${PASSWORD_ITERATIONS}${salt}${hashed}"
+
+
+def _is_password_hash(value):
+    value = clean_text(value)
+    return value.startswith(f"{PASSWORD_HASH_PREFIX}$")
+
+
+def _verify_password(password, stored_password):
+    password = clean_text(password)
+    stored_password = clean_text(stored_password)
+
+    if not password or not stored_password:
+        return False
+
+    # 新方式：ハッシュ照合
+    if _is_password_hash(stored_password):
+        try:
+            parts = stored_password.split("$")
+
+            if len(parts) != 4:
+                return False
+
+            prefix, iterations_text, salt, saved_hash = parts
+
+            if prefix != PASSWORD_HASH_PREFIX:
+                return False
+
+            iterations = int(iterations_text)
+
+            dk = hashlib.pbkdf2_hmac(
+                "sha256",
+                password.encode("utf-8"),
+                salt.encode("utf-8"),
+                iterations,
+            )
+
+            check_hash = base64.b64encode(dk).decode("utf-8")
+
+            return hmac.compare_digest(check_hash, saved_hash)
+
+        except Exception:
+            return False
+
+    # 旧方式：平文パスワード互換
+    # 既存ユーザーがログインできなくならないように残す。
+    # ログイン成功後に自動でハッシュ化へ移行する。
+    return hmac.compare_digest(stored_password, password)
 
 
 # ==================================================
@@ -98,13 +178,21 @@ def _users_store_key():
 
 
 def _users_headers():
-    return ["login_id", "password", "nickname", "birth_date", "created_at", "updated_at"]
+    return [
+        "login_id",
+        "password",
+        "nickname",
+        "birth_date",
+        "created_at",
+        "updated_at",
+    ]
 
 
 def _get_spreadsheet():
     import gspread
 
     creds_info = None
+
     if "gcp_service_account" in st.secrets:
         creds_info = st.secrets["gcp_service_account"]
     elif "google_service_account" in st.secrets:
@@ -113,7 +201,7 @@ def _get_spreadsheet():
         creds_info = st.secrets["service_account"]
 
     if creds_info is None:
-        raise Exception("Google Sheetsの認証情報が st.secrets にありません")
+        raise Exception("Google Sheetsの認証情報がありません")
 
     spreadsheet_id = (
         st.secrets.get("SPREADSHEET_ID")
@@ -123,7 +211,7 @@ def _get_spreadsheet():
     )
 
     if not spreadsheet_id:
-        raise Exception("スプレッドシートIDが st.secrets にありません")
+        raise Exception("スプレッドシートIDがありません")
 
     gc = gspread.service_account_from_dict(dict(creds_info))
     return gc.open_by_key(spreadsheet_id)
@@ -135,9 +223,14 @@ def _get_or_create_worksheet(sheet_name, headers):
     try:
         ws = ss.worksheet(sheet_name)
     except Exception:
-        ws = ss.add_worksheet(title=sheet_name, rows=1000, cols=max(len(headers), 10))
+        ws = ss.add_worksheet(
+            title=sheet_name,
+            rows=1000,
+            cols=max(len(headers), 10),
+        )
 
     values = ws.get_all_values()
+
     if not values:
         ws.append_row(headers)
 
@@ -145,6 +238,7 @@ def _get_or_create_worksheet(sheet_name, headers):
 
 
 def _find_user_row(ws, login_id):
+    login_id = clean_text(login_id)
     records = ws.get_all_records()
 
     for idx, row in enumerate(records, start=2):
@@ -210,10 +304,51 @@ def load_users():
         users = _load_users_from_sheet()
         st.session_state[_users_store_key()] = users
         return users
+
     except Exception:
         if _users_store_key() not in st.session_state:
             st.session_state[_users_store_key()] = {}
+
         return st.session_state[_users_store_key()]
+
+
+def _save_user_password_to_sheet_and_session(login_id, password_hash):
+    login_id = clean_text(login_id)
+    password_hash = clean_text(password_hash)
+
+    users = st.session_state.get(_users_store_key(), {})
+
+    if login_id in users:
+        users[login_id]["password"] = password_hash
+        users[login_id]["updated_at"] = jst_now().strftime("%Y-%m-%d %H:%M:%S")
+        st.session_state[_users_store_key()] = users
+
+    try:
+        ws = _get_or_create_worksheet(USERS_SHEET_NAME, _users_headers())
+        row_num = _find_user_row(ws, login_id)
+
+        if row_num:
+            headers = ws.row_values(1)
+            now_text = jst_now().strftime("%Y-%m-%d %H:%M:%S")
+
+            if "password" in headers:
+                ws.update_cell(
+                    row_num,
+                    headers.index("password") + 1,
+                    password_hash,
+                )
+
+            if "updated_at" in headers:
+                ws.update_cell(
+                    row_num,
+                    headers.index("updated_at") + 1,
+                    now_text,
+                )
+
+        return True
+
+    except Exception:
+        return False
 
 
 def create_user(login_id, password, nickname="", birth_date=None, **kwargs):
@@ -236,10 +371,11 @@ def create_user(login_id, password, nickname="", birth_date=None, **kwargs):
         raise ValueError("このログインIDはすでに使われています")
 
     now_text = jst_now().strftime("%Y-%m-%d %H:%M:%S")
+    password_hash = _hash_password(password)
 
     user_record = {
         "login_id": login_id,
-        "password": password,
+        "password": password_hash,
         "nickname": nickname,
         "birth_date": str(birth_date) if birth_date else "",
         "created_at": now_text,
@@ -256,8 +392,9 @@ def create_user(login_id, password, nickname="", birth_date=None, **kwargs):
             user_record["created_at"],
             user_record["updated_at"],
         ])
-    except Exception as e:
-        st.warning(f"Usersシートに保存できませんでした。一時保存します: {e}")
+
+    except Exception:
+        st.warning("Usersシートに保存できませんでした。一時保存します。")
 
     users[login_id] = user_record
     st.session_state[_users_store_key()] = users
@@ -277,10 +414,16 @@ def verify_login(login_id, password):
 
     stored_password = clean_text(user_record.get("password"))
 
-    if stored_password == password:
-        return user_record
+    if not _verify_password(password, stored_password):
+        return None
 
-    return None
+    # 旧方式の平文パスワードだった場合、自動でハッシュ化する
+    if stored_password and not _is_password_hash(stored_password):
+        password_hash = _hash_password(password)
+        user_record["password"] = password_hash
+        _save_user_password_to_sheet_and_session(login_id, password_hash)
+
+    return user_record
 
 
 def login_user(user_record):
@@ -295,6 +438,7 @@ def login_user(user_record):
 
     st.session_state["user_id"] = login_id
     st.session_state["user_name"] = nickname
+    st.session_state["login_mode"] = "normal"
 
     return True
 
@@ -312,15 +456,11 @@ def login(user_id, password):
         if user_record:
             login_user(user_record)
             return True
-    except Exception as e:
-        st.session_state["login_error_debug"] = str(e)
 
-    # 開発中の緊急ログイン：IDとPWが入っていれば入れる
-    st.session_state["user_id"] = user_id
-    st.session_state["user_name"] = user_id
-    st.session_state["login_mode"] = "dev"
+        return False
 
-    return True
+    except Exception:
+        return False
 
 
 def reset_password(login_id, new_pw):
@@ -339,6 +479,7 @@ def reset_password(login_id, new_pw):
         return False
 
     now_text = jst_now().strftime("%Y-%m-%d %H:%M:%S")
+    password_hash = _hash_password(new_pw)
 
     try:
         ws = _get_or_create_worksheet(USERS_SHEET_NAME, _users_headers())
@@ -348,15 +489,23 @@ def reset_password(login_id, new_pw):
             headers = ws.row_values(1)
 
             if "password" in headers:
-                ws.update_cell(row_num, headers.index("password") + 1, new_pw)
+                ws.update_cell(
+                    row_num,
+                    headers.index("password") + 1,
+                    password_hash,
+                )
 
             if "updated_at" in headers:
-                ws.update_cell(row_num, headers.index("updated_at") + 1, now_text)
+                ws.update_cell(
+                    row_num,
+                    headers.index("updated_at") + 1,
+                    now_text,
+                )
 
-    except Exception as e:
-        st.warning(f"Usersシートのパスワード更新に失敗しました。一時保存します: {e}")
+    except Exception:
+        st.warning("Usersシートのパスワード更新に失敗しました。一時保存します。")
 
-    users[login_id]["password"] = new_pw
+    users[login_id]["password"] = password_hash
     users[login_id]["updated_at"] = now_text
     st.session_state[_users_store_key()] = users
 
@@ -424,10 +573,18 @@ def update_current_user_profile(user_id=None, **kwargs):
             headers = ws.row_values(1)
 
             if "nickname" in headers:
-                ws.update_cell(row_num, headers.index("nickname") + 1, nickname)
+                ws.update_cell(
+                    row_num,
+                    headers.index("nickname") + 1,
+                    nickname,
+                )
 
             if "updated_at" in headers:
-                ws.update_cell(row_num, headers.index("updated_at") + 1, now_text)
+                ws.update_cell(
+                    row_num,
+                    headers.index("updated_at") + 1,
+                    now_text,
+                )
 
     except Exception:
         pass
@@ -537,6 +694,7 @@ def get_exercise_options():
 def normalize_exercise(exercise):
     if exercise in ["ウォーキング", "ランニング"]:
         return "有酸素"
+
     return exercise
 
 
@@ -714,7 +872,6 @@ def convert_to_meal(meal_type, condition=None, timing=None, day=None):
             return _pick_menu(lunch_light, timing, day)
         return _pick_menu(dinner_light, timing, day)
 
-    # 目標体重との距離を反映
     if "減量優先" in goal and timing == "夜":
         return _pick_menu(dinner_light, timing, day)
 
@@ -723,45 +880,69 @@ def convert_to_meal(meal_type, condition=None, timing=None, day=None):
 
     if state == "むくみ" or meal_type == "さっぱり":
         if timing == "朝":
-            return _pick_menu([
-                "しらすおにぎり＋わかめ味噌汁",
-                "ヨーグルト＋バナナ＋温かいお茶",
-                "豆腐味噌汁＋フルーツ",
-            ], timing, day)
+            return _pick_menu(
+                [
+                    "しらすおにぎり＋わかめ味噌汁",
+                    "ヨーグルト＋バナナ＋温かいお茶",
+                    "豆腐味噌汁＋フルーツ",
+                ],
+                timing,
+                day,
+            )
 
         if timing == "昼":
-            return _pick_menu([
-                "そば＋温泉卵",
-                "冷しゃぶサラダ＋小さめごはん",
-                "サラダチキン＋スープ",
-            ], timing, day)
+            return _pick_menu(
+                [
+                    "そば＋温泉卵",
+                    "冷しゃぶサラダ＋小さめごはん",
+                    "サラダチキン＋スープ",
+                ],
+                timing,
+                day,
+            )
 
-        return _pick_menu([
-            "豆腐と野菜のスープ",
-            "冷しゃぶサラダ＋味噌汁",
-            "雑炊＋温かいお茶",
-        ], timing, day)
+        return _pick_menu(
+            [
+                "豆腐と野菜のスープ",
+                "冷しゃぶサラダ＋味噌汁",
+                "雑炊＋温かいお茶",
+            ],
+            timing,
+            day,
+        )
 
     if weather == "寒い" or meal_type == "あたたかい":
         if timing == "朝":
-            return _pick_menu([
-                "雑炊＋味噌汁",
-                "おにぎり＋具だくさん味噌汁",
-                "スープ＋ゆで卵",
-            ], timing, day)
+            return _pick_menu(
+                [
+                    "雑炊＋味噌汁",
+                    "おにぎり＋具だくさん味噌汁",
+                    "スープ＋ゆで卵",
+                ],
+                timing,
+                day,
+            )
 
         if timing == "昼":
-            return _pick_menu([
-                "うどん＋温泉卵",
-                "鶏団子スープ＋ごはん",
-                "雑炊＋豆腐",
-            ], timing, day)
+            return _pick_menu(
+                [
+                    "うどん＋温泉卵",
+                    "鶏団子スープ＋ごはん",
+                    "雑炊＋豆腐",
+                ],
+                timing,
+                day,
+            )
 
-        return _pick_menu([
-            "野菜たっぷり鍋＋ごはん少なめ",
-            "うどん＋卵",
-            "具だくさん味噌汁＋豆腐",
-        ], timing, day)
+        return _pick_menu(
+            [
+                "野菜たっぷり鍋＋ごはん少なめ",
+                "うどん＋卵",
+                "具だくさん味噌汁＋豆腐",
+            ],
+            timing,
+            day,
+        )
 
     if exercise == "筋トレ":
         if timing == "朝":
@@ -1069,7 +1250,6 @@ def generate_supermarket_shopping_list(plan, fridge_items=None):
                 matched_keys.append(key)
 
     items = [item for item in items if item not in fridge_items]
-
     counted = Counter(items)
 
     result = {}
@@ -1179,16 +1359,30 @@ def save_diet_log(user_id=None, log=None, **kwargs):
     return True
 
 
+def upsert_diet_log(user_id=None, log=None, **kwargs):
+    return save_diet_log(user_id, log, **kwargs)
+
+
 def load_latest_log(user_id=None):
     logs = load_diet_logs(user_id)
+
     if logs:
         return logs[-1]
+
     return None
 
 
 load_user_logs = load_diet_logs
 save_user_log = save_diet_log
 save_log = save_diet_log
+load_record_logs = load_diet_logs
+save_record_log = save_diet_log
+load_daily_logs = load_diet_logs
+save_daily_log = save_diet_log
+load_today_logs = load_diet_logs
+save_today_log = save_diet_log
+load_user_records = load_diet_logs
+save_user_record = save_diet_log
 
 
 def get_initial_log_values(user_id=None):
@@ -1199,8 +1393,16 @@ def get_initial_log_values(user_id=None):
     body_fat = None
 
     if isinstance(latest, dict):
-        weight = latest.get("weight")
-        body_fat = latest.get("body_fat")
+        weight = (
+            latest.get("weight")
+            or latest.get("体重(kg)")
+            or latest.get("体重")
+        )
+        body_fat = (
+            latest.get("body_fat")
+            or latest.get("体脂肪率(%)")
+            or latest.get("体脂肪率")
+        )
 
     if weight is None:
         weight = settings.get("current_weight") or settings.get("start_weight") or 50
@@ -1208,7 +1410,10 @@ def get_initial_log_values(user_id=None):
     if body_fat is None:
         body_fat = settings.get("current_body_fat") or settings.get("start_body_fat") or 30
 
-    return {"weight": weight, "body_fat": body_fat}
+    return {
+        "weight": weight,
+        "body_fat": body_fat,
+    }
 
 
 # ==================================================
@@ -1232,6 +1437,7 @@ def save_today_plan(user_id=None, plan=None, **kwargs):
         plan.update(kwargs)
 
     st.session_state[_today_plan_key(user_id)] = plan
+
     return True
 
 
@@ -1352,7 +1558,10 @@ def _safe_float_for_consult(value):
     try:
         if value is None or value == "":
             return None
+
+        value = str(value).replace(",", "").replace("'", "").strip()
         return float(value)
+
     except Exception:
         return None
 
@@ -1412,7 +1621,10 @@ def get_support_focus_summary(settings=None, latest_log=None):
 
     points = list(dict.fromkeys(points))
 
-    return {"points": points, "today_conditions": today_conditions}
+    return {
+        "points": points,
+        "today_conditions": today_conditions,
+    }
 
 
 def generate_answer(category, question, settings=None, latest_log=None):
@@ -1523,6 +1735,7 @@ def generate_dynamic_advice(main_meal=None, advice=None, user_type=None, weather
     if isinstance(advice, dict):
         if main_meal in advice:
             return advice.get(main_meal)
+
         return "今日は無理せず、食事と運動を整えましょう。"
 
     if isinstance(advice, str):
