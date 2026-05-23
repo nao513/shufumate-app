@@ -643,7 +643,6 @@ render_page_header(
 # =========================
 render_section_header("体の記録", icon_file="state.png", emoji="⚖️")
 
-st.markdown("<div class='card'>", unsafe_allow_html=True)
 
 record_date = st.date_input(
     "記録日",
@@ -734,7 +733,6 @@ with col5:
 with col6:
     render_metric_card("今日の整え方", goal_message)
 
-st.markdown("</div>", unsafe_allow_html=True)
 
 
 # =========================
