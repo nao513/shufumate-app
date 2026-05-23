@@ -542,8 +542,6 @@ render_focus_card(f"{focus_text}\n{condition_text}")
 # =========================
 render_section_header("相談内容", icon_file="chat.png", emoji="💬")
 
-st.markdown("<div class='card'>", unsafe_allow_html=True)
-
 category_options = globals().get(
     "CATEGORY_OPTIONS",
     ["食事", "運動", "体調", "外食調整"]
@@ -583,7 +581,6 @@ if st.button("相談する", use_container_width=True):
     except Exception:
         st.warning("回答を作成できませんでした。時間をおいてもう一度お試しください。")
 
-st.markdown("</div>", unsafe_allow_html=True)
 
 
 # =========================
