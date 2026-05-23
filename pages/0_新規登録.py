@@ -415,7 +415,7 @@ year_options = list(range(current_year, 1899, -1))
 # =====================
 # 新規登録フォーム
 # =====================
-st.markdown("<div class='card'>", unsafe_allow_html=True)
+
 
 render_section_header("アカウント情報", icon_file="register.png", emoji="🆕")
 
@@ -472,7 +472,6 @@ with st.form("register_form"):
         use_container_width=True
     )
 
-st.markdown("</div>", unsafe_allow_html=True)
 
 
 # =====================
