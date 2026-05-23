@@ -444,22 +444,20 @@ def create_user(login_id, password, nickname="", birth_date=None, **kwargs):
         "birth_date": str(birth_date) if birth_date else "",
         "created_at": now_text,
         "updated_at": now_text,
-        "is_active": True,
+        "is_active": "TRUE",
     }
 
     try:
         ws = _get_or_create_worksheet(USERS_SHEET_NAME, _users_headers())
-        ws.append_row([
-            user_record["user_id"],
-            user_record["login_id"],
-            user_record["password_hash"],
-            user_record["password_salt"],
-            user_record["nickname"],
-            user_record["birth_date"],
-            user_record["created_at"],
-            user_record["updated_at"],
-            "TRUE",
-        ])
+
+        # 現在のシート見出しに合わせて、列名で正しく並べる
+        headers = ws.row_values(1)
+
+        row_values = []
+        for header in headers:
+            row_values.append(user_record.get(header, ""))
+
+        ws.append_row(row_values)
 
     except Exception:
         st.warning("Usersシートに保存できませんでした。一時保存します。")
@@ -468,7 +466,7 @@ def create_user(login_id, password, nickname="", birth_date=None, **kwargs):
     st.session_state[_users_store_key()] = users
 
     return user_record
-
+    
 
 def verify_login(login_id, password):
     login_id = clean_text(login_id)
