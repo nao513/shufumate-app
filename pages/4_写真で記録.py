@@ -453,8 +453,6 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-st.markdown("<div class='card'>", unsafe_allow_html=True)
-
 input_mode = st.radio(
     "写真の入力方法",
     ["写真をアップロード", "カメラで撮影"],
@@ -474,7 +472,6 @@ else:
 if img is not None:
     st.image(img, caption="選択した写真", use_container_width=True)
 
-st.markdown("</div>", unsafe_allow_html=True)
 
 
 # =========================
