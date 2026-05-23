@@ -422,7 +422,7 @@ tab1, tab2 = st.tabs(["ログイン", "パスワード再設定"])
 # =====================
 with tab1:
 
-    st.markdown("<div class='card'>", unsafe_allow_html=True)
+
 
     render_section_header("ログイン情報", icon_file="login.png", emoji="🔐")
 
@@ -467,7 +467,6 @@ with tab1:
             except Exception:
                 st.error("ログイン中にエラーが発生しました。時間をおいてもう一度お試しください。")
 
-    st.markdown("</div>", unsafe_allow_html=True)
 
 
 # =====================
