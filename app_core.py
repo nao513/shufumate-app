@@ -74,16 +74,16 @@ def safe_float(value, default):
 
 # ==================================================
 # パスワード安全化
+# password_hash / password_salt 分離方式
 # ==================================================
 
-PASSWORD_HASH_PREFIX = "pbkdf2_sha256"
 PASSWORD_ITERATIONS = 200_000
+LEGACY_HASH_PREFIX = "pbkdf2_sha256"
 
 
-def _hash_password(password):
+def _make_password_hash(password, salt):
     password = clean_text(password)
-
-    salt = secrets_lib.token_hex(16)
+    salt = clean_text(salt)
 
     dk = hashlib.pbkdf2_hmac(
         "sha256",
@@ -92,56 +92,74 @@ def _hash_password(password):
         PASSWORD_ITERATIONS,
     )
 
-    hashed = base64.b64encode(dk).decode("utf-8")
-
-    return f"{PASSWORD_HASH_PREFIX}${PASSWORD_ITERATIONS}${salt}${hashed}"
+    return base64.b64encode(dk).decode("utf-8")
 
 
-def _is_password_hash(value):
-    value = clean_text(value)
-    return value.startswith(f"{PASSWORD_HASH_PREFIX}$")
+def _create_password_parts(password):
+    salt = secrets_lib.token_hex(16)
+    password_hash = _make_password_hash(password, salt)
+    return password_hash, salt
 
 
-def _verify_password(password, stored_password):
+def _verify_legacy_combined_hash(password, stored_value):
+    """
+    旧形式 pbkdf2_sha256$200000$salt$hash が
+    password_hash に入っている場合の互換用。
+    """
     password = clean_text(password)
-    stored_password = clean_text(stored_password)
+    stored_value = clean_text(stored_value)
 
-    if not password or not stored_password:
+    if not stored_value.startswith(f"{LEGACY_HASH_PREFIX}$"):
         return False
 
-    # 新方式：ハッシュ照合
-    if _is_password_hash(stored_password):
-        try:
-            parts = stored_password.split("$")
+    try:
+        parts = stored_value.split("$")
 
-            if len(parts) != 4:
-                return False
-
-            prefix, iterations_text, salt, saved_hash = parts
-
-            if prefix != PASSWORD_HASH_PREFIX:
-                return False
-
-            iterations = int(iterations_text)
-
-            dk = hashlib.pbkdf2_hmac(
-                "sha256",
-                password.encode("utf-8"),
-                salt.encode("utf-8"),
-                iterations,
-            )
-
-            check_hash = base64.b64encode(dk).decode("utf-8")
-
-            return hmac.compare_digest(check_hash, saved_hash)
-
-        except Exception:
+        if len(parts) != 4:
             return False
 
-    # 旧方式：平文パスワード互換
-    # 既存ユーザーがログインできなくならないように残す。
-    # ログイン成功後に自動でハッシュ化へ移行する。
-    return hmac.compare_digest(stored_password, password)
+        prefix, iterations_text, salt, saved_hash = parts
+
+        if prefix != LEGACY_HASH_PREFIX:
+            return False
+
+        iterations = int(iterations_text)
+
+        dk = hashlib.pbkdf2_hmac(
+            "sha256",
+            password.encode("utf-8"),
+            salt.encode("utf-8"),
+            iterations,
+        )
+
+        check_hash = base64.b64encode(dk).decode("utf-8")
+
+        return hmac.compare_digest(check_hash, saved_hash)
+
+    except Exception:
+        return False
+
+
+def _verify_password(password, stored_hash, stored_salt=""):
+    password = clean_text(password)
+    stored_hash = clean_text(stored_hash)
+    stored_salt = clean_text(stored_salt)
+
+    if not password or not stored_hash:
+        return False
+
+    # 現在の方式：password_hash + password_salt
+    if stored_salt:
+        check_hash = _make_password_hash(password, stored_salt)
+        return hmac.compare_digest(check_hash, stored_hash)
+
+    # 旧方式1：password_hash に pbkdf2_sha256$... が丸ごと入っている場合
+    if stored_hash.startswith(f"{LEGACY_HASH_PREFIX}$"):
+        return _verify_legacy_combined_hash(password, stored_hash)
+
+    # 旧方式2：平文パスワード互換
+    # 既存ユーザー救済用。ログイン成功後に新方式へ自動移行します。
+    return hmac.compare_digest(stored_hash, password)
 
 
 # ==================================================
@@ -167,7 +185,7 @@ def logout():
 
 
 # ==================================================
-# Users管理
+# Google Sheets / Users管理
 # ==================================================
 
 USERS_SHEET_NAME = "Users"
@@ -179,12 +197,15 @@ def _users_store_key():
 
 def _users_headers():
     return [
+        "user_id",
         "login_id",
-        "password",
+        "password_hash",
+        "password_salt",
         "nickname",
         "birth_date",
         "created_at",
         "updated_at",
+        "is_active",
     ]
 
 
@@ -233,6 +254,19 @@ def _get_or_create_worksheet(sheet_name, headers):
 
     if not values:
         ws.append_row(headers)
+        return ws
+
+    current_headers = values[0]
+
+    # 既存シートに不足列がある場合、ヘッダー行だけ補完
+    updated_headers = list(current_headers)
+
+    for h in headers:
+        if h not in updated_headers:
+            updated_headers.append(h)
+
+    if updated_headers != current_headers:
+        ws.update("1:1", [updated_headers])
 
     return ws
 
@@ -256,6 +290,18 @@ def _find_user_row(ws, login_id):
     return None
 
 
+def _is_active_value(value):
+    value = clean_text(value).lower()
+
+    if value in ["", "true", "1", "yes", "active", "有効", "TRUE".lower()]:
+        return True
+
+    if value in ["false", "0", "no", "inactive", "停止", "無効", "FALSE".lower()]:
+        return False
+
+    return True
+
+
 def _load_users_from_sheet():
     ws = _get_or_create_worksheet(USERS_SHEET_NAME, _users_headers())
     records = ws.get_all_records()
@@ -274,13 +320,21 @@ def _load_users_from_sheet():
         if not login_id:
             continue
 
+        user_id = clean_text(row.get("user_id")) or login_id
+
         users[login_id] = {
+            "user_id": user_id,
             "login_id": login_id,
-            "password": clean_text(
-                row.get("password")
+            "password_hash": clean_text(
+                row.get("password_hash")
+                or row.get("password")
                 or row.get("pw")
                 or row.get("PW")
                 or row.get("パスワード")
+            ),
+            "password_salt": clean_text(
+                row.get("password_salt")
+                or row.get("salt")
             ),
             "nickname": clean_text(
                 row.get("nickname")
@@ -294,6 +348,7 @@ def _load_users_from_sheet():
             ),
             "created_at": clean_text(row.get("created_at")),
             "updated_at": clean_text(row.get("updated_at")),
+            "is_active": _is_active_value(row.get("is_active")),
         }
 
     return users
@@ -305,22 +360,36 @@ def load_users():
         st.session_state[_users_store_key()] = users
         return users
 
-    except Exception:
+    except Exception as e:
+        # 画面には詳細を出さない。確認用だけ session_state に残す。
+        st.session_state["users_load_error"] = str(e)
+
         if _users_store_key() not in st.session_state:
             st.session_state[_users_store_key()] = {}
 
         return st.session_state[_users_store_key()]
 
 
-def _save_user_password_to_sheet_and_session(login_id, password_hash):
+def _update_user_cells(ws, row_num, updates):
+    headers = ws.row_values(1)
+
+    for key, value in updates.items():
+        if key in headers:
+            ws.update_cell(row_num, headers.index(key) + 1, value)
+
+
+def _save_user_password_to_sheet_and_session(login_id, password_hash, password_salt):
     login_id = clean_text(login_id)
     password_hash = clean_text(password_hash)
+    password_salt = clean_text(password_salt)
+    now_text = jst_now().strftime("%Y-%m-%d %H:%M:%S")
 
     users = st.session_state.get(_users_store_key(), {})
 
     if login_id in users:
-        users[login_id]["password"] = password_hash
-        users[login_id]["updated_at"] = jst_now().strftime("%Y-%m-%d %H:%M:%S")
+        users[login_id]["password_hash"] = password_hash
+        users[login_id]["password_salt"] = password_salt
+        users[login_id]["updated_at"] = now_text
         st.session_state[_users_store_key()] = users
 
     try:
@@ -328,22 +397,15 @@ def _save_user_password_to_sheet_and_session(login_id, password_hash):
         row_num = _find_user_row(ws, login_id)
 
         if row_num:
-            headers = ws.row_values(1)
-            now_text = jst_now().strftime("%Y-%m-%d %H:%M:%S")
-
-            if "password" in headers:
-                ws.update_cell(
-                    row_num,
-                    headers.index("password") + 1,
-                    password_hash,
-                )
-
-            if "updated_at" in headers:
-                ws.update_cell(
-                    row_num,
-                    headers.index("updated_at") + 1,
-                    now_text,
-                )
+            _update_user_cells(
+                ws,
+                row_num,
+                {
+                    "password_hash": password_hash,
+                    "password_salt": password_salt,
+                    "updated_at": now_text,
+                },
+            )
 
         return True
 
@@ -371,26 +433,32 @@ def create_user(login_id, password, nickname="", birth_date=None, **kwargs):
         raise ValueError("このログインIDはすでに使われています")
 
     now_text = jst_now().strftime("%Y-%m-%d %H:%M:%S")
-    password_hash = _hash_password(password)
+    password_hash, password_salt = _create_password_parts(password)
 
     user_record = {
+        "user_id": login_id,
         "login_id": login_id,
-        "password": password_hash,
+        "password_hash": password_hash,
+        "password_salt": password_salt,
         "nickname": nickname,
         "birth_date": str(birth_date) if birth_date else "",
         "created_at": now_text,
         "updated_at": now_text,
+        "is_active": True,
     }
 
     try:
         ws = _get_or_create_worksheet(USERS_SHEET_NAME, _users_headers())
         ws.append_row([
+            user_record["user_id"],
             user_record["login_id"],
-            user_record["password"],
+            user_record["password_hash"],
+            user_record["password_salt"],
             user_record["nickname"],
             user_record["birth_date"],
             user_record["created_at"],
             user_record["updated_at"],
+            "TRUE",
         ])
 
     except Exception:
@@ -412,16 +480,27 @@ def verify_login(login_id, password):
     if not user_record:
         return None
 
-    stored_password = clean_text(user_record.get("password"))
-
-    if not _verify_password(password, stored_password):
+    if not user_record.get("is_active", True):
         return None
 
-    # 旧方式の平文パスワードだった場合、自動でハッシュ化する
-    if stored_password and not _is_password_hash(stored_password):
-        password_hash = _hash_password(password)
-        user_record["password"] = password_hash
-        _save_user_password_to_sheet_and_session(login_id, password_hash)
+    stored_hash = clean_text(user_record.get("password_hash"))
+    stored_salt = clean_text(user_record.get("password_salt"))
+
+    if not _verify_password(password, stored_hash, stored_salt):
+        return None
+
+    # 旧方式だった場合は、ログイン成功後に password_hash / password_salt へ移行
+    if stored_hash and not stored_salt:
+        password_hash, password_salt = _create_password_parts(password)
+
+        user_record["password_hash"] = password_hash
+        user_record["password_salt"] = password_salt
+
+        _save_user_password_to_sheet_and_session(
+            login_id,
+            password_hash,
+            password_salt,
+        )
 
     return user_record
 
@@ -457,9 +536,11 @@ def login(user_id, password):
             login_user(user_record)
             return True
 
+        st.session_state["login_debug"] = "ユーザーが見つからない、またはパスワード不一致"
         return False
 
-    except Exception:
+    except Exception as e:
+        st.session_state["login_debug"] = str(e)
         return False
 
 
@@ -479,33 +560,28 @@ def reset_password(login_id, new_pw):
         return False
 
     now_text = jst_now().strftime("%Y-%m-%d %H:%M:%S")
-    password_hash = _hash_password(new_pw)
+    password_hash, password_salt = _create_password_parts(new_pw)
 
     try:
         ws = _get_or_create_worksheet(USERS_SHEET_NAME, _users_headers())
         row_num = _find_user_row(ws, login_id)
 
         if row_num:
-            headers = ws.row_values(1)
-
-            if "password" in headers:
-                ws.update_cell(
-                    row_num,
-                    headers.index("password") + 1,
-                    password_hash,
-                )
-
-            if "updated_at" in headers:
-                ws.update_cell(
-                    row_num,
-                    headers.index("updated_at") + 1,
-                    now_text,
-                )
+            _update_user_cells(
+                ws,
+                row_num,
+                {
+                    "password_hash": password_hash,
+                    "password_salt": password_salt,
+                    "updated_at": now_text,
+                },
+            )
 
     except Exception:
         st.warning("Usersシートのパスワード更新に失敗しました。一時保存します。")
 
-    users[login_id]["password"] = password_hash
+    users[login_id]["password_hash"] = password_hash
+    users[login_id]["password_salt"] = password_salt
     users[login_id]["updated_at"] = now_text
     st.session_state[_users_store_key()] = users
 
@@ -551,12 +627,15 @@ def update_current_user_profile(user_id=None, **kwargs):
 
     if user_id not in users:
         users[user_id] = {
+            "user_id": user_id,
             "login_id": user_id,
-            "password": "",
+            "password_hash": "",
+            "password_salt": "",
             "nickname": user_id,
             "birth_date": "",
             "created_at": "",
             "updated_at": "",
+            "is_active": True,
         }
 
     nickname = clean_text(kwargs.get("nickname", users[user_id].get("nickname", user_id))) or user_id
@@ -570,21 +649,14 @@ def update_current_user_profile(user_id=None, **kwargs):
         row_num = _find_user_row(ws, user_id)
 
         if row_num:
-            headers = ws.row_values(1)
-
-            if "nickname" in headers:
-                ws.update_cell(
-                    row_num,
-                    headers.index("nickname") + 1,
-                    nickname,
-                )
-
-            if "updated_at" in headers:
-                ws.update_cell(
-                    row_num,
-                    headers.index("updated_at") + 1,
-                    now_text,
-                )
+            _update_user_cells(
+                ws,
+                row_num,
+                {
+                    "nickname": nickname,
+                    "updated_at": now_text,
+                },
+            )
 
     except Exception:
         pass
