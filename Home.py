@@ -138,15 +138,29 @@ st.markdown(
     }
 
     .date-pill {
-        display: inline-block;
-        background: #f4e5d6;
-        color: #6b4c3b;
-        border-radius: 999px;
-        padding: 7px 14px;
-        font-size: 0.9rem;
-        font-weight: 800;
-        margin-bottom: 14px;
-    }
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: #f4e5d6;
+    color: #6b4c3b;
+    border-radius: 999px;
+    padding: 7px 14px;
+    font-size: 0.9rem;
+    font-weight: 800;
+    margin-bottom: 14px;
+}
+
+.date-pill-icon {
+    width: 22px;
+    height: 22px;
+    object-fit: contain;
+    display: inline-block;
+}
+
+.date-pill-emoji {
+    font-size: 1rem;
+    line-height: 1;
+}
 
     .main-message {
         font-size: 1.02rem;
