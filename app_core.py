@@ -172,7 +172,31 @@ def is_logged_in():
 
 def require_login():
     if not is_logged_in():
+        st.markdown(
+            """
+            <div style="height: 70px;"></div>
+            """,
+            unsafe_allow_html=True
+        )
+
         st.warning("ログインしてください")
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            if st.button("ログイン画面へ", use_container_width=True):
+                try:
+                    st.switch_page("pages/0_ログイン.py")
+                except Exception:
+                    st.rerun()
+
+        with col2:
+            if st.button("新規登録へ", use_container_width=True):
+                try:
+                    st.switch_page("pages/0_新規登録.py")
+                except Exception:
+                    st.rerun()
+
         st.stop()
 
 
