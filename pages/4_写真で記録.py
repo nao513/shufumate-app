@@ -479,7 +479,6 @@ if img is not None:
 # =========================
 render_section_header("食事内容", icon_file="food.png", emoji="🍽")
 
-st.markdown("<div class='card'>", unsafe_allow_html=True)
 
 auto_meal = detect_meal_type_by_time(jst_now())
 
@@ -519,7 +518,6 @@ if st.button("✅ 記録する", use_container_width=True):
         except Exception:
             st.error("写真記録の保存に失敗しました。時間をおいてもう一度お試しください。")
 
-st.markdown("</div>", unsafe_allow_html=True)
 
 
 # =========================
@@ -531,7 +529,6 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-st.markdown("<div class='card'>", unsafe_allow_html=True)
 
 try:
     photo_logs = load_photo_logs(user_id)
@@ -560,7 +557,6 @@ if photo_logs:
 else:
     st.info("まだ写真記録がありません")
 
-st.markdown("</div>", unsafe_allow_html=True)
 
 
 # =========================
