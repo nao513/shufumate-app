@@ -328,23 +328,23 @@ st.markdown(
     }
 
     .icon-box {
-        width: 48px;
-        min-width: 48px;
-        height: 48px;
-        border-radius: 16px;
-        background: #f8eadc;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        overflow: hidden;
-    }
+    width: 58px;
+    min-width: 58px;
+    height: 58px;
+    border-radius: 18px;
+    background: #f8eadc;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
 
-    .icon-img {
-        width: 36px;
-        height: 36px;
-        object-fit: contain;
-    }
-
+.icon-img {
+    width: 46px;
+    height: 46px;
+    object-fit: contain;
+    transform: scale(1.18);
+}
     .emoji-icon {
         font-size: 1.6rem;
         line-height: 1;
