@@ -902,7 +902,7 @@ with st.expander("買い物リストを開く"):
 # -----------------
 # 📅 1週間プラン
 # -----------------
-render_section_header("1週間プラン", icon_file="calendar.png", emoji="📅")
+render_section_header("1週間プラン", icon_file="weekly.png", emoji="📅")
 st.markdown(
     '<div class="sub-expander-note">1週間の食事プランを確認できます。</div>',
     unsafe_allow_html=True
