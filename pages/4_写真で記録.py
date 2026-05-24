@@ -118,24 +118,18 @@ st.markdown(
     }
 
     .page-head-icon {
-        width: 74px;
-        min-width: 74px;
-        height: 74px;
-        border-radius: 22px;
-        background: #fff8ef;
-        border: 1px solid rgba(139, 100, 72, 0.12);
-        box-shadow: 0 4px 12px rgba(96, 65, 45, 0.09);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        overflow: hidden;
-    }
+    width: 92px;
+    min-width: 92px;
+    height: 92px;
+    border-radius: 26px;
+}
 
-    .page-head-icon img {
-        width: 58px;
-        height: 58px;
-        object-fit: contain;
-    }
+.page-head-icon img {
+    width: 76px;
+    height: 76px;
+    object-fit: contain;
+    transform: scale(1.18);
+}
 
     .page-head-emoji {
         font-size: 2.1rem;
@@ -193,9 +187,10 @@ st.markdown(
     }
 
     .section-icon-camera img {
-        width: 42px;
-        height: 42px;
-    }
+    width: 58px;
+    height: 58px;
+    transform: scale(1.45);
+}
 
     .section-icon-food img {
         width: 42px;
