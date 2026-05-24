@@ -230,9 +230,10 @@ st.markdown(
     }
 
     .section-icon-exercise img {
-        width: 40px;
-        height: 40px;
-    }
+    width: 54px;
+    height: 54px;
+    transform: scale(1.35);
+}
 
     .section-icon-cart img {
         width: 42px;
