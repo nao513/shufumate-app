@@ -174,7 +174,7 @@ def require_login():
     if not is_logged_in():
         st.markdown(
             """
-            <div style="height: 70px;"></div>
+            <div style="height: 20px;"></div>
             """,
             unsafe_allow_html=True
         )
@@ -188,17 +188,16 @@ def require_login():
                 try:
                     st.switch_page("pages/0_ログイン.py")
                 except Exception:
-                    st.rerun()
+                    st.switch_page("pages/ログイン.py")
 
         with col2:
             if st.button("新規登録へ", use_container_width=True):
                 try:
                     st.switch_page("pages/0_新規登録.py")
                 except Exception:
-                    st.rerun()
+                    st.switch_page("pages/新規登録.py")
 
         st.stop()
-
 
 def get_user_id():
     return st.session_state.get("user_id", None)
