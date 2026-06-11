@@ -976,28 +976,28 @@ cards = [
         "desc": "体重・食事・体調を記録",
         "icon": "note.png",
         "emoji": "📝",
-        "href": page_url("2_記録する"),
+        "page": "pages/2_記録する.py",
     },
     {
         "title": "相談する",
         "desc": "食事・運動・体調を相談",
         "icon": "chat.png",
         "emoji": "💬",
-        "href": page_url("3_相談する"),
+        "page": "pages/3_相談する.py",
     },
     {
         "title": "写真で記録",
         "desc": "食事写真から記録",
         "icon": "camera.png",
         "emoji": "📷",
-        "href": page_url("4_写真で記録"),
+        "page": "pages/4_写真で記録.py",
     },
     {
         "title": "設定",
         "desc": "目標・体質を設定",
         "icon": "settings.png",
         "emoji": "⚙️",
-        "href": page_url("1_設定"),
+        "page": "pages/1_設定.py",
     },
 ]
 
@@ -1005,13 +1005,23 @@ cols = st.columns(2)
 
 for i, card in enumerate(cards):
     with cols[i % 2]:
+
+        # 見た目用カード
         render_menu_card(
             title=card["title"],
             desc=card["desc"],
             icon_file=card["icon"],
             emoji=card["emoji"],
-            href=card["href"],
+            href="#",
         )
+
+        # 実際のページ移動
+        if st.button(
+            f"{card['title']}へ",
+            key=f"move_{i}_{card['title']}",
+            use_container_width=True
+        ):
+            st.switch_page(card["page"])
 
 
 # -----------------
