@@ -84,7 +84,25 @@ def load_icon(filename):
 def page_url(page_name):
     if page_name == "home":
         return "/"
-    return "/" + quote(page_name)
+
+    page_map = {
+        "ログイン": "ログイン",
+        "新規登録": "新規登録",
+        "設定": "設定",
+        "記録する": "記録する",
+        "相談する": "相談する",
+        "写真で記録": "写真で記録",
+
+        # 旧指定が来ても番号なしに変換
+        "0_ログイン": "ログイン",
+        "0_新規登録": "新規登録",
+        "1_設定": "設定",
+        "2_記録する": "記録する",
+        "3_相談する": "相談する",
+        "4_写真で記録": "写真で記録",
+    }
+
+    return "/" + quote(page_map.get(page_name, page_name))
 
 
 def safe_text(value):
