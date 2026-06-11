@@ -510,8 +510,6 @@ with st.form("settings_form"):
 
     render_section_header("基本設定", icon_file="settings.png", emoji="⚙️")
 
-    st.markdown("<div class='card'>", unsafe_allow_html=True)
-
     nickname = st.text_input(
         "ニックネーム",
         value=local_safe_text(nickname_default, user_id)
@@ -596,8 +594,6 @@ with st.form("settings_form"):
     # 相談・提案の設定
     # -----------------
     render_section_header("相談・提案の設定", icon_file="state.png", emoji="🌿")
-
-    st.markdown("<div class='card'>", unsafe_allow_html=True)
 
     user_type_options = [
         "自分向け",
