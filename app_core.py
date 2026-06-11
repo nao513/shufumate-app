@@ -1388,8 +1388,29 @@ def add_deals_to_shopping(shopping):
 
 
 # ==================================================
-# 記録
+# 記録：Google Sheets 保存
 # ==================================================
+
+DIET_LOGS_SHEET_NAME = "DietLogs"
+
+
+def _diet_logs_headers():
+    return [
+        "log_id",
+        "user_id",
+        "log_date",
+        "weight",
+        "body_fat",
+        "target_weight",
+        "target_body_fat",
+        "bmi",
+        "today_conditions",
+        "meal_memo",
+        "exercise_memo",
+        "advice_memo",
+        "created_at",
+    ]
+
 
 def parse_meal_sections(text):
     result = {"朝": "", "昼": "", "夜": "", "間食": ""}
@@ -1425,17 +1446,13 @@ def _logs_key(user_id=None):
     return f"diet_logs_{user_id}"
 
 
-def load_diet_logs(user_id=None):
-    return st.session_state.get(_logs_key(user_id), [])
+def _make_log_id(user_id=None):
+    user_id = clean_text(user_id or get_user_id() or "guest")
+    return f"{user_id}_{jst_now().strftime('%Y%m%d%H%M%S')}"
 
 
-def save_diet_log(user_id=None, log=None, **kwargs):
-    if isinstance(user_id, dict) and log is None:
-        log = user_id
-        user_id = None
-
-    key = _logs_key(user_id)
-    logs = st.session_state.get(key, [])
+def _normalize_log_record(user_id=None, log=None, **kwargs):
+    user_id = clean_text(user_id or get_user_id() or "guest")
 
     if log is None:
         log = {}
@@ -1443,13 +1460,179 @@ def save_diet_log(user_id=None, log=None, **kwargs):
     if kwargs:
         log.update(kwargs)
 
-    log.setdefault("date", str(jst_today()))
-    log.setdefault("created_at", jst_now().strftime("%Y-%m-%d %H:%M:%S"))
+    if not isinstance(log, dict):
+        log = {}
 
-    logs.append(log)
+    settings = load_user_settings(user_id)
+
+    weight = (
+        log.get("weight")
+        or log.get("体重")
+        or log.get("体重(kg)")
+        or log.get("current_weight")
+        or settings.get("current_weight")
+    )
+
+    body_fat = (
+        log.get("body_fat")
+        or log.get("体脂肪")
+        or log.get("体脂肪率")
+        or log.get("体脂肪率(%)")
+        or log.get("current_body_fat")
+        or settings.get("current_body_fat")
+    )
+
+    target_weight = (
+        log.get("target_weight")
+        or log.get("目標体重")
+        or settings.get("target_weight")
+    )
+
+    target_body_fat = (
+        log.get("target_body_fat")
+        or log.get("目標体脂肪")
+        or settings.get("target_body_fat")
+    )
+
+    weight_float = safe_float(weight, 0)
+    height_cm = safe_float(settings.get("height_cm"), 155)
+
+    if height_cm > 0 and weight_float > 0:
+        bmi = round(weight_float / ((height_cm / 100) ** 2), 1)
+    else:
+        bmi = ""
+
+    today_conditions = (
+        log.get("today_conditions")
+        or log.get("condition_note")
+        or log.get("今日の状態")
+        or ""
+    )
+
+    if isinstance(today_conditions, list):
+        today_conditions = " / ".join(today_conditions)
+
+    meal_memo = (
+        log.get("meal_memo")
+        or log.get("食事")
+        or log.get("food_text")
+        or ""
+    )
+
+    exercise_memo = (
+        log.get("exercise_memo")
+        or log.get("exercise")
+        or log.get("運動")
+        or settings.get("workout_today")
+        or ""
+    )
+
+    advice_memo = (
+        log.get("advice_memo")
+        or log.get("advice")
+        or log.get("今日の整え方")
+        or ""
+    )
+
+    log_date = (
+        log.get("log_date")
+        or log.get("date")
+        or log.get("記録日")
+        or jst_today_str()
+    )
+
+    return {
+        "log_id": log.get("log_id") or _make_log_id(user_id),
+        "user_id": user_id,
+        "log_date": str(log_date),
+        "weight": weight,
+        "body_fat": body_fat,
+        "target_weight": target_weight,
+        "target_body_fat": target_body_fat,
+        "bmi": bmi,
+        "today_conditions": today_conditions,
+        "meal_memo": meal_memo,
+        "exercise_memo": exercise_memo,
+        "advice_memo": advice_memo,
+        "created_at": log.get("created_at") or jst_now().strftime("%Y-%m-%d %H:%M:%S"),
+    }
+
+
+def save_diet_log(user_id=None, log=None, **kwargs):
+    if isinstance(user_id, dict) and log is None:
+        log = user_id
+        user_id = None
+
+    user_id = clean_text(user_id or get_user_id() or "guest")
+    record = _normalize_log_record(user_id, log, **kwargs)
+
+    # session_stateにも残す
+    key = _logs_key(user_id)
+    logs = st.session_state.get(key, [])
+    logs.append(record)
     st.session_state[key] = logs
 
+    # Google Sheetsへ保存
+    try:
+        ws = _get_or_create_worksheet(
+            DIET_LOGS_SHEET_NAME,
+            _diet_logs_headers()
+        )
+
+        headers = ws.row_values(1)
+
+        row_values = []
+        for header in headers:
+            row_values.append(record.get(header, ""))
+
+        ws.append_row(row_values)
+
+    except Exception as e:
+        st.session_state["diet_log_save_error"] = str(e)
+        st.warning("スプレッドシートへの保存に失敗しました。一時保存しました。")
+
     return True
+
+
+def load_diet_logs(user_id=None):
+    user_id = clean_text(user_id or get_user_id() or "guest")
+
+    try:
+        ws = _get_or_create_worksheet(
+            DIET_LOGS_SHEET_NAME,
+            _diet_logs_headers()
+        )
+
+        records = ws.get_all_records()
+        logs = []
+
+        for row in records:
+            row_user_id = clean_text(row.get("user_id"))
+
+            if row_user_id == user_id:
+                logs.append({
+                    "log_id": clean_text(row.get("log_id")),
+                    "user_id": row_user_id,
+                    "log_date": clean_text(row.get("log_date")),
+                    "date": clean_text(row.get("log_date")),
+                    "weight": row.get("weight"),
+                    "body_fat": row.get("body_fat"),
+                    "target_weight": row.get("target_weight"),
+                    "target_body_fat": row.get("target_body_fat"),
+                    "bmi": row.get("bmi"),
+                    "today_conditions": clean_text(row.get("today_conditions")),
+                    "meal_memo": clean_text(row.get("meal_memo")),
+                    "exercise_memo": clean_text(row.get("exercise_memo")),
+                    "advice_memo": clean_text(row.get("advice_memo")),
+                    "created_at": clean_text(row.get("created_at")),
+                })
+
+        st.session_state[_logs_key(user_id)] = logs
+        return logs
+
+    except Exception as e:
+        st.session_state["diet_log_load_error"] = str(e)
+        return st.session_state.get(_logs_key(user_id), [])
 
 
 def upsert_diet_log(user_id=None, log=None, **kwargs):
@@ -1486,28 +1669,19 @@ def get_initial_log_values(user_id=None):
     body_fat = None
 
     if isinstance(latest, dict):
-        weight = (
-            latest.get("weight")
-            or latest.get("体重(kg)")
-            or latest.get("体重")
-        )
-        body_fat = (
-            latest.get("body_fat")
-            or latest.get("体脂肪率(%)")
-            or latest.get("体脂肪率")
-        )
+        weight = latest.get("weight")
+        body_fat = latest.get("body_fat")
 
-    if weight is None:
+    if weight is None or weight == "":
         weight = settings.get("current_weight") or settings.get("start_weight") or 50
 
-    if body_fat is None:
+    if body_fat is None or body_fat == "":
         body_fat = settings.get("current_body_fat") or settings.get("start_body_fat") or 30
 
     return {
         "weight": weight,
         "body_fat": body_fat,
     }
-
 
 # ==================================================
 # 今日のプラン保存
