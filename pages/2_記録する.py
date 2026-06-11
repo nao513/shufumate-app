@@ -641,7 +641,7 @@ render_page_header(
 # =========================
 # 今日の体データ
 # =========================
-render_section_header("体の記録", icon_file="state.png", emoji="⚖️")
+render_section_header("今日のわたし", icon_file="state.png", emoji="⚖️")
 
 
 record_date = st.date_input(
