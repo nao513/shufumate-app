@@ -927,6 +927,55 @@ if st.button("✅ 今日の記録を保存する", use_container_width=True):
             " app_core.py の保存関数名を確認してください。"
         )
 
+# =========================
+# 記録グラフ
+# =========================
+render_section_header("からだの変化", icon_file="calendar.png", emoji="📈")
+
+logs = load_diet_logs(user_id)
+
+if logs:
+    df = pd.DataFrame(logs)
+
+    if "log_date" in df.columns:
+        df["log_date"] = pd.to_datetime(df["log_date"], errors="coerce")
+        df = df.dropna(subset=["log_date"])
+        df = df.sort_values("log_date")
+
+    for col in ["weight", "body_fat", "target_weight", "target_body_fat", "bmi"]:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors="coerce")
+
+    graph_df = df.set_index("log_date")
+
+    st.markdown("#### 体重の変化")
+    weight_cols = [c for c in ["weight", "target_weight"] if c in graph_df.columns]
+
+    if weight_cols:
+        st.line_chart(graph_df[weight_cols])
+
+    st.markdown("#### 体脂肪率の変化")
+    fat_cols = [c for c in ["body_fat", "target_body_fat"] if c in graph_df.columns]
+
+    if fat_cols:
+        st.line_chart(graph_df[fat_cols])
+
+    st.markdown("#### 最新の記録")
+    latest = logs[-1]
+
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        st.metric("体重", f"{latest.get('weight', '')} kg")
+
+    with col2:
+        st.metric("体脂肪率", f"{latest.get('body_fat', '')} %")
+
+    with col3:
+        st.metric("BMI", latest.get("bmi", ""))
+
+else:
+    st.info("まだ記録がありません。今日の記録を保存すると、ここにグラフが表示されます。")
 
 # =========================
 # 最新記録
