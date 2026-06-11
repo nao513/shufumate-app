@@ -740,8 +740,6 @@ with col6:
 # =========================
 render_section_header("今日の状態", icon_file="state.png", emoji="🌿")
 
-st.markdown("<div class='card'>", unsafe_allow_html=True)
-
 col1, col2 = st.columns(2)
 
 with col1:
@@ -783,8 +781,6 @@ st.markdown("</div>", unsafe_allow_html=True)
 # =========================
 render_section_header("食事の記録", icon_file="food.png", emoji="🍽️")
 
-st.markdown("<div class='card'>", unsafe_allow_html=True)
-
 breakfast = st.text_area(
     "朝ごはん",
     placeholder="例：白湯、納豆、ごはん、味噌汁、ブルーベリー",
@@ -820,8 +816,6 @@ st.markdown("</div>", unsafe_allow_html=True)
 # 運動記録
 # =========================
 render_section_header("運動の記録", icon_file="exercise.png", emoji="🏃‍♀️")
-
-st.markdown("<div class='card'>", unsafe_allow_html=True)
 
 exercise_type = st.selectbox(
     "運動内容",
@@ -864,8 +858,6 @@ st.markdown("</div>", unsafe_allow_html=True)
 # ひとことメモ
 # =========================
 render_section_header("ひとことメモ", icon_file="note.png", emoji="📝")
-
-st.markdown("<div class='card'>", unsafe_allow_html=True)
 
 daily_memo = st.text_area(
     "今日のメモ",
