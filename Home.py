@@ -972,46 +972,117 @@ st.markdown(
 
 cards = [
     {
+        "key": "menu_record",
         "title": "記録する",
         "desc": "体重・食事・体調を記録",
         "icon": "note.png",
-        "emoji": "📝",
-        "href": page_url("2_記録する"),
+        "page": "pages/2_記録する.py",
     },
     {
+        "key": "menu_consult",
         "title": "相談する",
         "desc": "食事・運動・体調を相談",
         "icon": "chat.png",
-        "emoji": "💬",
-        "href": page_url("3_相談する"),
+        "page": "pages/3_相談する.py",
     },
     {
+        "key": "menu_photo",
         "title": "写真で記録",
         "desc": "食事写真から記録",
         "icon": "camera.png",
-        "emoji": "📷",
-        "href": page_url("4_写真で記録"),
+        "page": "pages/4_写真で記録.py",
     },
     {
+        "key": "menu_settings",
         "title": "設定",
         "desc": "目標・体質を設定",
         "icon": "settings.png",
-        "emoji": "⚙️",
-        "href": page_url("1_設定"),
+        "page": "pages/1_設定.py",
     },
 ]
+
+
+def inject_menu_button_css(card):
+    icon_src = load_icon(card["icon"])
+
+    if icon_src:
+        icon_css = f"""
+        background-image: url("{icon_src}");
+        background-repeat: no-repeat;
+        background-size: 48px 48px;
+        background-position: center;
+        """
+    else:
+        icon_css = ""
+
+    st.markdown(
+        f"""
+<style>
+    .st-key-{card["key"]} button {{
+        height: 96px !important;
+        width: 100% !important;
+        background: #ffffff !important;
+        border: 1px solid rgba(139, 100, 72, 0.10) !important;
+        border-radius: 22px !important;
+        box-shadow: 0 7px 18px rgba(96, 65, 45, 0.08) !important;
+        color: #5c4033 !important;
+        font-size: 1.05rem !important;
+        font-weight: 900 !important;
+        text-align: left !important;
+        padding-left: 112px !important;
+        padding-right: 38px !important;
+        position: relative !important;
+        white-space: pre-line !important;
+        line-height: 1.45 !important;
+    }}
+
+    .st-key-{card["key"]} button:hover {{
+        background: #fffdf8 !important;
+        border-color: rgba(139, 100, 72, 0.22) !important;
+        color: #5c4033 !important;
+    }}
+
+    .st-key-{card["key"]} button::before {{
+        content: "";
+        position: absolute;
+        left: 24px;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 66px;
+        height: 66px;
+        border-radius: 22px;
+        background-color: #f8eadc;
+        {icon_css}
+    }}
+
+    .st-key-{card["key"]} button::after {{
+        content: "›";
+        position: absolute;
+        right: 22px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #a98568;
+        font-size: 2rem;
+        font-weight: 900;
+    }}
+</style>
+""",
+        unsafe_allow_html=True
+    )
+
 
 cols = st.columns(2)
 
 for i, card in enumerate(cards):
+    inject_menu_button_css(card)
+
     with cols[i % 2]:
-        render_menu_card(
-            title=card["title"],
-            desc=card["desc"],
-            icon_file=card["icon"],
-            emoji=card["emoji"],
-            href=card["href"],
-        )
+        if st.button(
+            f"{card['title']}\n{card['desc']}",
+            key=card["key"],
+            use_container_width=True
+        ):
+            st.switch_page(card["page"])
 
 # -----------------
 # 下部メッセージ
