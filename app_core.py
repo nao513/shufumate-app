@@ -20,14 +20,21 @@ def get_sheet(sheet_name):
 # =========================
 # ログイン（簡易版）
 # =========================
+import uuid
+import streamlit as st
+
 def require_login():
     if "user_id" not in st.session_state:
-        st.session_state["user_id"] = "nao0513"  # 仮ログイン
 
+        # Cookie的な保持（簡易版）
+        if "user_id_cookie" in st.session_state:
+            st.session_state["user_id"] = st.session_state["user_id_cookie"]
 
-def get_user_id():
-    return st.session_state.get("user_id", "nao0513")
+        else:
+            new_id = str(uuid.uuid4())[:8]
 
+            st.session_state["user_id"] = new_id
+            st.session_state["user_id_cookie"] = new_id
 
 # =========================
 # 記録保存
