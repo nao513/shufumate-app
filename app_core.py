@@ -13,7 +13,7 @@ def get_sheet(sheet_name):
         scopes=["https://www.googleapis.com/auth/spreadsheets"],
     )
     client = gspread.authorize(creds)
-    sheet = client.open(st.secrets["spreadsheet_name"]).worksheet(sheet_name)
+    sheet = client.open_by_key(st.secrets["SPREADSHEET_ID"]).worksheet(sheet_name)
     return sheet
 
 
