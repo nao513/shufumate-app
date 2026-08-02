@@ -148,3 +148,22 @@ def build_food_evaluation_from_text(meal_type, meal_text):
         result += "・少し重い内容です\n"
 
     return result
+
+# =========================
+# 食事時間判定
+# =========================
+def jst_now():
+    return datetime.now()
+
+
+def detect_meal_type_by_time(now):
+    hour = now.hour
+
+    if 4 <= hour < 10:
+        return "朝"
+    elif 10 <= hour < 15:
+        return "昼"
+    elif 15 <= hour < 21:
+        return "夜"
+    else:
+        return "間食"
