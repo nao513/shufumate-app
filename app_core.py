@@ -328,44 +328,50 @@ def login(login_id, password):
     password = clean_text(password)
 
     if not login_id or not password:
+        st.error("診断①：IDまたはパスワードが空です")
         return False
 
-    user_record = find_user_by_login_id(
-        login_id
-    )
+    user_record = find_user_by_login_id(login_id)
 
     if not user_record:
+        st.error("診断②：UsersシートにログインIDが見つかりません")
         return False
 
-    if not is_active_user(
-        user_record
-    ):
+    if not is_active_user(user_record):
+        st.error("診断③：ユーザーが無効になっています")
         return False
 
     stored_hash = clean_text(
-        user_record.get(
-            "password_hash"
-        )
+        user_record.get("password_hash")
     )
 
     stored_salt = clean_text(
-        user_record.get(
-            "password_salt"
-        )
+        user_record.get("password_salt")
     )
 
-    password_ok = verify_password(
-        password,
-        stored_hash,
-        stored_salt,
-    )
-
-    if not password_ok:
+    if not stored_hash:
+        st.error("診断④：password_hashを取得できていません")
         return False
 
-    return login_user(
-        user_record
+    if not stored_salt:
+        st.error("診断⑤：password_saltを取得できていません")
+        return False
+
+    calculated_hash, _ = make_password_hash(
+        password=password,
+        salt=stored_salt,
     )
+
+    if not hmac.compare_digest(
+        calculated_hash.lower(),
+        stored_hash.lower(),
+    ):
+        st.error("診断⑥：パスワードのハッシュが一致しません")
+        return False
+
+    st.success("診断⑦：パスワード照合成功")
+
+    return login_user(user_record)
 
 
 # =========================================================
