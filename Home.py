@@ -2,6 +2,11 @@ import streamlit as st
 import pandas as pd
 import altair as alt
 import math
+import base64
+import html
+
+from pathlib import Path
+from PIL import Image
 
 from app_core import (
     require_login,
@@ -12,11 +17,36 @@ from app_core import (
 
 
 # =========================================================
+# パス設定
+# =========================================================
+APP_ROOT = Path(__file__).resolve().parent
+
+ICON_DIR = APP_ROOT / "assets" / "icons"
+HOME_ICON_DIR = APP_ROOT / "assets" / "home_icons"
+TOP_VISUAL_DIR = HOME_ICON_DIR / "top"
+
+
+# =========================================================
+# ページアイコン
+# =========================================================
+def get_page_icon(filename, fallback="🏠"):
+    path = ICON_DIR / filename
+
+    if path.exists():
+        try:
+            return Image.open(path)
+        except Exception:
+            return fallback
+
+    return fallback
+
+
+# =========================================================
 # ページ設定
 # =========================================================
 st.set_page_config(
     page_title="ShufuMate",
-    page_icon="🏠",
+    page_icon=get_page_icon("home.png", "🏠"),
     layout="centered",
 )
 
@@ -30,37 +60,337 @@ user_id = get_user_id()
 
 
 # =========================================================
-# タイトル
+# 画像関連
 # =========================================================
-st.title("🏠 ShufuMate")
+def file_to_base64(path):
 
-st.caption(
-    "体重だけでなく、体脂肪・筋肉量・食事・体調を"
-    "一緒に見ながら整えていくアプリです。"
+    if not path.exists():
+        return None
+
+    suffix = path.suffix.lower()
+
+    if suffix == ".png":
+        mime = "image/png"
+
+    elif suffix in [".jpg", ".jpeg"]:
+        mime = "image/jpeg"
+
+    elif suffix == ".webp":
+        mime = "image/webp"
+
+    else:
+        mime = "image/png"
+
+    data = base64.b64encode(
+        path.read_bytes()
+    ).decode("utf-8")
+
+    return f"data:{mime};base64,{data}"
+
+
+def load_icon(filename):
+
+    if not filename:
+        return None
+
+    candidates = [
+        ICON_DIR / filename,
+        HOME_ICON_DIR / filename,
+    ]
+
+    for path in candidates:
+
+        if path.exists():
+            return file_to_base64(path)
+
+    return None
+
+
+def safe_text(value):
+    return html.escape(
+        str(value)
+    )
+
+
+# =========================================================
+# CSS
+# =========================================================
+st.markdown(
+    """
+<style>
+
+    .stApp {
+        background:
+            linear-gradient(
+                180deg,
+                #fffaf4 0%,
+                #fff6ed 45%,
+                #fffaf4 100%
+            );
+    }
+
+    .block-container {
+        max-width: 920px;
+        padding-top: 1.5rem;
+        padding-bottom: 3rem;
+    }
+
+    /* トップ画像 */
+    .top-visual {
+        width: 100%;
+        border-radius: 24px;
+        overflow: hidden;
+        margin-bottom: 28px;
+        box-shadow: 0 8px 24px rgba(96, 65, 45, 0.08);
+    }
+
+    .top-visual img {
+        width: 100%;
+        height: auto;
+        display: block;
+    }
+
+    /* セクション見出し */
+    .section-head {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-top: 28px;
+        margin-bottom: 16px;
+    }
+
+    .section-head-icon {
+        width: 52px;
+        min-width: 52px;
+        height: 52px;
+
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        border-radius: 17px;
+
+        background: #ffffff;
+
+        border:
+            1px solid
+            rgba(139, 100, 72, 0.12);
+
+        box-shadow:
+            0 4px 12px
+            rgba(96, 65, 45, 0.08);
+
+        overflow: hidden;
+    }
+
+    .section-head-icon img {
+        width: 40px;
+        height: 40px;
+        object-fit: contain;
+    }
+
+    .section-head-emoji {
+        font-size: 1.5rem;
+    }
+
+    .section-head-title {
+        font-size: 1.55rem;
+        font-weight: 900;
+        color: #5c4033;
+    }
+
+    /* カード */
+    .soft-card {
+        background: #ffffff;
+        border-radius: 22px;
+        padding: 18px;
+        margin-bottom: 18px;
+
+        border:
+            1px solid
+            rgba(139, 100, 72, 0.10);
+
+        box-shadow:
+            0 5px 16px
+            rgba(96, 65, 45, 0.06);
+    }
+
+    /* Streamlit metric */
+    div[data-testid="stMetric"] {
+        background: #ffffff;
+
+        border-radius: 18px;
+
+        padding: 14px 16px;
+
+        border:
+            1px solid
+            rgba(139, 100, 72, 0.10);
+
+        box-shadow:
+            0 4px 12px
+            rgba(96, 65, 45, 0.05);
+    }
+
+    /* ボタン */
+    .stButton > button {
+        background-color: #8d6e63;
+        color: #ffffff;
+
+        border: none;
+        border-radius: 14px;
+
+        padding: 0.75rem 1rem;
+
+        font-weight: 800;
+    }
+
+    .stButton > button:hover {
+        background-color: #76594f;
+        color: #ffffff;
+    }
+
+    @media (max-width: 640px) {
+
+        .block-container {
+            padding-left: 1rem;
+            padding-right: 1rem;
+        }
+
+        .section-head-icon {
+            width: 46px;
+            min-width: 46px;
+            height: 46px;
+        }
+
+        .section-head-icon img {
+            width: 35px;
+            height: 35px;
+        }
+
+        .section-head-title {
+            font-size: 1.28rem;
+        }
+
+    }
+
+</style>
+""",
+    unsafe_allow_html=True,
 )
+
+
+# =========================================================
+# セクション見出し
+# =========================================================
+def render_section_header(
+    title,
+    icon_file=None,
+    emoji="",
+):
+
+    icon_src = (
+        load_icon(icon_file)
+        if icon_file
+        else None
+    )
+
+    if icon_src:
+
+        icon_html = (
+            f'<img src="{icon_src}" '
+            f'alt="{safe_text(title)}">'
+        )
+
+    else:
+
+        icon_html = (
+            f'<div class="section-head-emoji">'
+            f'{safe_text(emoji)}'
+            f'</div>'
+        )
+
+    st.markdown(
+        f"""
+<div class="section-head">
+
+    <div class="section-head-icon">
+        {icon_html}
+    </div>
+
+    <div class="section-head-title">
+        {safe_text(title)}
+    </div>
+
+</div>
+""",
+        unsafe_allow_html=True,
+    )
+
+
+# =========================================================
+# トップビジュアル
+# =========================================================
+top_visual_path = (
+    TOP_VISUAL_DIR
+    / "top_visual.png"
+)
+
+if top_visual_path.exists():
+
+    top_src = file_to_base64(
+        top_visual_path
+    )
+
+    st.markdown(
+        f"""
+<div class="top-visual">
+    <img
+        src="{top_src}"
+        alt="ShufuMate"
+    >
+</div>
+""",
+        unsafe_allow_html=True,
+    )
+
+else:
+
+    st.title("ShufuMate")
+
+    st.caption(
+        "体重だけでなく、体脂肪・筋肉量・食事・体調を"
+        "一緒に見ながら整えていくアプリです。"
+    )
 
 
 # =========================================================
 # 記録取得
 # =========================================================
-logs = load_diet_logs(user_id)
+logs = load_diet_logs(
+    user_id
+)
 
 df = pd.DataFrame()
 
+
 if logs:
 
-    df = pd.DataFrame(logs)
+    df = pd.DataFrame(
+        logs
+    )
 
     # -----------------------------------------------------
-    # 列名の空白除去
+    # 列名整理
     # -----------------------------------------------------
     df.columns = [
         str(col).strip()
         for col in df.columns
     ]
 
+
     # -----------------------------------------------------
-    # 旧データ・表記揺れ対応
+    # 表記揺れ対応
     # -----------------------------------------------------
     column_aliases = {
 
@@ -96,6 +426,7 @@ if logs:
         ],
     }
 
+
     for standard_name, aliases in column_aliases.items():
 
         if standard_name not in df.columns:
@@ -112,27 +443,32 @@ if logs:
 
                     break
 
+
     # -----------------------------------------------------
-    # 古いDietLogsで
-    # A=user_id / B=log_date / C=weight
-    # D=body_fat / E=muscle_mass
-    # の場合への保険
+    # 旧DietLogs対応
+    # A user_id
+    # B log_date
+    # C weight
+    # D body_fat
+    # E muscle_mass
     # -----------------------------------------------------
     if (
         "muscle_mass" not in df.columns
         and len(df.columns) >= 5
     ):
 
-        old_muscle_col = df.columns[4]
+        old_col = df.columns[4]
 
         df = df.rename(
             columns={
-                old_muscle_col: "muscle_mass"
+                old_col:
+                "muscle_mass"
             }
         )
 
+
     # -----------------------------------------------------
-    # 日付変換
+    # 日付
     # -----------------------------------------------------
     if "log_date" in df.columns:
 
@@ -142,15 +478,18 @@ if logs:
         )
 
         df = df.dropna(
-            subset=["log_date"]
+            subset=[
+                "log_date"
+            ]
         )
 
         df = df.sort_values(
             "log_date"
         )
 
+
     # -----------------------------------------------------
-    # 数値変換
+    # 数値
     # -----------------------------------------------------
     for col in [
         "weight",
@@ -167,7 +506,7 @@ if logs:
 
 
 # =========================================================
-# 最新の有効値取得
+# 最新有効値
 # =========================================================
 def get_latest_valid_value(
     dataframe,
@@ -193,7 +532,9 @@ def get_latest_valid_value(
     )
 
     temp = temp.dropna(
-        subset=[column_name]
+        subset=[
+            column_name
+        ]
     )
 
     temp = temp[
@@ -203,11 +544,13 @@ def get_latest_valid_value(
     if temp.empty:
         return None, None
 
-    latest_row = temp.iloc[-1]
+    row = temp.iloc[-1]
 
     return (
-        float(latest_row[column_name]),
-        latest_row["log_date"],
+        float(
+            row[column_name]
+        ),
+        row["log_date"],
     )
 
 
@@ -236,11 +579,18 @@ latest_muscle, latest_muscle_date = (
 # =========================================================
 # 今日の状態
 # =========================================================
-st.markdown("## 🌿 今日の状態")
+render_section_header(
+    "今日の状態",
+    icon_file="home.png",
+    emoji="🌿",
+)
+
 
 if not df.empty:
 
-    col1, col2, col3 = st.columns(3)
+    col1, col2, col3 = (
+        st.columns(3)
+    )
 
     with col1:
 
@@ -258,6 +608,7 @@ if not df.empty:
                 "—",
             )
 
+
     with col2:
 
         if latest_body_fat is not None:
@@ -274,6 +625,7 @@ if not df.empty:
                 "—",
             )
 
+
     with col3:
 
         if latest_muscle is not None:
@@ -283,21 +635,27 @@ if not df.empty:
                 f"{latest_muscle:.1f} kg",
             )
 
-            if pd.notna(latest_muscle_date):
-
-                st.caption(
-                    "最終記録："
-                    + latest_muscle_date.strftime(
-                        "%Y/%m/%d"
-                    )
-                )
-
         else:
 
             st.metric(
                 "筋肉量",
                 "—",
             )
+
+
+    if (
+        latest_muscle is not None
+        and pd.notna(
+            latest_muscle_date
+        )
+    ):
+
+        st.caption(
+            "筋肉量 最終記録："
+            + latest_muscle_date.strftime(
+                "%Y/%m/%d"
+            )
+        )
 
 else:
 
@@ -310,13 +668,19 @@ else:
 # =========================================================
 # 直近30日分析
 # =========================================================
-st.markdown("## 💡 今日の整え方")
+render_section_header(
+    "今日の整え方",
+    icon_file="advice.png",
+    emoji="💡",
+)
+
 
 if not df.empty:
 
-    latest_date = df[
-        "log_date"
-    ].max()
+    latest_date = (
+        df["log_date"]
+        .max()
+    )
 
     analysis_start = (
         latest_date
@@ -330,6 +694,7 @@ if not df.empty:
         >= analysis_start
     ].copy()
 
+
     comments = []
 
     weight_diff = None
@@ -342,20 +707,20 @@ if not df.empty:
     # -----------------------------------------------------
     if "weight" in analysis_df.columns:
 
-        weight_data = (
+        data = (
             analysis_df["weight"]
             .dropna()
         )
 
-        weight_data = weight_data[
-            weight_data > 0
+        data = data[
+            data > 0
         ]
 
-        if len(weight_data) >= 2:
+        if len(data) >= 2:
 
             weight_diff = (
-                weight_data.iloc[-1]
-                - weight_data.iloc[0]
+                data.iloc[-1]
+                - data.iloc[0]
             )
 
             if weight_diff < -1:
@@ -382,20 +747,20 @@ if not df.empty:
     # -----------------------------------------------------
     if "body_fat" in analysis_df.columns:
 
-        fat_data = (
+        data = (
             analysis_df["body_fat"]
             .dropna()
         )
 
-        fat_data = fat_data[
-            fat_data > 0
+        data = data[
+            data > 0
         ]
 
-        if len(fat_data) >= 2:
+        if len(data) >= 2:
 
             fat_diff = (
-                fat_data.iloc[-1]
-                - fat_data.iloc[0]
+                data.iloc[-1]
+                - data.iloc[0]
             )
 
             if fat_diff < -1:
@@ -422,20 +787,20 @@ if not df.empty:
     # -----------------------------------------------------
     if "muscle_mass" in analysis_df.columns:
 
-        muscle_data = (
+        data = (
             analysis_df["muscle_mass"]
             .dropna()
         )
 
-        muscle_data = muscle_data[
-            muscle_data > 0
+        data = data[
+            data > 0
         ]
 
-        if len(muscle_data) >= 2:
+        if len(data) >= 2:
 
             muscle_diff = (
-                muscle_data.iloc[-1]
-                - muscle_data.iloc[0]
+                data.iloc[-1]
+                - data.iloc[0]
             )
 
             if muscle_diff > 0.3:
@@ -458,7 +823,7 @@ if not df.empty:
 
 
     # -----------------------------------------------------
-    # コメント
+    # コメント表示
     # -----------------------------------------------------
     if comments:
 
@@ -532,7 +897,7 @@ else:
 
 
 # =========================================================
-# グラフ共通関数
+# グラフ描画
 # =========================================================
 def render_body_chart(
     dataframe,
@@ -551,6 +916,7 @@ def render_body_chart(
 
         return
 
+
     chart_data = dataframe[
         [
             "log_date",
@@ -558,10 +924,12 @@ def render_body_chart(
         ]
     ].copy()
 
+
     chart_data[value_col] = pd.to_numeric(
         chart_data[value_col],
         errors="coerce",
     )
+
 
     chart_data = chart_data.dropna(
         subset=[
@@ -570,9 +938,11 @@ def render_body_chart(
         ]
     )
 
+
     chart_data = chart_data[
         chart_data[value_col] > 0
     ]
+
 
     if chart_data.empty:
 
@@ -584,31 +954,36 @@ def render_body_chart(
 
 
     # -----------------------------------------------------
-    # ユーザーごとに縦軸を自動調整
+    # 個人ごとの縦軸
     # -----------------------------------------------------
     value_min = float(
-        chart_data[value_col].min()
+        chart_data[value_col]
+        .min()
     )
 
     value_max = float(
-        chart_data[value_col].max()
+        chart_data[value_col]
+        .max()
     )
+
 
     actual_span = (
         value_max
         - value_min
     )
 
-    # 変化が小さくても極端に拡大しすぎない
+
     display_span = max(
         actual_span * 1.4,
         minimum_span,
     )
 
+
     center = (
         value_max
         + value_min
     ) / 2
+
 
     y_min = (
         center
@@ -620,20 +995,26 @@ def render_body_chart(
         + display_span / 2
     )
 
-    # 0未満にはしない
+
     y_min = max(
         0,
         y_min,
     )
 
-    # 少し見やすく丸める
-    y_min = math.floor(
-        y_min * 2
-    ) / 2
 
-    y_max = math.ceil(
-        y_max * 2
-    ) / 2
+    y_min = (
+        math.floor(
+            y_min * 2
+        )
+        / 2
+    )
+
+    y_max = (
+        math.ceil(
+            y_max * 2
+        )
+        / 2
+    )
 
 
     # -----------------------------------------------------
@@ -642,22 +1023,21 @@ def render_body_chart(
     if period == "直近30日":
 
         axis_format = "%m/%d"
-
         tick_count = 5
 
     elif period == "直近90日":
 
         axis_format = "%Y/%m"
-
         tick_count = 5
 
     else:
 
-        # 全期間は「年」が中心
         axis_format = "%Y"
 
-        years = (
-            chart_data["log_date"]
+        year_count = (
+            chart_data[
+                "log_date"
+            ]
             .dt.year
             .nunique()
         )
@@ -665,21 +1045,24 @@ def render_body_chart(
         tick_count = max(
             2,
             min(
-                int(years) + 1,
+                int(year_count) + 1,
                 8,
             )
         )
 
 
+    # -----------------------------------------------------
+    # Altair
+    # -----------------------------------------------------
     chart = (
         alt.Chart(
             chart_data
         )
+
         .mark_line(
-            point=alt.OverlayMarkDef(
-                size=35
-            )
+            point=True
         )
+
         .encode(
 
             x=alt.X(
@@ -718,10 +1101,12 @@ def render_body_chart(
                 ),
             ],
         )
+
         .properties(
             height=260
         )
     )
+
 
     st.altair_chart(
         chart,
@@ -732,7 +1117,12 @@ def render_body_chart(
 # =========================================================
 # 最近の変化
 # =========================================================
-st.markdown("## 📈 最近の変化")
+render_section_header(
+    "最近の変化",
+    icon_file="exercise.png",
+    emoji="📈",
+)
+
 
 if not df.empty:
 
@@ -747,11 +1137,17 @@ if not df.empty:
         key="home_chart_period",
     )
 
+
     chart_df = df.copy()
 
+
     chart_latest_date = (
-        chart_df["log_date"].max()
+        chart_df[
+            "log_date"
+        ]
+        .max()
     )
+
 
     if period == "直近30日":
 
@@ -766,6 +1162,7 @@ if not df.empty:
             chart_df["log_date"]
             >= start_date
         ]
+
 
     elif period == "直近90日":
 
@@ -783,10 +1180,10 @@ if not df.empty:
 
 
     # -----------------------------------------------------
-    # 体脂肪
+    # 体脂肪率
     # -----------------------------------------------------
     st.markdown(
-        "### 📉 体脂肪率"
+        "#### 体脂肪率"
     )
 
     render_body_chart(
@@ -795,8 +1192,6 @@ if not df.empty:
         title="体脂肪率",
         unit="%",
         period=period,
-
-        # 最低10ポイント幅
         minimum_span=10.0,
     )
 
@@ -805,7 +1200,7 @@ if not df.empty:
     # 筋肉量
     # -----------------------------------------------------
     st.markdown(
-        "### 💪 筋肉量"
+        "#### 筋肉量"
     )
 
     render_body_chart(
@@ -814,8 +1209,6 @@ if not df.empty:
         title="筋肉量",
         unit="kg",
         period=period,
-
-        # 小さな変化を誇張しすぎない
         minimum_span=5.0,
     )
 
@@ -824,7 +1217,7 @@ if not df.empty:
     # 体重
     # -----------------------------------------------------
     st.markdown(
-        "### ⚖️ 体重"
+        "#### 体重"
     )
 
     render_body_chart(
@@ -833,8 +1226,6 @@ if not df.empty:
         title="体重",
         unit="kg",
         period=period,
-
-        # 最低10kg幅
         minimum_span=10.0,
     )
 
@@ -849,9 +1240,12 @@ else:
 # =========================================================
 # 最新記録
 # =========================================================
-st.markdown(
-    "## 📝 最新記録"
+render_section_header(
+    "最新記録",
+    icon_file="note.png",
+    emoji="📝",
 )
+
 
 if not df.empty:
 
@@ -860,6 +1254,7 @@ if not df.empty:
     latest_log_date = latest.get(
         "log_date"
     )
+
 
     if pd.notna(
         latest_log_date
@@ -931,7 +1326,7 @@ if not df.empty:
 
 
     # -----------------------------------------------------
-    # 最新日と筋肉量記録日が違う場合
+    # 筋肉量だけ日付が古い場合
     # -----------------------------------------------------
     if (
         latest_muscle is not None
@@ -968,7 +1363,7 @@ if not df.empty:
     ):
 
         st.markdown(
-            "### 🍽️ 食事・メモ"
+            "#### 食事・メモ"
         )
 
         st.text(
@@ -983,14 +1378,21 @@ else:
 
 
 # =========================================================
-# クイックメニュー
+# メニュー
 # =========================================================
-st.markdown("---")
-st.markdown("## 📋 メニュー")
+render_section_header(
+    "メニュー",
+    icon_file="menu.png",
+    emoji="📋",
+)
+
 
 col1, col2 = st.columns(2)
 
 
+# ---------------------------------------------------------
+# 記録
+# ---------------------------------------------------------
 with col1:
 
     if st.button(
@@ -1003,16 +1405,9 @@ with col1:
         )
 
 
-    if st.button(
-        "📷 写真で記録",
-        use_container_width=True,
-    ):
-
-        st.switch_page(
-            "pages/4_写真で記録.py"
-        )
-
-
+# ---------------------------------------------------------
+# 相談
+# ---------------------------------------------------------
 with col2:
 
     if st.button(
@@ -1024,6 +1419,26 @@ with col2:
             "pages/3_相談する.py"
         )
 
+
+# ---------------------------------------------------------
+# 写真
+# ---------------------------------------------------------
+with col1:
+
+    if st.button(
+        "📷 写真で記録",
+        use_container_width=True,
+    ):
+
+        st.switch_page(
+            "pages/4_写真で記録.py"
+        )
+
+
+# ---------------------------------------------------------
+# 設定
+# ---------------------------------------------------------
+with col2:
 
     if st.button(
         "⚙️ 設定",
