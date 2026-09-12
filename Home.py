@@ -792,17 +792,29 @@ def render_body_chart(
             ),
 
             y=alt.Y(
-                f"{value_col}:Q",
-                title=unit,
-                scale=alt.Scale(
-                    domain=[
-                        y_min,
-                        y_max,
-                    ],
-                    zero=False,
-                ),
-            ),
+    f"{value_col}:Q",
 
+    # 縦向きになる単位タイトルは表示しない
+    title=None,
+
+    scale=alt.Scale(
+        domain=[
+            y_min,
+            y_max,
+        ],
+        zero=False,
+    ),
+
+    # 目盛りの数値の横に単位を表示
+    axis=alt.Axis(
+        labelExpr=(
+            "datum.label + ' %'"
+            if unit == "%"
+            else "datum.label + ' kg'"
+        ),
+        labelPadding=8,
+    ),
+),
             tooltip=[
                 alt.Tooltip(
                     "log_date:T",
