@@ -1,5 +1,7 @@
 import streamlit as st
 import pandas as pd
+import altair as alt
+import math
 
 from app_core import (
     require_login,
@@ -48,82 +50,90 @@ df = pd.DataFrame()
 if logs:
 
     df = pd.DataFrame(logs)
-# =========================================================
-# DietLogs 列名の統一
-# =========================================================
-df.columns = [
-    str(col).strip()
-    for col in df.columns
-]
 
-column_aliases = {
-    "log_date": [
-        "log_date",
-        "date",
-        "日付",
-    ],
-    "weight": [
-        "weight",
-        "体重",
-        "体重(kg)",
-        "体重（kg）",
-    ],
-    "body_fat": [
-        "body_fat",
-        "bodyfat",
-        "体脂肪",
-        "体脂肪率",
-        "体脂肪率(%)",
-        "体脂肪率（%）",
-    ],
-    "muscle_mass": [
-        "muscle_mass",
-        "muscle",
-        "muscle_kg",
-        "筋肉量",
-        "筋肉量(kg)",
-        "筋肉量（kg）",
-    ],
-}
+    # -----------------------------------------------------
+    # 列名の空白除去
+    # -----------------------------------------------------
+    df.columns = [
+        str(col).strip()
+        for col in df.columns
+    ]
 
-for standard_name, aliases in column_aliases.items():
+    # -----------------------------------------------------
+    # 旧データ・表記揺れ対応
+    # -----------------------------------------------------
+    column_aliases = {
 
-    if standard_name not in df.columns:
+        "log_date": [
+            "log_date",
+            "date",
+            "日付",
+        ],
 
-        for alias in aliases:
+        "weight": [
+            "weight",
+            "体重",
+            "体重(kg)",
+            "体重（kg）",
+        ],
 
-            if alias in df.columns:
+        "body_fat": [
+            "body_fat",
+            "bodyfat",
+            "体脂肪",
+            "体脂肪率",
+            "体脂肪率(%)",
+            "体脂肪率（%）",
+        ],
 
-                df = df.rename(
-                    columns={
-                        alias: standard_name
-                    }
-                )
+        "muscle_mass": [
+            "muscle_mass",
+            "muscle",
+            "muscle_kg",
+            "筋肉量",
+            "筋肉量(kg)",
+            "筋肉量（kg）",
+        ],
+    }
 
-                break
+    for standard_name, aliases in column_aliases.items():
 
+        if standard_name not in df.columns:
 
-# E列に筋肉量が入っている旧データへの対応
-# A=user_id
-# B=log_date
-# C=weight
-# D=body_fat
-# E=muscle_mass
-if (
-    "muscle_mass" not in df.columns
-    and len(df.columns) >= 5
-):
-    old_muscle_column = df.columns[4]
+            for alias in aliases:
 
-    df = df.rename(
-        columns={
-            old_muscle_column: "muscle_mass"
-        }
-    )
+                if alias in df.columns:
 
-    # -------------------------
-    # 日付
-    # -------------------------
+                    df = df.rename(
+                        columns={
+                            alias: standard_name
+                        }
+                    )
+
+                    break
+
+    # -----------------------------------------------------
+    # 古いDietLogsで
+    # A=user_id / B=log_date / C=weight
+    # D=body_fat / E=muscle_mass
+    # の場合への保険
+    # -----------------------------------------------------
+    if (
+        "muscle_mass" not in df.columns
+        and len(df.columns) >= 5
+    ):
+
+        old_muscle_col = df.columns[4]
+
+        df = df.rename(
+            columns={
+                old_muscle_col: "muscle_mass"
+            }
+        )
+
+    # -----------------------------------------------------
+    # 日付変換
+    # -----------------------------------------------------
     if "log_date" in df.columns:
 
         df["log_date"] = pd.to_datetime(
@@ -139,9 +149,9 @@ if (
             "log_date"
         )
 
-    # -------------------------
+    # -----------------------------------------------------
     # 数値変換
-    # -------------------------
+    # -----------------------------------------------------
     for col in [
         "weight",
         "body_fat",
@@ -157,12 +167,11 @@ if (
 
 
 # =========================================================
-# 最新の有効値を取得する関数
+# 最新の有効値取得
 # =========================================================
 def get_latest_valid_value(
     dataframe,
     column_name,
-    positive_only=False,
 ):
 
     if dataframe.empty:
@@ -171,49 +180,41 @@ def get_latest_valid_value(
     if column_name not in dataframe.columns:
         return None, None
 
-    temp_df = dataframe[
+    temp = dataframe[
         [
             "log_date",
             column_name,
         ]
     ].copy()
 
-    temp_df[column_name] = pd.to_numeric(
-        temp_df[column_name],
+    temp[column_name] = pd.to_numeric(
+        temp[column_name],
         errors="coerce",
     )
 
-    temp_df = temp_df.dropna(
-        subset=[
-            column_name
-        ]
+    temp = temp.dropna(
+        subset=[column_name]
     )
 
-    if positive_only:
+    temp = temp[
+        temp[column_name] > 0
+    ]
 
-        temp_df = temp_df[
-            temp_df[column_name] > 0
-        ]
-
-    if temp_df.empty:
+    if temp.empty:
         return None, None
 
-    row = temp_df.iloc[-1]
+    latest_row = temp.iloc[-1]
 
     return (
-        row[column_name],
-        row["log_date"],
+        float(latest_row[column_name]),
+        latest_row["log_date"],
     )
 
 
-# =========================================================
-# 最新値
-# =========================================================
 latest_weight, latest_weight_date = (
     get_latest_valid_value(
         df,
         "weight",
-        positive_only=True,
     )
 )
 
@@ -221,7 +222,6 @@ latest_body_fat, latest_body_fat_date = (
     get_latest_valid_value(
         df,
         "body_fat",
-        positive_only=True,
     )
 )
 
@@ -229,7 +229,6 @@ latest_muscle, latest_muscle_date = (
     get_latest_valid_value(
         df,
         "muscle_mass",
-        positive_only=True,
     )
 )
 
@@ -243,59 +242,48 @@ if not df.empty:
 
     col1, col2, col3 = st.columns(3)
 
-    # -------------------------
-    # 体重
-    # -------------------------
     with col1:
 
         if latest_weight is not None:
 
             st.metric(
                 "体重",
-                f"{latest_weight:.1f} kg"
+                f"{latest_weight:.1f} kg",
             )
 
         else:
 
             st.metric(
                 "体重",
-                "—"
+                "—",
             )
 
-    # -------------------------
-    # 体脂肪
-    # -------------------------
     with col2:
 
         if latest_body_fat is not None:
 
             st.metric(
                 "体脂肪",
-                f"{latest_body_fat:.1f} %"
+                f"{latest_body_fat:.1f} %",
             )
 
         else:
 
             st.metric(
                 "体脂肪",
-                "—"
+                "—",
             )
 
-    # -------------------------
-    # 筋肉量
-    # -------------------------
     with col3:
 
         if latest_muscle is not None:
 
             st.metric(
                 "筋肉量",
-                f"{latest_muscle:.1f} kg"
+                f"{latest_muscle:.1f} kg",
             )
 
-            if pd.notna(
-                latest_muscle_date
-            ):
+            if pd.notna(latest_muscle_date):
 
                 st.caption(
                     "最終記録："
@@ -308,7 +296,7 @@ if not df.empty:
 
             st.metric(
                 "筋肉量",
-                "—"
+                "—",
             )
 
 else:
@@ -320,13 +308,11 @@ else:
 
 
 # =========================================================
-# 今日の整え方
+# 直近30日分析
 # =========================================================
 st.markdown("## 💡 今日の整え方")
 
 if not df.empty:
-
-    comments = []
 
     latest_date = df[
         "log_date"
@@ -344,14 +330,16 @@ if not df.empty:
         >= analysis_start
     ].copy()
 
+    comments = []
+
+    weight_diff = None
+    fat_diff = None
+    muscle_diff = None
+
 
     # -----------------------------------------------------
     # 体重
     # -----------------------------------------------------
-    weight_data = pd.Series(
-        dtype=float
-    )
-
     if "weight" in analysis_df.columns:
 
         weight_data = (
@@ -363,41 +351,35 @@ if not df.empty:
             weight_data > 0
         ]
 
-    weight_diff = None
+        if len(weight_data) >= 2:
 
-    if len(weight_data) >= 2:
-
-        weight_diff = (
-            weight_data.iloc[-1]
-            - weight_data.iloc[0]
-        )
-
-        if weight_diff < -1.0:
-
-            comments.append(
-                "体重はこの30日で減少傾向です。"
+            weight_diff = (
+                weight_data.iloc[-1]
+                - weight_data.iloc[0]
             )
 
-        elif weight_diff > 1.0:
+            if weight_diff < -1:
 
-            comments.append(
-                "体重はこの30日で増加傾向です。"
-            )
+                comments.append(
+                    "体重はこの30日で減少傾向です。"
+                )
 
-        else:
+            elif weight_diff > 1:
 
-            comments.append(
-                "体重はこの30日、大きく変わらず安定しています。"
-            )
+                comments.append(
+                    "体重はこの30日で増加傾向です。"
+                )
+
+            else:
+
+                comments.append(
+                    "体重はこの30日、大きく変わらず安定しています。"
+                )
 
 
     # -----------------------------------------------------
     # 体脂肪
     # -----------------------------------------------------
-    fat_data = pd.Series(
-        dtype=float
-    )
-
     if "body_fat" in analysis_df.columns:
 
         fat_data = (
@@ -409,41 +391,35 @@ if not df.empty:
             fat_data > 0
         ]
 
-    fat_diff = None
+        if len(fat_data) >= 2:
 
-    if len(fat_data) >= 2:
-
-        fat_diff = (
-            fat_data.iloc[-1]
-            - fat_data.iloc[0]
-        )
-
-        if fat_diff < -1.0:
-
-            comments.append(
-                "体脂肪率はこの30日で下がっています。"
+            fat_diff = (
+                fat_data.iloc[-1]
+                - fat_data.iloc[0]
             )
 
-        elif fat_diff > 1.0:
+            if fat_diff < -1:
 
-            comments.append(
-                "体脂肪率はこの30日で少し上がっています。"
-            )
+                comments.append(
+                    "体脂肪率はこの30日で下がっています。"
+                )
 
-        else:
+            elif fat_diff > 1:
 
-            comments.append(
-                "体脂肪率はこの30日、ほぼ安定しています。"
-            )
+                comments.append(
+                    "体脂肪率はこの30日で少し上がっています。"
+                )
+
+            else:
+
+                comments.append(
+                    "体脂肪率はこの30日、ほぼ安定しています。"
+                )
 
 
     # -----------------------------------------------------
     # 筋肉量
     # -----------------------------------------------------
-    muscle_data = pd.Series(
-        dtype=float
-    )
-
     if "muscle_mass" in analysis_df.columns:
 
         muscle_data = (
@@ -455,36 +431,34 @@ if not df.empty:
             muscle_data > 0
         ]
 
-    muscle_diff = None
+        if len(muscle_data) >= 2:
 
-    if len(muscle_data) >= 2:
-
-        muscle_diff = (
-            muscle_data.iloc[-1]
-            - muscle_data.iloc[0]
-        )
-
-        if muscle_diff > 0.3:
-
-            comments.append(
-                "筋肉量はこの30日で増えています。"
+            muscle_diff = (
+                muscle_data.iloc[-1]
+                - muscle_data.iloc[0]
             )
 
-        elif muscle_diff < -0.3:
+            if muscle_diff > 0.3:
 
-            comments.append(
-                "筋肉量はこの30日で少し下がっています。"
-            )
+                comments.append(
+                    "筋肉量はこの30日で増えています。"
+                )
 
-        else:
+            elif muscle_diff < -0.3:
 
-            comments.append(
-                "筋肉量はこの30日、安定しています。"
-            )
+                comments.append(
+                    "筋肉量はこの30日で少し下がっています。"
+                )
+
+            else:
+
+                comments.append(
+                    "筋肉量はこの30日、安定しています。"
+                )
 
 
     # -----------------------------------------------------
-    # コメント表示
+    # コメント
     # -----------------------------------------------------
     if comments:
 
@@ -503,7 +477,7 @@ if not df.empty:
 
 
     # -----------------------------------------------------
-    # ワンポイント
+    # アドバイス
     # -----------------------------------------------------
     if (
         muscle_diff is not None
@@ -513,7 +487,7 @@ if not df.empty:
         st.success(
             "筋肉量が増えています。"
             "食事を減らしすぎず、"
-            "今の運動とたんぱく質を"
+            "運動・たんぱく質・休養を"
             "続けていきましょう。"
         )
 
@@ -524,18 +498,18 @@ if not df.empty:
 
         st.warning(
             "筋肉量が少し下がっています。"
-            "たんぱく質・筋トレ・休養の"
-            "バランスを確認してみましょう。"
+            "たんぱく質・筋トレ・休養を"
+            "確認してみましょう。"
         )
 
     elif (
         fat_diff is not None
-        and fat_diff > 1.0
+        and fat_diff > 1
     ):
 
         st.warning(
             "体脂肪率が少し上がっています。"
-            "食事を極端に減らすのではなく、"
+            "食事を極端に減らさず、"
             "間食・夜の食事・活動量を"
             "確認してみましょう。"
         )
@@ -553,7 +527,205 @@ else:
     st.info(
         "記録を続けると、"
         "あなたの変化に合わせた"
-        "コメントがここに表示されます。"
+        "コメントが表示されます。"
+    )
+
+
+# =========================================================
+# グラフ共通関数
+# =========================================================
+def render_body_chart(
+    dataframe,
+    value_col,
+    title,
+    unit,
+    period,
+    minimum_span,
+):
+
+    if value_col not in dataframe.columns:
+
+        st.info(
+            f"{title}の記録がありません。"
+        )
+
+        return
+
+    chart_data = dataframe[
+        [
+            "log_date",
+            value_col,
+        ]
+    ].copy()
+
+    chart_data[value_col] = pd.to_numeric(
+        chart_data[value_col],
+        errors="coerce",
+    )
+
+    chart_data = chart_data.dropna(
+        subset=[
+            "log_date",
+            value_col,
+        ]
+    )
+
+    chart_data = chart_data[
+        chart_data[value_col] > 0
+    ]
+
+    if chart_data.empty:
+
+        st.info(
+            f"{title}の記録がありません。"
+        )
+
+        return
+
+
+    # -----------------------------------------------------
+    # ユーザーごとに縦軸を自動調整
+    # -----------------------------------------------------
+    value_min = float(
+        chart_data[value_col].min()
+    )
+
+    value_max = float(
+        chart_data[value_col].max()
+    )
+
+    actual_span = (
+        value_max
+        - value_min
+    )
+
+    # 変化が小さくても極端に拡大しすぎない
+    display_span = max(
+        actual_span * 1.4,
+        minimum_span,
+    )
+
+    center = (
+        value_max
+        + value_min
+    ) / 2
+
+    y_min = (
+        center
+        - display_span / 2
+    )
+
+    y_max = (
+        center
+        + display_span / 2
+    )
+
+    # 0未満にはしない
+    y_min = max(
+        0,
+        y_min,
+    )
+
+    # 少し見やすく丸める
+    y_min = math.floor(
+        y_min * 2
+    ) / 2
+
+    y_max = math.ceil(
+        y_max * 2
+    ) / 2
+
+
+    # -----------------------------------------------------
+    # 横軸
+    # -----------------------------------------------------
+    if period == "直近30日":
+
+        axis_format = "%m/%d"
+
+        tick_count = 5
+
+    elif period == "直近90日":
+
+        axis_format = "%Y/%m"
+
+        tick_count = 5
+
+    else:
+
+        # 全期間は「年」が中心
+        axis_format = "%Y"
+
+        years = (
+            chart_data["log_date"]
+            .dt.year
+            .nunique()
+        )
+
+        tick_count = max(
+            2,
+            min(
+                int(years) + 1,
+                8,
+            )
+        )
+
+
+    chart = (
+        alt.Chart(
+            chart_data
+        )
+        .mark_line(
+            point=alt.OverlayMarkDef(
+                size=35
+            )
+        )
+        .encode(
+
+            x=alt.X(
+                "log_date:T",
+                title="",
+                axis=alt.Axis(
+                    format=axis_format,
+                    labelAngle=0,
+                    tickCount=tick_count,
+                ),
+            ),
+
+            y=alt.Y(
+                f"{value_col}:Q",
+                title=unit,
+                scale=alt.Scale(
+                    domain=[
+                        y_min,
+                        y_max,
+                    ],
+                    zero=False,
+                ),
+            ),
+
+            tooltip=[
+                alt.Tooltip(
+                    "log_date:T",
+                    title="日付",
+                    format="%Y/%m/%d",
+                ),
+
+                alt.Tooltip(
+                    f"{value_col}:Q",
+                    title=title,
+                    format=".1f",
+                ),
+            ],
+        )
+        .properties(
+            height=260
+        )
+    )
+
+    st.altair_chart(
+        chart,
+        use_container_width=True,
     )
 
 
@@ -564,9 +736,6 @@ st.markdown("## 📈 最近の変化")
 
 if not df.empty:
 
-    # -------------------------
-    # 表示期間
-    # -------------------------
     period = st.radio(
         "表示期間",
         [
@@ -580,9 +749,9 @@ if not df.empty:
 
     chart_df = df.copy()
 
-    chart_latest_date = chart_df[
-        "log_date"
-    ].max()
+    chart_latest_date = (
+        chart_df["log_date"].max()
+    )
 
     if period == "直近30日":
 
@@ -613,166 +782,61 @@ if not df.empty:
         ]
 
 
-    # =====================================================
-    # 体脂肪率
-    # =====================================================
-    st.markdown("### 📉 体脂肪率")
+    # -----------------------------------------------------
+    # 体脂肪
+    # -----------------------------------------------------
+    st.markdown(
+        "### 📉 体脂肪率"
+    )
 
-    if "body_fat" in chart_df.columns:
+    render_body_chart(
+        chart_df,
+        value_col="body_fat",
+        title="体脂肪率",
+        unit="%",
+        period=period,
 
-        fat_df = (
-            chart_df[
-                [
-                    "log_date",
-                    "body_fat",
-                ]
-            ]
-            .dropna()
-        )
-
-        fat_df = fat_df[
-            fat_df["body_fat"] > 0
-        ]
-
-        if not fat_df.empty:
-
-            fat_df = (
-                fat_df
-                .set_index(
-                    "log_date"
-                )
-                .rename(
-                    columns={
-                        "body_fat":
-                        "体脂肪率（%）"
-                    }
-                )
-            )
-
-            st.line_chart(
-                fat_df,
-                use_container_width=True,
-            )
-
-        else:
-
-            st.info(
-                "体脂肪率の記録がありません。"
-            )
-
-    else:
-
-        st.info(
-            "体脂肪率の記録がありません。"
-        )
+        # 最低10ポイント幅
+        minimum_span=10.0,
+    )
 
 
-    # =====================================================
+    # -----------------------------------------------------
     # 筋肉量
-    # =====================================================
-    st.markdown("### 💪 筋肉量")
+    # -----------------------------------------------------
+    st.markdown(
+        "### 💪 筋肉量"
+    )
 
-    if "muscle_mass" in chart_df.columns:
+    render_body_chart(
+        chart_df,
+        value_col="muscle_mass",
+        title="筋肉量",
+        unit="kg",
+        period=period,
 
-        muscle_df = (
-            chart_df[
-                [
-                    "log_date",
-                    "muscle_mass",
-                ]
-            ]
-            .dropna()
-        )
-
-        muscle_df = muscle_df[
-            muscle_df["muscle_mass"] > 0
-        ]
-
-        if not muscle_df.empty:
-
-            muscle_df = (
-                muscle_df
-                .set_index(
-                    "log_date"
-                )
-                .rename(
-                    columns={
-                        "muscle_mass":
-                        "筋肉量（kg）"
-                    }
-                )
-            )
-
-            st.line_chart(
-                muscle_df,
-                use_container_width=True,
-            )
-
-        else:
-
-            st.info(
-                "筋肉量の記録がありません。"
-            )
-
-    else:
-
-        st.info(
-            "筋肉量の記録がありません。"
-        )
+        # 小さな変化を誇張しすぎない
+        minimum_span=5.0,
+    )
 
 
-    # =====================================================
+    # -----------------------------------------------------
     # 体重
-    # =====================================================
-    st.markdown("### ⚖️ 体重")
+    # -----------------------------------------------------
+    st.markdown(
+        "### ⚖️ 体重"
+    )
 
-    if "weight" in chart_df.columns:
+    render_body_chart(
+        chart_df,
+        value_col="weight",
+        title="体重",
+        unit="kg",
+        period=period,
 
-        weight_df = (
-            chart_df[
-                [
-                    "log_date",
-                    "weight",
-                ]
-            ]
-            .dropna()
-        )
-
-        weight_df = weight_df[
-            weight_df["weight"] > 0
-        ]
-
-        if not weight_df.empty:
-
-            weight_df = (
-                weight_df
-                .set_index(
-                    "log_date"
-                )
-                .rename(
-                    columns={
-                        "weight":
-                        "体重（kg）"
-                    }
-                )
-            )
-
-            st.line_chart(
-                weight_df,
-                use_container_width=True,
-            )
-
-        else:
-
-            st.info(
-                "体重の記録がありません。"
-            )
-
-    else:
-
-        st.info(
-            "体重の記録がありません。"
-        )
+        # 最低10kg幅
+        minimum_span=10.0,
+    )
 
 else:
 
@@ -785,90 +849,89 @@ else:
 # =========================================================
 # 最新記録
 # =========================================================
-st.markdown("## 📝 最新記録")
+st.markdown(
+    "## 📝 最新記録"
+)
 
 if not df.empty:
 
     latest = df.iloc[-1]
 
-    log_date = latest.get(
+    latest_log_date = latest.get(
         "log_date"
     )
 
     if pd.notna(
-        log_date
+        latest_log_date
     ):
 
         st.write(
-            f"**記録日："
-            f"{log_date.strftime('%Y/%m/%d')}**"
+            "**記録日："
+            + latest_log_date.strftime(
+                "%Y/%m/%d"
+            )
+            + "**"
         )
 
-    col1, col2, col3 = st.columns(3)
+
+    col1, col2, col3 = (
+        st.columns(3)
+    )
 
 
-    # -----------------------------------------------------
-    # 体重
-    # -----------------------------------------------------
     with col1:
 
         if latest_weight is not None:
 
             st.metric(
                 "体重",
-                f"{latest_weight:.1f} kg"
+                f"{latest_weight:.1f} kg",
             )
 
         else:
 
             st.metric(
                 "体重",
-                "—"
+                "—",
             )
 
 
-    # -----------------------------------------------------
-    # 体脂肪
-    # -----------------------------------------------------
     with col2:
 
         if latest_body_fat is not None:
 
             st.metric(
                 "体脂肪",
-                f"{latest_body_fat:.1f} %"
+                f"{latest_body_fat:.1f} %",
             )
 
         else:
 
             st.metric(
                 "体脂肪",
-                "—"
+                "—",
             )
 
 
-    # -----------------------------------------------------
-    # 筋肉量
-    # -----------------------------------------------------
     with col3:
 
         if latest_muscle is not None:
 
             st.metric(
                 "筋肉量",
-                f"{latest_muscle:.1f} kg"
+                f"{latest_muscle:.1f} kg",
             )
 
         else:
 
             st.metric(
                 "筋肉量",
-                "—"
+                "—",
             )
 
 
     # -----------------------------------------------------
-    # 筋肉量の記録日
+    # 最新日と筋肉量記録日が違う場合
     # -----------------------------------------------------
     if (
         latest_muscle is not None
@@ -876,10 +939,10 @@ if not df.empty:
             latest_muscle_date
         )
         and pd.notna(
-            log_date
+            latest_log_date
         )
         and latest_muscle_date.date()
-        != log_date.date()
+        != latest_log_date.date()
     ):
 
         st.caption(
