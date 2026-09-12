@@ -67,18 +67,31 @@ def clean_text(value):
 
 
 # =========================================================
-# パスワード
+# パスワード・ログイン共通
+# =========================================================
+import hashlib
+import secrets
+import hmac
+
+
+def clean_text(value):
+    if value is None:
+        return ""
+    return str(value).strip()
+
+
+# =========================================================
+# パスワードをハッシュ化
 # =========================================================
 def make_password_hash(password, salt=None):
-    """
-    パスワードを PBKDF2-HMAC-SHA256 でハッシュ化。
-    戻り値:
-        password_hash, password_salt
-    """
 
     password = clean_text(password)
 
-    if salt is None:
+    if not password:
+        return "", ""
+
+    # 新規登録・再設定時だけ新しいsaltを作る
+    if not salt:
         salt = secrets.token_hex(16)
 
     salt = clean_text(salt)
@@ -93,24 +106,555 @@ def make_password_hash(password, salt=None):
     return password_hash, salt
 
 
+# =========================================================
+# 入力パスワードと保存済みハッシュを比較
+# =========================================================
 def verify_password(password, stored_hash, stored_salt):
+
     password = clean_text(password)
     stored_hash = clean_text(stored_hash)
     stored_salt = clean_text(stored_salt)
 
-    if not password or not stored_hash or not stored_salt:
+    if not password:
+        return False
+
+    if not stored_hash:
+        return False
+
+    if not stored_salt:
         return False
 
     calculated_hash, _ = make_password_hash(
-        password,
-        stored_salt,
+        password=password,
+        salt=stored_salt,
     )
 
     return hmac.compare_digest(
-        calculated_hash,
-        stored_hash,
+        calculated_hash.lower(),
+        stored_hash.lower(),
     )
 
+
+# =========================================================
+# Usersシートを「文字列のまま」読む
+# =========================================================
+def load_users():
+
+    sheet = get_sheet("Users")
+
+    values = sheet.get_all_values()
+
+    if not values:
+        return []
+
+    headers = [
+        clean_text(v)
+        for v in values[0]
+    ]
+
+    users = []
+
+    for row in values[1:]:
+
+        # 列数不足を補う
+        row = row + [""] * (
+            len(headers) - len(row)
+        )
+
+        record = {}
+
+        for i, header in enumerate(headers):
+            record[header] = clean_text(
+                row[i]
+            )
+
+        users.append(record)
+
+    return users
+
+
+# =========================================================
+# login_idでユーザー検索
+# =========================================================
+def find_user_by_login_id(login_id):
+
+    login_id = clean_text(login_id)
+
+    if not login_id:
+        return None
+
+    users = load_users()
+
+    for user in users:
+
+        if clean_text(
+            user.get("login_id")
+        ) == login_id:
+
+            return user
+
+    return None
+
+
+# =========================================================
+# user_idでユーザー検索
+# =========================================================
+def find_user_by_user_id(user_id):
+
+    user_id = clean_text(user_id)
+
+    if not user_id:
+        return None
+
+    users = load_users()
+
+    for user in users:
+
+        if clean_text(
+            user.get("user_id")
+        ) == user_id:
+
+            return user
+
+    return None
+
+
+# =========================================================
+# 有効ユーザー判定
+# =========================================================
+def is_active_user(user_record):
+
+    if not user_record:
+        return False
+
+    value = clean_text(
+        user_record.get(
+            "is_active",
+            "TRUE"
+        )
+    ).lower()
+
+    if value in [
+        "false",
+        "0",
+        "no",
+        "off",
+        "無効",
+    ]:
+        return False
+
+    return True
+
+
+# =========================================================
+# ログイン状態
+# =========================================================
+def is_logged_in():
+
+    return bool(
+        st.session_state.get(
+            "logged_in",
+            False
+        )
+        and st.session_state.get(
+            "user_id"
+        )
+    )
+
+
+def get_user_id():
+
+    return st.session_state.get(
+        "user_id"
+    )
+
+
+def get_login_id():
+
+    return st.session_state.get(
+        "login_id"
+    )
+
+
+def get_nickname():
+
+    return st.session_state.get(
+        "nickname"
+    )
+
+
+# =========================================================
+# ログイン状態を保存
+# =========================================================
+def login_user(user_record):
+
+    if not user_record:
+        return False
+
+    if not is_active_user(
+        user_record
+    ):
+        return False
+
+    user_id = clean_text(
+        user_record.get("user_id")
+    )
+
+    login_id = clean_text(
+        user_record.get("login_id")
+    )
+
+    nickname = clean_text(
+        user_record.get("nickname")
+    )
+
+    if not user_id:
+        return False
+
+    st.session_state["logged_in"] = True
+    st.session_state["user_id"] = user_id
+    st.session_state["login_id"] = login_id
+    st.session_state["nickname"] = nickname
+
+    return True
+
+
+# =========================================================
+# ログイン
+# =========================================================
+def login(login_id, password):
+
+    login_id = clean_text(login_id)
+    password = clean_text(password)
+
+    if not login_id or not password:
+        return False
+
+    user_record = find_user_by_login_id(
+        login_id
+    )
+
+    if not user_record:
+        return False
+
+    if not is_active_user(
+        user_record
+    ):
+        return False
+
+    stored_hash = clean_text(
+        user_record.get(
+            "password_hash"
+        )
+    )
+
+    stored_salt = clean_text(
+        user_record.get(
+            "password_salt"
+        )
+    )
+
+    password_ok = verify_password(
+        password,
+        stored_hash,
+        stored_salt,
+    )
+
+    if not password_ok:
+        return False
+
+    return login_user(
+        user_record
+    )
+
+
+# =========================================================
+# ログアウト
+# =========================================================
+def logout():
+
+    keys = [
+        "logged_in",
+        "user_id",
+        "login_id",
+        "nickname",
+    ]
+
+    for key in keys:
+
+        if key in st.session_state:
+            del st.session_state[key]
+
+
+# =========================================================
+# ログイン必須
+# =========================================================
+def require_login():
+
+    if is_logged_in():
+        return
+
+    st.warning(
+        "このページを利用するにはログインが必要です。"
+    )
+
+    if st.button(
+        "ログイン画面へ",
+        use_container_width=True,
+        key="require_login_btn",
+    ):
+        st.switch_page(
+            "pages/0_ログイン.py"
+        )
+
+    st.stop()
+
+
+# =========================================================
+# user_id生成
+# =========================================================
+def create_user_id(login_id):
+
+    base = clean_text(login_id)
+
+    if not base:
+        base = "user"
+
+    users = load_users()
+
+    existing_ids = {
+        clean_text(
+            user.get("user_id")
+        )
+        for user in users
+    }
+
+    if base not in existing_ids:
+        return base
+
+    while True:
+
+        suffix = secrets.token_hex(3)
+
+        new_id = (
+            f"{base}_{suffix}"
+        )
+
+        if new_id not in existing_ids:
+            return new_id
+
+
+# =========================================================
+# 新規登録
+# =========================================================
+def create_user(
+    login_id,
+    password,
+    nickname="",
+    birth_date=None,
+):
+
+    login_id = clean_text(login_id)
+    password = clean_text(password)
+    nickname = clean_text(nickname)
+
+    if not login_id:
+        return None
+
+    if len(password) < 4:
+        return None
+
+    # login_id重複
+    if find_user_by_login_id(
+        login_id
+    ):
+        return None
+
+    user_id = create_user_id(
+        login_id
+    )
+
+    # ★ ログインと同じ方式
+    password_hash, password_salt = (
+        make_password_hash(
+            password
+        )
+    )
+
+    if hasattr(
+        birth_date,
+        "strftime"
+    ):
+        birth_date_text = (
+            birth_date.strftime(
+                "%Y-%m-%d"
+            )
+        )
+    else:
+        birth_date_text = clean_text(
+            birth_date
+        )
+
+    now_text = jst_datetime_str()
+
+    sheet = get_sheet("Users")
+
+    row = [
+        user_id,
+        login_id,
+        password_hash,
+        password_salt,
+        nickname,
+        birth_date_text,
+        now_text,
+        now_text,
+        "TRUE",
+    ]
+
+    sheet.append_row(
+        row,
+        value_input_option="RAW",
+    )
+
+    return {
+        "user_id": user_id,
+        "login_id": login_id,
+        "password_hash": password_hash,
+        "password_salt": password_salt,
+        "nickname": nickname,
+        "birth_date": birth_date_text,
+        "created_at": now_text,
+        "updated_at": now_text,
+        "is_active": "TRUE",
+    }
+
+
+# =========================================================
+# パスワード再設定
+# =========================================================
+def reset_password(
+    login_id,
+    new_password,
+):
+
+    login_id = clean_text(login_id)
+    new_password = clean_text(
+        new_password
+    )
+
+    if not login_id:
+        return False
+
+    if len(new_password) < 4:
+        return False
+
+    sheet = get_sheet("Users")
+
+    values = sheet.get_all_values()
+
+    if not values:
+        return False
+
+    headers = [
+        clean_text(v)
+        for v in values[0]
+    ]
+
+    # 必要列確認
+    required = [
+        "login_id",
+        "password_hash",
+        "password_salt",
+        "updated_at",
+    ]
+
+    for name in required:
+        if name not in headers:
+            return False
+
+    login_col = (
+        headers.index(
+            "login_id"
+        )
+        + 1
+    )
+
+    hash_col = (
+        headers.index(
+            "password_hash"
+        )
+        + 1
+    )
+
+    salt_col = (
+        headers.index(
+            "password_salt"
+        )
+        + 1
+    )
+
+    updated_col = (
+        headers.index(
+            "updated_at"
+        )
+        + 1
+    )
+
+    target_row = None
+
+    # 2行目から検索
+    for row_number in range(
+        2,
+        len(values) + 1
+    ):
+
+        row = values[
+            row_number - 1
+        ]
+
+        current_login = ""
+
+        if len(row) >= login_col:
+            current_login = clean_text(
+                row[
+                    login_col - 1
+                ]
+            )
+
+        if current_login == login_id:
+            target_row = row_number
+            break
+
+    if target_row is None:
+        return False
+
+    # ★ 新規登録と完全に同じ変換
+    new_hash, new_salt = (
+        make_password_hash(
+            new_password
+        )
+    )
+
+    # RAWで文字列のまま保存
+    sheet.update_cell(
+        target_row,
+        hash_col,
+        new_hash,
+    )
+
+    sheet.update_cell(
+        target_row,
+        salt_col,
+        new_salt,
+    )
+
+    sheet.update_cell(
+        target_row,
+        updated_col,
+        jst_datetime_str(),
+    )
+
+    return True
 
 # =========================================================
 # Usersシート取得
