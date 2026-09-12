@@ -474,9 +474,11 @@ with tab1:
 # =====================
 with tab2:
 
-    st.markdown("<div class='card'>", unsafe_allow_html=True)
-
-    render_section_header("パスワード再設定", icon_file=None, emoji="🔑")
+    render_section_header(
+        "パスワード再設定",
+        icon_file=None,
+        emoji="🔑"
+    )
 
     render_note(
         "ログインIDを入力し、新しいパスワードを設定します。"
@@ -499,38 +501,78 @@ with tab2:
         key="reset_new_pw_confirm"
     )
 
-    if st.button("パスワードを変更する", use_container_width=True):
+    if st.button(
+        "パスワードを変更する",
+        use_container_width=True
+    ):
 
-        clean_login_id_reset = str(login_id_reset).strip()
-        clean_new_pw = str(new_pw).strip()
-        clean_new_pw_confirm = str(new_pw_confirm).strip()
+        clean_login_id_reset = str(
+            login_id_reset
+        ).strip()
+
+        clean_new_pw = str(
+            new_pw
+        ).strip()
+
+        clean_new_pw_confirm = str(
+            new_pw_confirm
+        ).strip()
 
         if not clean_login_id_reset:
-            st.warning("ログインIDを入力してください")
+
+            st.warning(
+                "ログインIDを入力してください"
+            )
 
         elif not clean_new_pw:
-            st.warning("新しいパスワードを入力してください")
+
+            st.warning(
+                "新しいパスワードを入力してください"
+            )
 
         elif clean_new_pw != clean_new_pw_confirm:
-            st.error("パスワードが一致しません")
+
+            st.error(
+                "パスワードが一致しません"
+            )
 
         elif len(clean_new_pw) < 4:
-            st.warning("パスワードは4文字以上にしてください")
+
+            st.warning(
+                "パスワードは4文字以上にしてください"
+            )
 
         else:
+
             try:
-                result = reset_password(clean_login_id_reset, clean_new_pw)
+
+                result = reset_password(
+                    clean_login_id_reset,
+                    clean_new_pw
+                )
 
                 if result is False:
-                    st.error("ユーザーが見つかりません")
+
+                    st.error(
+                        "ユーザーが見つかりません"
+                    )
+
                 else:
-                    st.success("パスワードを変更しました！")
-                    st.info("ログインタブからログインしてください")
+
+                    st.success(
+                        "パスワードを変更しました！"
+                    )
+
+                    st.info(
+                        "ログインタブからログインしてください"
+                    )
 
             except Exception:
-                st.error("パスワード変更中にエラーが発生しました。時間をおいてもう一度お試しください。")
 
-    st.markdown("</div>", unsafe_allow_html=True)
+                st.error(
+                    "パスワード変更中にエラーが発生しました。"
+                    "時間をおいてもう一度お試しください。"
+                )
 
 
 # -----------------
