@@ -2,8 +2,6 @@ import streamlit as st
 import pandas as pd
 import altair as alt
 import math
-import base64
-import html
 
 from pathlib import Path
 from PIL import Image
@@ -30,6 +28,7 @@ TOP_VISUAL_DIR = HOME_ICON_DIR / "top"
 # ページアイコン
 # =========================================================
 def get_page_icon(filename, fallback="🏠"):
+
     path = ICON_DIR / filename
 
     if path.exists():
@@ -60,59 +59,6 @@ user_id = get_user_id()
 
 
 # =========================================================
-# 画像関連
-# =========================================================
-def file_to_base64(path):
-
-    if not path.exists():
-        return None
-
-    suffix = path.suffix.lower()
-
-    if suffix == ".png":
-        mime = "image/png"
-
-    elif suffix in [".jpg", ".jpeg"]:
-        mime = "image/jpeg"
-
-    elif suffix == ".webp":
-        mime = "image/webp"
-
-    else:
-        mime = "image/png"
-
-    data = base64.b64encode(
-        path.read_bytes()
-    ).decode("utf-8")
-
-    return f"data:{mime};base64,{data}"
-
-
-def load_icon(filename):
-
-    if not filename:
-        return None
-
-    candidates = [
-        ICON_DIR / filename,
-        HOME_ICON_DIR / filename,
-    ]
-
-    for path in candidates:
-
-        if path.exists():
-            return file_to_base64(path)
-
-    return None
-
-
-def safe_text(value):
-    return html.escape(
-        str(value)
-    )
-
-
-# =========================================================
 # CSS
 # =========================================================
 st.markdown(
@@ -130,97 +76,14 @@ st.markdown(
     }
 
     .block-container {
-        max-width: 920px;
-        padding-top: 1.5rem;
+        max-width: 900px;
+        padding-top: 1.2rem;
         padding-bottom: 3rem;
     }
 
-    /* トップ画像 */
-    .top-visual {
-        width: 100%;
-        border-radius: 24px;
-        overflow: hidden;
-        margin-bottom: 28px;
-        box-shadow: 0 8px 24px rgba(96, 65, 45, 0.08);
-    }
-
-    .top-visual img {
-        width: 100%;
-        height: auto;
-        display: block;
-    }
-
-    /* セクション見出し */
-    .section-head {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        margin-top: 28px;
-        margin-bottom: 16px;
-    }
-
-    .section-head-icon {
-        width: 52px;
-        min-width: 52px;
-        height: 52px;
-
-        display: flex;
-        align-items: center;
-        justify-content: center;
-
-        border-radius: 17px;
-
-        background: #ffffff;
-
-        border:
-            1px solid
-            rgba(139, 100, 72, 0.12);
-
-        box-shadow:
-            0 4px 12px
-            rgba(96, 65, 45, 0.08);
-
-        overflow: hidden;
-    }
-
-    .section-head-icon img {
-        width: 40px;
-        height: 40px;
-        object-fit: contain;
-    }
-
-    .section-head-emoji {
-        font-size: 1.5rem;
-    }
-
-    .section-head-title {
-        font-size: 1.55rem;
-        font-weight: 900;
-        color: #5c4033;
-    }
-
-    /* カード */
-    .soft-card {
-        background: #ffffff;
-        border-radius: 22px;
-        padding: 18px;
-        margin-bottom: 18px;
-
-        border:
-            1px solid
-            rgba(139, 100, 72, 0.10);
-
-        box-shadow:
-            0 5px 16px
-            rgba(96, 65, 45, 0.06);
-    }
-
-    /* Streamlit metric */
     div[data-testid="stMetric"] {
         background: #ffffff;
-
         border-radius: 18px;
-
         padding: 14px 16px;
 
         border:
@@ -232,46 +95,20 @@ st.markdown(
             rgba(96, 65, 45, 0.05);
     }
 
-    /* ボタン */
     .stButton > button {
         background-color: #8d6e63;
-        color: #ffffff;
+        color: white;
 
         border: none;
         border-radius: 14px;
 
         padding: 0.75rem 1rem;
-
         font-weight: 800;
     }
 
     .stButton > button:hover {
         background-color: #76594f;
-        color: #ffffff;
-    }
-
-    @media (max-width: 640px) {
-
-        .block-container {
-            padding-left: 1rem;
-            padding-right: 1rem;
-        }
-
-        .section-head-icon {
-            width: 46px;
-            min-width: 46px;
-            height: 46px;
-        }
-
-        .section-head-icon img {
-            width: 35px;
-            height: 35px;
-        }
-
-        .section-head-title {
-            font-size: 1.28rem;
-        }
-
+        color: white;
     }
 
 </style>
@@ -289,43 +126,46 @@ def render_section_header(
     emoji="",
 ):
 
-    icon_src = (
-        load_icon(icon_file)
-        if icon_file
-        else None
+    col_icon, col_title = st.columns(
+        [1, 9],
+        vertical_alignment="center",
     )
 
-    if icon_src:
+    with col_icon:
 
-        icon_html = (
-            f'<img src="{icon_src}" '
-            f'alt="{safe_text(title)}">'
+        icon_path = None
+
+        if icon_file:
+
+            candidates = [
+                ICON_DIR / icon_file,
+                HOME_ICON_DIR / icon_file,
+            ]
+
+            for path in candidates:
+
+                if path.exists():
+                    icon_path = path
+                    break
+
+        if icon_path:
+
+            st.image(
+                str(icon_path),
+                width=42,
+            )
+
+        elif emoji:
+
+            st.markdown(
+                f"### {emoji}"
+            )
+
+    with col_title:
+
+        st.markdown(
+            f"## {title}"
         )
-
-    else:
-
-        icon_html = (
-            f'<div class="section-head-emoji">'
-            f'{safe_text(emoji)}'
-            f'</div>'
-        )
-
-    st.markdown(
-        f"""
-<div class="section-head">
-
-    <div class="section-head-icon">
-        {icon_html}
-    </div>
-
-    <div class="section-head-title">
-        {safe_text(title)}
-    </div>
-
-</div>
-""",
-        unsafe_allow_html=True,
-    )
 
 
 # =========================================================
@@ -338,25 +178,16 @@ top_visual_path = (
 
 if top_visual_path.exists():
 
-    top_src = file_to_base64(
-        top_visual_path
-    )
-
-    st.markdown(
-        f"""
-<div class="top-visual">
-    <img
-        src="{top_src}"
-        alt="ShufuMate"
-    >
-</div>
-""",
-        unsafe_allow_html=True,
+    st.image(
+        str(top_visual_path),
+        use_container_width=True,
     )
 
 else:
 
-    st.title("ShufuMate")
+    st.title(
+        "ShufuMate"
+    )
 
     st.caption(
         "体重だけでなく、体脂肪・筋肉量・食事・体調を"
@@ -437,7 +268,8 @@ if logs:
 
                     df = df.rename(
                         columns={
-                            alias: standard_name
+                            alias:
+                            standard_name
                         }
                     )
 
@@ -445,30 +277,29 @@ if logs:
 
 
     # -----------------------------------------------------
-    # 旧DietLogs対応
-    # A user_id
-    # B log_date
-    # C weight
-    # D body_fat
-    # E muscle_mass
+    # 旧DietLogs保険
+    # A=user_id
+    # B=log_date
+    # C=weight
+    # D=body_fat
+    # E=muscle_mass
     # -----------------------------------------------------
     if (
-        "muscle_mass" not in df.columns
+        "muscle_mass"
+        not in df.columns
         and len(df.columns) >= 5
     ):
 
-        old_col = df.columns[4]
-
         df = df.rename(
             columns={
-                old_col:
+                df.columns[4]:
                 "muscle_mass"
             }
         )
 
 
     # -----------------------------------------------------
-    # 日付
+    # 日付変換
     # -----------------------------------------------------
     if "log_date" in df.columns:
 
@@ -489,7 +320,7 @@ if logs:
 
 
     # -----------------------------------------------------
-    # 数値
+    # 数値変換
     # -----------------------------------------------------
     for col in [
         "weight",
@@ -506,7 +337,7 @@ if logs:
 
 
 # =========================================================
-# 最新有効値
+# 最新有効値取得
 # =========================================================
 def get_latest_valid_value(
     dataframe,
@@ -588,9 +419,7 @@ render_section_header(
 
 if not df.empty:
 
-    col1, col2, col3 = (
-        st.columns(3)
-    )
+    col1, col2, col3 = st.columns(3)
 
     with col1:
 
@@ -666,7 +495,7 @@ else:
 
 
 # =========================================================
-# 直近30日分析
+# 今日の整え方
 # =========================================================
 render_section_header(
     "今日の整え方",
@@ -693,7 +522,6 @@ if not df.empty:
         df["log_date"]
         >= analysis_start
     ].copy()
-
 
     comments = []
 
@@ -822,9 +650,6 @@ if not df.empty:
                 )
 
 
-    # -----------------------------------------------------
-    # コメント表示
-    # -----------------------------------------------------
     if comments:
 
         for comment in comments:
@@ -841,9 +666,6 @@ if not df.empty:
         )
 
 
-    # -----------------------------------------------------
-    # アドバイス
-    # -----------------------------------------------------
     if (
         muscle_diff is not None
         and muscle_diff > 0.3
@@ -897,7 +719,7 @@ else:
 
 
 # =========================================================
-# グラフ描画
+# グラフ共通関数
 # =========================================================
 def render_body_chart(
     dataframe,
@@ -954,7 +776,7 @@ def render_body_chart(
 
 
     # -----------------------------------------------------
-    # 個人ごとの縦軸
+    # 縦軸：個人＋期間ごとに自動
     # -----------------------------------------------------
     value_min = float(
         chart_data[value_col]
@@ -1009,6 +831,7 @@ def render_body_chart(
         / 2
     )
 
+
     y_max = (
         math.ceil(
             y_max * 2
@@ -1051,9 +874,6 @@ def render_body_chart(
         )
 
 
-    # -----------------------------------------------------
-    # Altair
-    # -----------------------------------------------------
     chart = (
         alt.Chart(
             chart_data
@@ -1179,12 +999,7 @@ if not df.empty:
         ]
 
 
-    # -----------------------------------------------------
-    # 体脂肪率
-    # -----------------------------------------------------
-    st.markdown(
-        "#### 体脂肪率"
-    )
+    st.markdown("#### 体脂肪率")
 
     render_body_chart(
         chart_df,
@@ -1196,12 +1011,7 @@ if not df.empty:
     )
 
 
-    # -----------------------------------------------------
-    # 筋肉量
-    # -----------------------------------------------------
-    st.markdown(
-        "#### 筋肉量"
-    )
+    st.markdown("#### 筋肉量")
 
     render_body_chart(
         chart_df,
@@ -1213,12 +1023,7 @@ if not df.empty:
     )
 
 
-    # -----------------------------------------------------
-    # 体重
-    # -----------------------------------------------------
-    st.markdown(
-        "#### 体重"
-    )
+    st.markdown("#### 体重")
 
     render_body_chart(
         chart_df,
@@ -1269,9 +1074,7 @@ if not df.empty:
         )
 
 
-    col1, col2, col3 = (
-        st.columns(3)
-    )
+    col1, col2, col3 = st.columns(3)
 
 
     with col1:
@@ -1325,9 +1128,6 @@ if not df.empty:
             )
 
 
-    # -----------------------------------------------------
-    # 筋肉量だけ日付が古い場合
-    # -----------------------------------------------------
     if (
         latest_muscle is not None
         and pd.notna(
@@ -1349,9 +1149,6 @@ if not df.empty:
         )
 
 
-    # -----------------------------------------------------
-    # 食事メモ
-    # -----------------------------------------------------
     meal_memo = latest.get(
         "meal_memo",
         ""
@@ -1390,9 +1187,6 @@ render_section_header(
 col1, col2 = st.columns(2)
 
 
-# ---------------------------------------------------------
-# 記録
-# ---------------------------------------------------------
 with col1:
 
     if st.button(
@@ -1405,9 +1199,16 @@ with col1:
         )
 
 
-# ---------------------------------------------------------
-# 相談
-# ---------------------------------------------------------
+    if st.button(
+        "📷 写真で記録",
+        use_container_width=True,
+    ):
+
+        st.switch_page(
+            "pages/4_写真で記録.py"
+        )
+
+
 with col2:
 
     if st.button(
@@ -1419,26 +1220,6 @@ with col2:
             "pages/3_相談する.py"
         )
 
-
-# ---------------------------------------------------------
-# 写真
-# ---------------------------------------------------------
-with col1:
-
-    if st.button(
-        "📷 写真で記録",
-        use_container_width=True,
-    ):
-
-        st.switch_page(
-            "pages/4_写真で記録.py"
-        )
-
-
-# ---------------------------------------------------------
-# 設定
-# ---------------------------------------------------------
-with col2:
 
     if st.button(
         "⚙️ 設定",
