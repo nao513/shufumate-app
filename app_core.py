@@ -421,5 +421,4 @@ def detect_meal_type_by_time(now=None):
     else:
         return "間食"
 
-    else:
-        return "間食"
+    
