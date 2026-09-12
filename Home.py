@@ -48,6 +48,78 @@ df = pd.DataFrame()
 if logs:
 
     df = pd.DataFrame(logs)
+# =========================================================
+# DietLogs 列名の統一
+# =========================================================
+df.columns = [
+    str(col).strip()
+    for col in df.columns
+]
+
+column_aliases = {
+    "log_date": [
+        "log_date",
+        "date",
+        "日付",
+    ],
+    "weight": [
+        "weight",
+        "体重",
+        "体重(kg)",
+        "体重（kg）",
+    ],
+    "body_fat": [
+        "body_fat",
+        "bodyfat",
+        "体脂肪",
+        "体脂肪率",
+        "体脂肪率(%)",
+        "体脂肪率（%）",
+    ],
+    "muscle_mass": [
+        "muscle_mass",
+        "muscle",
+        "muscle_kg",
+        "筋肉量",
+        "筋肉量(kg)",
+        "筋肉量（kg）",
+    ],
+}
+
+for standard_name, aliases in column_aliases.items():
+
+    if standard_name not in df.columns:
+
+        for alias in aliases:
+
+            if alias in df.columns:
+
+                df = df.rename(
+                    columns={
+                        alias: standard_name
+                    }
+                )
+
+                break
+
+
+# E列に筋肉量が入っている旧データへの対応
+# A=user_id
+# B=log_date
+# C=weight
+# D=body_fat
+# E=muscle_mass
+if (
+    "muscle_mass" not in df.columns
+    and len(df.columns) >= 5
+):
+    old_muscle_column = df.columns[4]
+
+    df = df.rename(
+        columns={
+            old_muscle_column: "muscle_mass"
+        }
+    )
 
     # -------------------------
     # 日付
