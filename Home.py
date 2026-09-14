@@ -53,7 +53,7 @@ st.markdown(
 
 .block-container {
     max-width: 920px;
-    padding-top: 1.6rem;
+    padding-top: 3rem;
     padding-bottom: 3rem;
 }
 
@@ -1118,6 +1118,150 @@ st.markdown(
 st.caption(
     "使いたい機能を選んでください。"
 )
+
+
+# =========================================================
+# メニューカード共通
+# =========================================================
+def menu_card(
+    image_file,
+    title,
+    description,
+    button_key,
+    page,
+):
+
+    path = icon_path(
+        image_file
+    )
+
+    # -------------------------
+    # アイコン
+    # -------------------------
+    if path:
+
+        left, center, right = st.columns(
+            [1, 1.45, 1]
+        )
+
+        with center:
+
+            st.image(
+                path,
+                use_container_width=True,
+            )
+
+    # -------------------------
+    # タイトル
+    # -------------------------
+    st.markdown(
+        f"""
+        <div style="
+            text-align:center;
+            font-size:1.15rem;
+            font-weight:800;
+            color:#5b4033;
+            margin-top:4px;
+            margin-bottom:4px;
+        ">
+            {title}
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    # -------------------------
+    # 説明
+    # -------------------------
+    st.markdown(
+        f"""
+        <div style="
+            text-align:center;
+            font-size:0.82rem;
+            color:#8a786c;
+            min-height:34px;
+            margin-bottom:10px;
+        ">
+            {description}
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    # -------------------------
+    # 開くボタン
+    # -------------------------
+    if st.button(
+        "開く",
+        key=button_key,
+        use_container_width=True,
+    ):
+
+        st.switch_page(
+            page
+        )
+
+
+# =========================================================
+# 1段目
+# =========================================================
+col1, col2 = st.columns(
+    2,
+    gap="large",
+)
+
+
+with col1:
+
+    menu_card(
+        image_file="record.png",
+        title="記録する",
+        description="体重・食事・体調を記録",
+        button_key="menu_record",
+        page="pages/2_記録する.py",
+    )
+
+
+with col2:
+
+    menu_card(
+        image_file="chat.png",
+        title="相談する",
+        description="気になることを相談",
+        button_key="menu_chat",
+        page="pages/3_相談する.py",
+    )
+
+
+# =========================================================
+# 2段目
+# =========================================================
+col3, col4 = st.columns(
+    2,
+    gap="large",
+)
+
+
+with col3:
+
+    menu_card(
+        image_file="camera.png",
+        title="写真で記録",
+        description="写真からかんたん記録",
+        button_key="menu_camera",
+        page="pages/4_写真で記録.py",
+    )
+
+
+with col4:
+
+    menu_card(
+        image_file="settings.png",
+        title="設定",
+        description="プロフィールや目標を設定",
+        button_key="menu_settings",
+        page="pages/1_設定.py",
+    )
 
 
 # =========================================================
