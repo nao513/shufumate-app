@@ -31,7 +31,20 @@ user_id = get_user_id()
 # パス
 # =========================================================
 APP_ROOT = Path(__file__).resolve().parent
+
+# 今後の正式保存先
 HOME_ICON_DIR = APP_ROOT / "assets" / "home_icons"
+
+# 現在の保存場所にも対応
+CURRENT_ICON_DIR = (
+    APP_ROOT
+    / "assets"
+    / "icons"
+    / "ShufuMate_home_icons_8"
+)
+
+# 旧iconsフォルダ
+ICON_DIR = APP_ROOT / "assets" / "icons"
 
 
 # =========================================================
@@ -53,9 +66,10 @@ st.markdown(
 
 .block-container {
     max-width: 920px;
-    padding-top: 3rem;
+    padding-top: 3rem !important;
     padding-bottom: 3rem;
 }
+
 
 /* -------------------------
    ロゴ
@@ -75,6 +89,7 @@ st.markdown(
     margin-bottom: 1.8rem;
 }
 
+
 /* -------------------------
    見出し
 ------------------------- */
@@ -92,6 +107,7 @@ st.markdown(
     margin-top: 0.15rem;
 }
 
+
 /* -------------------------
    Metric
 ------------------------- */
@@ -100,9 +116,14 @@ div[data-testid="stMetric"] {
     background: #ffffff;
     border-radius: 18px;
     padding: 14px 16px;
-    border: 1px solid rgba(168, 126, 88, 0.14);
-    box-shadow: 0 5px 15px rgba(105, 75, 52, 0.06);
+
+    border:
+        1px solid rgba(168, 126, 88, 0.14);
+
+    box-shadow:
+        0 5px 15px rgba(105, 75, 52, 0.06);
 }
+
 
 /* -------------------------
    ボタン
@@ -111,8 +132,10 @@ div[data-testid="stMetric"] {
 .stButton > button {
     border-radius: 14px;
     border: 1px solid #e2cba9;
+
     background: #fffaf4;
     color: #5b4033;
+
     font-weight: 800;
     min-height: 46px;
 }
@@ -122,6 +145,7 @@ div[data-testid="stMetric"] {
     border-color: #d2ac7d;
     color: #5b4033;
 }
+
 
 /* -------------------------
    区切り
@@ -133,6 +157,28 @@ div[data-testid="stMetric"] {
     margin: 2rem 0;
 }
 
+
+/* -------------------------
+   スマホ
+------------------------- */
+
+@media (max-width: 640px) {
+
+    .block-container {
+        padding-left: 1rem;
+        padding-right: 1rem;
+        padding-top: 2.5rem !important;
+    }
+
+    .app-title {
+        font-size: 1.9rem;
+    }
+
+    .section-title {
+        font-size: 1.2rem;
+    }
+}
+
 </style>
 """,
     unsafe_allow_html=True,
@@ -140,41 +186,68 @@ div[data-testid="stMetric"] {
 
 
 # =========================================================
-# 共通関数
+# アイコン取得
 # =========================================================
 def icon_path(filename):
-    path = HOME_ICON_DIR / filename
-    return str(path) if path.exists() else None
+
+    candidates = [
+        HOME_ICON_DIR / filename,
+        CURRENT_ICON_DIR / filename,
+        ICON_DIR / filename,
+    ]
+
+    for path in candidates:
+
+        if path.exists():
+            return str(path)
+
+    return None
 
 
+# =========================================================
+# セクション見出し
+# =========================================================
 def render_section_header(
     title,
     description,
     filename,
 ):
 
+    st.markdown(
+        "<div style='height:14px'></div>",
+        unsafe_allow_html=True,
+    )
+
     c1, c2 = st.columns(
-        [1, 7],
+        [0.8, 6.2],
         vertical_alignment="center",
     )
 
     with c1:
-        path = icon_path(filename)
+
+        path = icon_path(
+            filename
+        )
 
         if path:
+
             st.image(
                 path,
-                width=72,
+                width=58,
             )
 
     with c2:
-        st.markdown(
-            f'<div class="section-title">{title}</div>',
-            unsafe_allow_html=True,
-        )
 
         st.markdown(
-            f'<div class="section-desc">{description}</div>',
+            f"""
+            <div class="section-title">
+                {title}
+            </div>
+
+            <div class="section-desc">
+                {description}
+            </div>
+            """,
             unsafe_allow_html=True,
         )
 
@@ -218,6 +291,7 @@ if logs:
         for col in df.columns
     ]
 
+
     # -----------------------------------------------------
     # 列名の揺れを吸収
     # -----------------------------------------------------
@@ -255,6 +329,7 @@ if logs:
         ],
     }
 
+
     for standard_name, candidates in aliases.items():
 
         if standard_name not in df.columns:
@@ -269,7 +344,9 @@ if logs:
                             standard_name
                         }
                     )
+
                     break
+
 
     # -----------------------------------------------------
     # 旧DietLogs対応
@@ -291,6 +368,7 @@ if logs:
             }
         )
 
+
     # -----------------------------------------------------
     # 日付
     # -----------------------------------------------------
@@ -308,6 +386,7 @@ if logs:
         df = df.sort_values(
             "log_date"
         )
+
 
     # -----------------------------------------------------
     # 数値
@@ -329,13 +408,17 @@ if logs:
 # =========================================================
 # 最新有効値
 # =========================================================
-def latest_valid(column):
+def latest_valid(
+    column,
+):
 
     if (
         df.empty
         or column not in df.columns
     ):
+
         return None, None
+
 
     temp = df[
         [
@@ -344,26 +427,35 @@ def latest_valid(column):
         ]
     ].copy()
 
+
     temp[column] = pd.to_numeric(
         temp[column],
         errors="coerce",
     )
 
+
     temp = temp.dropna(
         subset=[column]
     )
+
 
     temp = temp[
         temp[column] > 0
     ]
 
+
     if temp.empty:
+
         return None, None
+
 
     row = temp.iloc[-1]
 
+
     return (
-        float(row[column]),
+        float(
+            row[column]
+        ),
         row["log_date"],
     )
 
@@ -393,9 +485,13 @@ render_section_header(
 
 if not df.empty:
 
-    c1, c2, c3 = st.columns(3)
+    c1, c2, c3 = st.columns(
+        3
+    )
+
 
     with c1:
+
         st.metric(
             "体重",
             (
@@ -405,7 +501,9 @@ if not df.empty:
             ),
         )
 
+
     with c2:
+
         st.metric(
             "体脂肪率",
             (
@@ -415,7 +513,9 @@ if not df.empty:
             ),
         )
 
+
     with c3:
+
         st.metric(
             "筋肉量",
             (
@@ -425,36 +525,38 @@ if not df.empty:
             ),
         )
 
-    if (
-        muscle_date is not None
-        and fat_date is not None
-        and weight_date is not None
-    ):
 
-        latest_dates = [
+    # -----------------------------------------------------
+    # 最新記録日の違い
+    # -----------------------------------------------------
+    dates = [
+        d
+        for d in [
             weight_date,
             fat_date,
             muscle_date,
         ]
+        if d is not None
+    ]
 
-        oldest_latest = min(
-            latest_dates
-        )
 
-        newest_latest = max(
-            latest_dates
-        )
+    if len(dates) >= 2:
 
-        if oldest_latest.date() != newest_latest.date():
+        if (
+            min(dates).date()
+            != max(dates).date()
+        ):
 
             st.caption(
                 "※項目によって最新記録日が異なります。"
             )
 
+
 else:
 
     st.info(
         "まだ記録がありません。"
+        "「記録する」から入力してみましょう。"
     )
 
 
@@ -480,12 +582,14 @@ if not df.empty:
         .max()
     )
 
+
     start_date = (
         latest_date
         - pd.Timedelta(
             days=29
         )
     )
+
 
     analysis = df[
         df["log_date"]
@@ -507,6 +611,7 @@ if not df.empty:
             data > 0
         ]
 
+
         if len(data) >= 2:
 
             weight_diff = (
@@ -516,7 +621,7 @@ if not df.empty:
 
 
     # -----------------------------------------------------
-    # 体脂肪
+    # 体脂肪率
     # -----------------------------------------------------
     if "body_fat" in analysis.columns:
 
@@ -528,6 +633,7 @@ if not df.empty:
         data = data[
             data > 0
         ]
+
 
         if len(data) >= 2:
 
@@ -551,6 +657,7 @@ if not df.empty:
             data > 0
         ]
 
+
         if len(data) >= 2:
 
             muscle_diff = (
@@ -564,7 +671,9 @@ if not df.empty:
     # -----------------------------------------------------
     if weight_diff is not None:
 
-        if abs(weight_diff) <= 1:
+        if abs(
+            weight_diff
+        ) <= 1:
 
             st.write(
                 "・体重はこの30日、大きく変わらず安定しています。"
@@ -638,6 +747,7 @@ if not df.empty:
             "今の運動・食事・休養を続けていきましょう。"
         )
 
+
     elif (
         muscle_diff is not None
         and muscle_diff < -0.3
@@ -647,6 +757,7 @@ if not df.empty:
             "筋肉量が少し下がっています。"
             "たんぱく質・筋トレ・休養を確認してみましょう。"
         )
+
 
     elif (
         fat_diff is not None
@@ -658,6 +769,7 @@ if not df.empty:
             "食事を極端に減らさず、"
             "間食・夜の食事・活動量を確認してみましょう。"
         )
+
 
     else:
 
@@ -687,6 +799,7 @@ def render_chart(
         st.info(
             f"{title}の記録がありません。"
         )
+
         return
 
 
@@ -722,18 +835,22 @@ def render_chart(
         st.info(
             f"{title}の記録がありません。"
         )
+
         return
 
 
     # -----------------------------------------------------
-    # 縦軸：人ごと・期間ごとに自動調整
+    # 縦軸：ユーザー・期間ごとに自動調整
     # -----------------------------------------------------
     min_value = float(
-        data[value_col].min()
+        data[value_col]
+        .min()
     )
 
+
     max_value = float(
-        data[value_col].max()
+        data[value_col]
+        .max()
     )
 
 
@@ -792,20 +909,24 @@ def render_chart(
         x_format = "%m/%d"
         tick_count = 5
 
+
     elif period == "直近90日":
 
         x_format = "%Y/%m"
         tick_count = 5
 
+
     else:
 
         x_format = "%Y"
+
 
         year_count = (
             data["log_date"]
             .dt.year
             .nunique()
         )
+
 
         tick_count = max(
             2,
@@ -817,13 +938,14 @@ def render_chart(
 
 
     # -----------------------------------------------------
-    # 単位
+    # 縦軸単位
     # -----------------------------------------------------
     if unit == "%":
 
         label_expr = (
             "datum.label + ' %'"
         )
+
 
     else:
 
@@ -849,7 +971,9 @@ def render_chart(
 
             x=alt.X(
                 "log_date:T",
+
                 title=None,
+
                 axis=alt.Axis(
                     format=x_format,
                     labelAngle=0,
@@ -857,8 +981,10 @@ def render_chart(
                 ),
             ),
 
+
             y=alt.Y(
                 f"{value_col}:Q",
+
                 title=None,
 
                 scale=alt.Scale(
@@ -874,6 +1000,7 @@ def render_chart(
                     labelPadding=8,
                 ),
             ),
+
 
             tooltip=[
                 alt.Tooltip(
@@ -927,7 +1054,9 @@ if not df.empty:
     )
 
 
-    chart_df = df.copy()
+    chart_df = (
+        df.copy()
+    )
 
 
     max_date = (
@@ -962,9 +1091,13 @@ if not df.empty:
         ]
 
 
+    # -----------------------------------------------------
+    # 体脂肪率
+    # -----------------------------------------------------
     st.markdown(
         "#### 体脂肪率"
     )
+
 
     render_chart(
         chart_df,
@@ -976,9 +1109,13 @@ if not df.empty:
     )
 
 
+    # -----------------------------------------------------
+    # 筋肉量
+    # -----------------------------------------------------
     st.markdown(
         "#### 筋肉量"
     )
+
 
     render_chart(
         chart_df,
@@ -990,9 +1127,13 @@ if not df.empty:
     )
 
 
+    # -----------------------------------------------------
+    # 体重
+    # -----------------------------------------------------
     st.markdown(
         "#### 体重"
     )
+
 
     render_chart(
         chart_df,
@@ -1020,6 +1161,7 @@ if not df.empty:
         df.iloc[-1]
     )
 
+
     latest_log_date = latest.get(
         "log_date"
     )
@@ -1038,7 +1180,9 @@ if not df.empty:
         )
 
 
-    c1, c2, c3 = st.columns(3)
+    c1, c2, c3 = st.columns(
+        3
+    )
 
 
     with c1:
@@ -1078,7 +1222,7 @@ if not df.empty:
 
 
     # -----------------------------------------------------
-    # メモ
+    # 食事・メモ
     # -----------------------------------------------------
     meal_memo = latest.get(
         "meal_memo",
@@ -1088,12 +1232,15 @@ if not df.empty:
 
     if (
         meal_memo
-        and str(meal_memo).strip()
+        and str(
+            meal_memo
+        ).strip()
     ):
 
         st.markdown(
             "##### 食事・メモ"
         )
+
 
         st.text(
             str(
@@ -1110,10 +1257,12 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+
 st.markdown(
     '<div class="section-title">メニュー</div>',
     unsafe_allow_html=True,
 )
+
 
 st.caption(
     "使いたい機能を選んでください。"
@@ -1135,14 +1284,16 @@ def menu_card(
         image_file
     )
 
-    # -------------------------
+
+    # -----------------------------------------------------
     # アイコン
-    # -------------------------
+    # -----------------------------------------------------
     if path:
 
         left, center, right = st.columns(
-            [1, 1.45, 1]
+            [1.1, 1.2, 1.1]
         )
+
 
         with center:
 
@@ -1151,9 +1302,10 @@ def menu_card(
                 use_container_width=True,
             )
 
-    # -------------------------
+
+    # -----------------------------------------------------
     # タイトル
-    # -------------------------
+    # -----------------------------------------------------
     st.markdown(
         f"""
         <div style="
@@ -1170,9 +1322,10 @@ def menu_card(
         unsafe_allow_html=True,
     )
 
-    # -------------------------
+
+    # -----------------------------------------------------
     # 説明
-    # -------------------------
+    # -----------------------------------------------------
     st.markdown(
         f"""
         <div style="
@@ -1188,9 +1341,10 @@ def menu_card(
         unsafe_allow_html=True,
     )
 
-    # -------------------------
-    # 開くボタン
-    # -------------------------
+
+    # -----------------------------------------------------
+    # 開く
+    # -----------------------------------------------------
     if st.button(
         "開く",
         key=button_key,
@@ -1265,180 +1419,13 @@ with col4:
 
 
 # =========================================================
-# メニューカード 1段目
-# =========================================================
-m1, m2 = st.columns(2)
-
-
-with m1:
-
-    path = icon_path(
-        "record.png"
-    )
-
-    if path:
-
-        a, b, c = st.columns(
-            [1, 1.7, 1]
-        )
-
-        with b:
-
-            st.image(
-                path,
-                use_container_width=True,
-            )
-
-    st.markdown(
-        "<h4 style='text-align:center;'>記録する</h4>",
-        unsafe_allow_html=True,
-    )
-
-    st.caption(
-        "体重・食事・体調を記録"
-    )
-
-    if st.button(
-        "記録する",
-        key="menu_record",
-        use_container_width=True,
-    ):
-
-        st.switch_page(
-            "pages/2_記録する.py"
-        )
-
-
-with m2:
-
-    path = icon_path(
-        "chat.png"
-    )
-
-    if path:
-
-        a, b, c = st.columns(
-            [1, 1.7, 1]
-        )
-
-        with b:
-
-            st.image(
-                path,
-                use_container_width=True,
-            )
-
-    st.markdown(
-        "<h4 style='text-align:center;'>相談する</h4>",
-        unsafe_allow_html=True,
-    )
-
-    st.caption(
-        "気になることを相談"
-    )
-
-    if st.button(
-        "相談する",
-        key="menu_chat",
-        use_container_width=True,
-    ):
-
-        st.switch_page(
-            "pages/3_相談する.py"
-        )
-
-
-# =========================================================
-# メニューカード 2段目
-# =========================================================
-m3, m4 = st.columns(2)
-
-
-with m3:
-
-    path = icon_path(
-        "camera.png"
-    )
-
-    if path:
-
-        a, b, c = st.columns(
-            [1, 1.7, 1]
-        )
-
-        with b:
-
-            st.image(
-                path,
-                use_container_width=True,
-            )
-
-    st.markdown(
-        "<h4 style='text-align:center;'>写真で記録</h4>",
-        unsafe_allow_html=True,
-    )
-
-    st.caption(
-        "写真からかんたん記録"
-    )
-
-    if st.button(
-        "写真で記録",
-        key="menu_camera",
-        use_container_width=True,
-    ):
-
-        st.switch_page(
-            "pages/4_写真で記録.py"
-        )
-
-
-with m4:
-
-    path = icon_path(
-        "settings.png"
-    )
-
-    if path:
-
-        a, b, c = st.columns(
-            [1, 1.7, 1]
-        )
-
-        with b:
-
-            st.image(
-                path,
-                use_container_width=True,
-            )
-
-    st.markdown(
-        "<h4 style='text-align:center;'>設定</h4>",
-        unsafe_allow_html=True,
-    )
-
-    st.caption(
-        "プロフィールや目標を設定"
-    )
-
-    if st.button(
-        "設定",
-        key="menu_settings",
-        use_container_width=True,
-    ):
-
-        st.switch_page(
-            "pages/1_設定.py"
-        )
-
-
-# =========================================================
 # フッター
 # =========================================================
 st.markdown(
     '<div class="soft-divider"></div>',
     unsafe_allow_html=True,
 )
+
 
 st.caption(
     "今日の日付："
