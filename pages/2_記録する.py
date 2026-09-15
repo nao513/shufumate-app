@@ -423,6 +423,21 @@ def make_body_chart(
     minimum_margin,
 ):
 
+    # -----------------------------------------------------
+    # 必要な列があるか確認
+    # -----------------------------------------------------
+    if (
+        data is None
+        or data.empty
+        or "log_date" not in data.columns
+        or value_column not in data.columns
+    ):
+        return None
+
+
+    # -----------------------------------------------------
+    # グラフ用データ
+    # -----------------------------------------------------
     plot_df = (
         data[
             [
@@ -434,31 +449,36 @@ def make_body_chart(
         .copy()
     )
 
-    # 筋肉量など0を未入力扱いする項目
+
+    # -----------------------------------------------------
+    # 筋肉量の0は未入力扱い
+    # -----------------------------------------------------
     if value_column == "muscle_mass":
 
         plot_df = plot_df[
-            plot_df[value_column] > 0
+            plot_df["muscle_mass"] > 0
         ]
 
-    if plot_df.empty:
 
+    if plot_df.empty:
         return None
 
 
     # -----------------------------------------------------
-    # 縦軸の自動範囲
+    # 最小値・最大値
     # -----------------------------------------------------
-    value_min = plot_df[
-        value_column
-    ].min()
+    value_min = float(
+        plot_df[value_column].min()
+    )
 
-    value_max = plot_df[
-        value_column
-    ].max()
+    value_max = float(
+        plot_df[value_column].max()
+    )
 
 
-    # 1件だけ、または全部同じ値の場合
+    # -----------------------------------------------------
+    # 縦軸範囲
+    # -----------------------------------------------------
     if value_min == value_max:
 
         y_min = max(
@@ -495,7 +515,7 @@ def make_body_chart(
 
 
     # -----------------------------------------------------
-    # グラフ
+    # Altairグラフ
     # -----------------------------------------------------
     chart = (
         alt.Chart(plot_df)
@@ -533,6 +553,7 @@ def make_body_chart(
                     title="日付",
                     format="%Y/%m/%d",
                 ),
+
                 alt.Tooltip(
                     f"{value_column}:Q",
                     title=label,
@@ -541,7 +562,7 @@ def make_body_chart(
             ],
         )
         .properties(
-            height=300
+            height=280
         )
     )
 
