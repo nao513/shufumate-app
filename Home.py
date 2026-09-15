@@ -9,7 +9,7 @@ from app_core import (
     require_login,
     get_user_id,
     get_nickname,
-    load_log_chart_df,
+    load_diet_logs,
     jst_today,
 )
 
@@ -81,7 +81,7 @@ st.markdown(
 
 
         /* =========================================
-           アプリタイトル
+           タイトル
         ========================================= */
 
         .sm-home-title {
@@ -108,7 +108,6 @@ st.markdown(
             display: flex;
             align-items: center;
             gap: 14px;
-
             margin-top: 30px;
             margin-bottom: 14px;
         }
@@ -154,7 +153,7 @@ st.markdown(
         ========================================= */
 
         div[data-testid="stMetric"] {
-            background: rgba(255, 255, 255, 0.88);
+            background: rgba(255, 255, 255, 0.90);
 
             border:
                 1px solid
@@ -162,7 +161,7 @@ st.markdown(
 
             border-radius: 18px;
 
-            padding: 15px 15px;
+            padding: 15px;
 
             box-shadow:
                 0 5px 15px
@@ -179,7 +178,7 @@ st.markdown(
 
 
         /* =========================================
-           共通カード
+           最新記録
         ========================================= */
 
         .sm-home-note {
@@ -235,7 +234,7 @@ st.markdown(
         ========================================= */
 
         .sm-change-card {
-            background: rgba(255, 255, 255, 0.90);
+            background: rgba(255, 255, 255, 0.92);
 
             border:
                 1px solid
@@ -243,7 +242,7 @@ st.markdown(
 
             border-radius: 18px;
 
-            padding: 15px 10px;
+            padding: 15px 8px;
 
             min-height: 96px;
 
@@ -294,27 +293,19 @@ st.markdown(
 
         .sm-menu-title {
             text-align: center;
-
             color: #5b4033;
-
             font-size: 1.10rem;
             font-weight: 900;
-
             margin-top: 5px;
             margin-bottom: 3px;
         }
 
         .sm-menu-desc {
             text-align: center;
-
             color: #8a786c;
-
             font-size: 0.80rem;
-
             min-height: 34px;
-
             line-height: 1.5;
-
             margin-bottom: 9px;
         }
 
@@ -325,15 +316,10 @@ st.markdown(
 
         .stButton > button {
             border-radius: 14px;
-
             border: none;
-
             background: #8d6e63;
-
             color: white;
-
             font-weight: 800;
-
             min-height: 45px;
 
             box-shadow:
@@ -343,9 +329,7 @@ st.markdown(
 
         .stButton > button:hover {
             background: #76594f;
-
             color: white;
-
             border: none;
         }
 
@@ -392,11 +376,11 @@ st.markdown(
 
             .sm-change-card {
                 min-height: 88px;
-                padding: 12px 6px;
+                padding: 12px 5px;
             }
 
             .sm-change-value {
-                font-size: 1rem;
+                font-size: 0.98rem;
             }
         }
 
@@ -408,7 +392,7 @@ st.markdown(
 
 
 # =========================================================
-# 安全な文字
+# 安全文字
 # =========================================================
 def safe_text(value):
 
@@ -441,7 +425,10 @@ def icon_path(filename):
 # =========================================================
 # アイコンHTML
 # =========================================================
-def icon_html(filename, fallback="🌿"):
+def make_icon_html(
+    filename,
+    fallback="🌿",
+):
 
     path = icon_path(
         filename
@@ -513,30 +500,22 @@ def render_home_section(
     fallback="🌿",
 ):
 
-    title = safe_text(
-        title
-    )
-
-    description = safe_text(
-        description
-    )
-
-    image = icon_html(
+    image_html = make_icon_html(
         filename,
         fallback,
     )
 
-    html_code = f"""
+    section_html = f"""
     <div class="sm-home-section">
         <div class="sm-home-section-icon">
-            {image}
+            {image_html}
         </div>
         <div>
             <div class="sm-home-section-title">
-                {title}
+                {safe_text(title)}
             </div>
             <div class="sm-home-section-desc">
-                {description}
+                {safe_text(description)}
             </div>
         </div>
     </div>
@@ -544,20 +523,23 @@ def render_home_section(
 
     st.markdown(
         textwrap.dedent(
-            html_code
+            section_html
         ).strip(),
         unsafe_allow_html=True,
     )
 
 
 # =========================================================
-# DietLogs
-# app_core.py の共通処理を使用
+# DietLogs取得
 # =========================================================
 try:
 
-    df = load_log_chart_df(
+    logs = load_diet_logs(
         user_id
+    )
+
+    df = pd.DataFrame(
+        logs
     )
 
 except Exception as e:
@@ -574,7 +556,212 @@ except Exception as e:
 
 
 # =========================================================
-# DataFrame整形
+# DietLogs列名を整理
+# =========================================================
+if not df.empty:
+
+    # -----------------------------------------------------
+    # 列名の前後空白を削除
+    # -----------------------------------------------------
+    df.columns = [
+        str(column).strip()
+        for column in df.columns
+    ]
+
+
+    # -----------------------------------------------------
+    # 日本語・旧列名があれば標準名へ
+    # -----------------------------------------------------
+    rename_map = {}
+
+    for column in df.columns:
+
+        normalized = (
+            str(column)
+            .strip()
+            .lower()
+            .replace(" ", "")
+            .replace("_", "")
+        )
+
+        if normalized in [
+            "userid",
+            "ユーザーid",
+        ]:
+            rename_map[column] = "user_id"
+
+        elif normalized in [
+            "logdate",
+            "date",
+            "日付",
+        ]:
+            rename_map[column] = "log_date"
+
+        elif normalized in [
+            "weight",
+            "体重",
+            "体重(kg)",
+            "体重（kg）",
+        ]:
+            rename_map[column] = "weight"
+
+        elif normalized in [
+            "bodyfat",
+            "体脂肪",
+            "体脂肪率",
+            "体脂肪率(%)",
+            "体脂肪率（%）",
+        ]:
+            rename_map[column] = "body_fat"
+
+        elif normalized in [
+            "musclemass",
+            "muscle",
+            "筋肉量",
+            "筋肉量(kg)",
+            "筋肉量（kg）",
+        ]:
+            rename_map[column] = "muscle_mass"
+
+        elif normalized in [
+            "mealmemo",
+            "memo",
+            "食事メモ",
+        ]:
+            rename_map[column] = "meal_memo"
+
+
+    if rename_map:
+
+        df = df.rename(
+            columns=rename_map
+        )
+
+
+    # =====================================================
+    # 旧DietLogs対策
+    #
+    # A = user_id
+    # B = log_date
+    # C = weight
+    # D = body_fat
+    # E = muscle_mass
+    # F = meal_memo
+    #
+    # 現在のGoogle Sheetsの構造にも対応
+    # =====================================================
+
+    current_columns = list(
+        df.columns
+    )
+
+
+    if (
+        "user_id" not in df.columns
+        and len(current_columns) >= 1
+    ):
+
+        df = df.rename(
+            columns={
+                current_columns[0]:
+                "user_id"
+            }
+        )
+
+
+    current_columns = list(
+        df.columns
+    )
+
+    if (
+        "log_date" not in df.columns
+        and len(current_columns) >= 2
+    ):
+
+        df = df.rename(
+            columns={
+                current_columns[1]:
+                "log_date"
+            }
+        )
+
+
+    current_columns = list(
+        df.columns
+    )
+
+    if (
+        "weight" not in df.columns
+        and len(current_columns) >= 3
+    ):
+
+        df = df.rename(
+            columns={
+                current_columns[2]:
+                "weight"
+            }
+        )
+
+
+    current_columns = list(
+        df.columns
+    )
+
+    if (
+        "body_fat" not in df.columns
+        and len(current_columns) >= 4
+    ):
+
+        df = df.rename(
+            columns={
+                current_columns[3]:
+                "body_fat"
+            }
+        )
+
+
+    # -----------------------------------------------------
+    # 筋肉量
+    # -----------------------------------------------------
+    current_columns = list(
+        df.columns
+    )
+
+    if (
+        "muscle_mass" not in df.columns
+        and len(current_columns) >= 5
+    ):
+
+        df = df.rename(
+            columns={
+                current_columns[4]:
+                "muscle_mass"
+            }
+        )
+
+
+    # -----------------------------------------------------
+    # 食事メモ
+    # -----------------------------------------------------
+    current_columns = list(
+        df.columns
+    )
+
+    if (
+        "meal_memo" not in df.columns
+        and len(current_columns) >= 6
+    ):
+
+        df = df.rename(
+            columns={
+                current_columns[5]:
+                "meal_memo"
+            }
+        )
+
+
+# =========================================================
+# 日付・数値を変換
 # =========================================================
 if not df.empty:
 
@@ -594,6 +781,7 @@ if not df.empty:
             ]
         )
 
+
     # -----------------------------------------------------
     # 数値
     # -----------------------------------------------------
@@ -610,15 +798,20 @@ if not df.empty:
                 errors="coerce",
             )
 
+
     # -----------------------------------------------------
     # 日付順
     # -----------------------------------------------------
     if "log_date" in df.columns:
 
-        df = df.sort_values(
-            "log_date"
-        ).reset_index(
-            drop=True
+        df = (
+            df
+            .sort_values(
+                "log_date"
+            )
+            .reset_index(
+                drop=True
+            )
         )
 
 
@@ -637,6 +830,7 @@ def latest_valid(
 
         return None, None
 
+
     temp = df[
         [
             "log_date",
@@ -644,10 +838,12 @@ def latest_valid(
         ]
     ].copy()
 
+
     temp[column] = pd.to_numeric(
         temp[column],
         errors="coerce",
     )
+
 
     temp = temp.dropna(
         subset=[
@@ -656,20 +852,27 @@ def latest_valid(
         ]
     )
 
-    # 0は未入力扱い
+
+    # -----------------------------------------------------
+    # 0は未入力として除外
+    # -----------------------------------------------------
     temp = temp[
         temp[column] > 0
     ]
+
 
     if temp.empty:
 
         return None, None
 
+
     temp = temp.sort_values(
         "log_date"
     )
 
+
     row = temp.iloc[-1]
+
 
     return (
         float(
@@ -694,6 +897,7 @@ def latest_difference(
 
         return None
 
+
     temp = df[
         [
             "log_date",
@@ -701,10 +905,12 @@ def latest_difference(
         ]
     ].copy()
 
+
     temp[column] = pd.to_numeric(
         temp[column],
         errors="coerce",
     )
+
 
     temp = temp.dropna(
         subset=[
@@ -713,17 +919,21 @@ def latest_difference(
         ]
     )
 
+
     temp = temp[
         temp[column] > 0
     ]
+
 
     temp = temp.sort_values(
         "log_date"
     )
 
+
     if len(temp) < 2:
 
         return None
+
 
     latest_value = float(
         temp.iloc[-1][column]
@@ -733,6 +943,7 @@ def latest_difference(
         temp.iloc[-2][column]
     )
 
+
     return (
         latest_value
         - previous_value
@@ -740,7 +951,7 @@ def latest_difference(
 
 
 # =========================================================
-# 最新値取得
+# 最新値
 # =========================================================
 latest_weight, weight_date = (
     latest_valid(
@@ -762,7 +973,7 @@ latest_muscle, muscle_date = (
 
 
 # =========================================================
-# 前回差
+# 前回比
 # =========================================================
 weight_diff = latest_difference(
     "weight"
@@ -781,7 +992,9 @@ muscle_diff = latest_difference(
 # タイトル
 # =========================================================
 st.markdown(
-    '<div class="sm-home-title">ShufuMate</div>',
+    '<div class="sm-home-title">'
+    'ShufuMate'
+    '</div>',
     unsafe_allow_html=True,
 )
 
@@ -807,6 +1020,7 @@ subtitle_html = f"""
 </div>
 """
 
+
 st.markdown(
     textwrap.dedent(
         subtitle_html
@@ -829,9 +1043,12 @@ render_home_section(
 )
 
 
+# =========================================================
+# 最新値表示
+# =========================================================
 if not df.empty:
 
-    col1, col2, col3 = (
+    metric_col1, metric_col2, metric_col3 = (
         st.columns(
             3
         )
@@ -841,46 +1058,61 @@ if not df.empty:
     # -----------------------------------------------------
     # 体重
     # -----------------------------------------------------
-    with col1:
+    with metric_col1:
 
-        st.metric(
-            "体重",
-            (
-                f"{latest_weight:.1f} kg"
-                if latest_weight is not None
-                else "—"
-            ),
-        )
+        if latest_weight is not None:
+
+            st.metric(
+                "体重",
+                f"{latest_weight:.1f} kg",
+            )
+
+        else:
+
+            st.metric(
+                "体重",
+                "—",
+            )
 
 
     # -----------------------------------------------------
     # 体脂肪率
     # -----------------------------------------------------
-    with col2:
+    with metric_col2:
 
-        st.metric(
-            "体脂肪率",
-            (
-                f"{latest_body_fat:.1f} %"
-                if latest_body_fat is not None
-                else "—"
-            ),
-        )
+        if latest_body_fat is not None:
+
+            st.metric(
+                "体脂肪率",
+                f"{latest_body_fat:.1f} %",
+            )
+
+        else:
+
+            st.metric(
+                "体脂肪率",
+                "—",
+            )
 
 
     # -----------------------------------------------------
     # 筋肉量
     # -----------------------------------------------------
-    with col3:
+    with metric_col3:
 
-        st.metric(
-            "筋肉量",
-            (
-                f"{latest_muscle:.1f} kg"
-                if latest_muscle is not None
-                else "—"
-            ),
-        )
+        if latest_muscle is not None:
+
+            st.metric(
+                "筋肉量",
+                f"{latest_muscle:.1f} kg",
+            )
+
+        else:
+
+            st.metric(
+                "筋肉量",
+                "—",
+            )
 
 
     # -----------------------------------------------------
@@ -903,15 +1135,17 @@ if not df.empty:
             available_dates
         )
 
-        latest_date_html = f"""
+
+        date_html = f"""
         <div class="sm-home-note">
         最新記録：{newest_date.strftime("%Y/%m/%d")}
         </div>
         """
 
+
         st.markdown(
             textwrap.dedent(
-                latest_date_html
+                date_html
             ).strip(),
             unsafe_allow_html=True,
         )
@@ -940,7 +1174,7 @@ render_home_section(
 
 
 # =========================================================
-# アドバイス作成
+# アドバイス
 # =========================================================
 advice_lines = []
 
@@ -990,7 +1224,7 @@ if fat_diff is not None:
 
 
 # ---------------------------------------------------------
-# 特に大きな変化がない場合
+# 大きな変化なし
 # ---------------------------------------------------------
 if not advice_lines:
 
@@ -1037,7 +1271,7 @@ render_home_section(
 
 
 # =========================================================
-# 差分表示
+# 前回比表示
 # =========================================================
 def format_diff(
     value,
@@ -1048,17 +1282,20 @@ def format_diff(
 
         return "—"
 
+
     if abs(value) < 0.05:
 
         return (
             f"±0.0 {unit}"
         )
 
+
     sign = (
         "+"
         if value > 0
         else ""
     )
+
 
     return (
         f"{sign}{value:.1f} {unit}"
@@ -1086,6 +1323,7 @@ def render_change_card(
         </div>
     </div>
     """
+
 
     st.markdown(
         textwrap.dedent(
@@ -1202,7 +1440,7 @@ def menu_card(
 
 
     # -----------------------------------------------------
-    # タイトル
+    # タイトル・説明
     # -----------------------------------------------------
     menu_html = f"""
     <div class="sm-menu-title">
@@ -1212,6 +1450,7 @@ def menu_card(
         {safe_text(description)}
     </div>
     """
+
 
     st.markdown(
         textwrap.dedent(
