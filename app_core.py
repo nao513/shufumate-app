@@ -1,218 +1,810 @@
 import streamlit as st
 import pandas as pd
-import altair as alt
 
-from app_core import (
-    require_login,
-    get_user_id,
-    save_diet_log,
-    load_diet_logs,
-    jst_today_str,
-    get_page_icon,
-    inject_shufumate_css,
-    render_page_header,
-    render_section_header,
-    render_note,
-)
+import hashlib
+import secrets
+import hmac
+import base64
+import html
+import textwrap
 
+from datetime import datetime, date
+from zoneinfo import ZoneInfo
+from pathlib import Path
+from PIL import Image
 
-# =========================================================
-# ページ設定
-# ※ 必ず最初のStreamlit命令
-# =========================================================
-st.set_page_config(
-    page_title="記録する｜ShufuMate",
-    page_icon=get_page_icon(
-        "ShufuMate_home_icons_8/record.png",
-        "📝",
-    ),
-    layout="centered",
-)
+import gspread
+from google.oauth2.service_account import Credentials
 
 
 # =========================================================
-# 共通デザイン
+# 基本
 # =========================================================
-inject_shufumate_css()
+JST = ZoneInfo("Asia/Tokyo")
 
-
-# =========================================================
-# ログイン
-# =========================================================
-require_login()
-
-user_id = get_user_id()
+APP_ROOT = Path(__file__).resolve().parent
+ICON_DIR = APP_ROOT / "assets" / "icons"
+WATERCOLOR_ICON_DIR = ICON_DIR / "ShufuMate_home_icons_8"
 
 
 # =========================================================
-# このページ専用CSS
+# 日本時間
 # =========================================================
-st.markdown(
-    """
-<style>
+def jst_now():
+    return datetime.now(JST)
 
-div[data-testid="stMetric"] {
-    background: rgba(255,255,255,0.90);
-    border: 1px solid rgba(168,126,88,0.14);
-    border-radius: 18px;
-    padding: 14px 16px;
-}
 
-div[data-testid="stMetricLabel"] {
-    color: #806c60;
-}
+def jst_today():
+    return datetime.now(JST)
 
-div[data-testid="stMetricValue"] {
-    color: #5b4033;
-}
 
-div[data-testid="stForm"] {
-    background: rgba(255,255,255,0.42);
-    border: 1px solid rgba(168,126,88,0.12);
-    border-radius: 20px;
-    padding: 18px;
-}
+def jst_today_str():
+    return datetime.now(JST).strftime("%Y-%m-%d")
 
-</style>
-""",
-    unsafe_allow_html=True,
-)
+
+def jst_datetime_str():
+    return datetime.now(JST).strftime("%Y-%m-%d %H:%M:%S")
 
 
 # =========================================================
-# データ整形
-# Homeと同じ考え方
+# Google Sheets
 # =========================================================
-def prepare_diet_dataframe(logs):
+def get_spreadsheet():
 
-    if not logs:
-        return pd.DataFrame()
+    creds = Credentials.from_service_account_info(
+        st.secrets["gcp_service_account"],
+        scopes=[
+            "https://www.googleapis.com/auth/spreadsheets",
+        ],
+    )
 
-    df = pd.DataFrame(logs)
+    client = gspread.authorize(creds)
 
-    if df.empty:
-        return df
+    return client.open_by_key(
+        st.secrets["SPREADSHEET_ID"]
+    )
 
 
-    # -----------------------------------------------------
-    # 列名の前後空白削除
-    # -----------------------------------------------------
-    df.columns = [
-        str(column).strip()
-        for column in df.columns
+def get_sheet(sheet_name):
+
+    return get_spreadsheet().worksheet(
+        sheet_name
+    )
+
+
+# =========================================================
+# 共通文字処理
+# =========================================================
+def clean_text(value):
+
+    if value is None:
+        return ""
+
+    return str(value).strip()
+
+
+def safe_text(value):
+
+    return html.escape(
+        clean_text(value)
+    )
+
+
+def safe_html_with_br(value):
+
+    return (
+        html.escape(clean_text(value))
+        .replace("\n", "<br>")
+    )
+
+
+# =========================================================
+# パスワード
+# =========================================================
+def make_password_hash(password, salt=None):
+
+    password = clean_text(password)
+
+    if not password:
+        return "", ""
+
+    if not salt:
+        salt = secrets.token_hex(16)
+
+    salt = clean_text(salt)
+
+    password_hash = hashlib.pbkdf2_hmac(
+        "sha256",
+        password.encode("utf-8"),
+        salt.encode("utf-8"),
+        120000,
+    ).hex()
+
+    return password_hash, salt
+
+
+def verify_password(
+    password,
+    stored_hash,
+    stored_salt,
+):
+
+    password = clean_text(password)
+    stored_hash = clean_text(stored_hash)
+    stored_salt = clean_text(stored_salt)
+
+    if not password:
+        return False
+
+    if not stored_hash:
+        return False
+
+    if not stored_salt:
+        return False
+
+    calculated_hash, _ = make_password_hash(
+        password,
+        stored_salt,
+    )
+
+    return hmac.compare_digest(
+        calculated_hash.lower(),
+        stored_hash.lower(),
+    )
+
+
+# =========================================================
+# Users
+# =========================================================
+def load_users():
+
+    sheet = get_sheet("Users")
+
+    values = sheet.get_all_values()
+
+    if not values:
+        return []
+
+    headers = [
+        clean_text(v)
+        for v in values[0]
+    ]
+
+    users = []
+
+    for row in values[1:]:
+
+        row = row + [""] * (
+            len(headers) - len(row)
+        )
+
+        record = {}
+
+        for i, header in enumerate(headers):
+
+            if header:
+
+                record[header] = clean_text(
+                    row[i]
+                )
+
+        users.append(record)
+
+    return users
+
+
+def find_user_by_login_id(login_id):
+
+    login_id = clean_text(login_id)
+
+    if not login_id:
+        return None
+
+    for user in load_users():
+
+        if clean_text(
+            user.get("login_id")
+        ) == login_id:
+
+            return user
+
+    return None
+
+
+def find_user_by_user_id(user_id):
+
+    user_id = clean_text(user_id)
+
+    if not user_id:
+        return None
+
+    for user in load_users():
+
+        if clean_text(
+            user.get("user_id")
+        ) == user_id:
+
+            return user
+
+    return None
+
+
+def is_active_user(user_record):
+
+    if not user_record:
+        return False
+
+    value = clean_text(
+        user_record.get(
+            "is_active",
+            "TRUE",
+        )
+    ).lower()
+
+    return value not in [
+        "false",
+        "0",
+        "no",
+        "off",
+        "無効",
     ]
 
 
-    # -----------------------------------------------------
-    # 列名の揺れを吸収
-    # -----------------------------------------------------
-    aliases = {
+# =========================================================
+# ログイン状態
+# =========================================================
+def is_logged_in():
 
-        "user_id": [
-            "user_id",
-            "userid",
-            "ユーザーID",
-        ],
+    return bool(
+        st.session_state.get(
+            "logged_in",
+            False,
+        )
+        and
+        st.session_state.get(
+            "user_id"
+        )
+    )
 
-        "log_date": [
-            "log_date",
-            "date",
-            "日付",
-        ],
 
-        "weight": [
-            "weight",
-            "体重",
-            "体重(kg)",
-            "体重（kg）",
-        ],
+def get_user_id():
 
-        "body_fat": [
-            "body_fat",
-            "bodyfat",
-            "体脂肪",
-            "体脂肪率",
-            "体脂肪率(%)",
-            "体脂肪率（%）",
-        ],
+    if not is_logged_in():
+        return None
 
-        "muscle_mass": [
-            "muscle_mass",
-            "muscle",
-            "muscle_kg",
-            "筋肉量",
-            "筋肉量(kg)",
-            "筋肉量（kg）",
-        ],
+    return st.session_state.get(
+        "user_id"
+    )
 
-        "meal_memo": [
-            "meal_memo",
-            "memo",
-            "食事メモ",
-        ],
+
+def get_login_id():
+
+    if not is_logged_in():
+        return None
+
+    return st.session_state.get(
+        "login_id"
+    )
+
+
+def get_nickname():
+
+    if not is_logged_in():
+        return None
+
+    return st.session_state.get(
+        "nickname"
+    )
+
+
+def login_user(user_record):
+
+    if not user_record:
+        return False
+
+    if not is_active_user(user_record):
+        return False
+
+    user_id = clean_text(
+        user_record.get("user_id")
+    )
+
+    if not user_id:
+        return False
+
+    st.session_state["logged_in"] = True
+    st.session_state["user_id"] = user_id
+    st.session_state["login_id"] = clean_text(
+        user_record.get("login_id")
+    )
+    st.session_state["nickname"] = clean_text(
+        user_record.get("nickname")
+    )
+
+    return True
+
+
+def login(login_id, password):
+
+    login_id = clean_text(login_id)
+    password = clean_text(password)
+
+    if not login_id or not password:
+        return False
+
+    user = find_user_by_login_id(
+        login_id
+    )
+
+    if not user:
+        return False
+
+    if not is_active_user(user):
+        return False
+
+    if not verify_password(
+        password,
+        user.get("password_hash"),
+        user.get("password_salt"),
+    ):
+        return False
+
+    return login_user(user)
+
+
+def logout():
+
+    for key in [
+        "logged_in",
+        "user_id",
+        "login_id",
+        "nickname",
+    ]:
+
+        st.session_state.pop(
+            key,
+            None,
+        )
+
+
+def require_login():
+
+    if is_logged_in():
+        return
+
+    st.warning(
+        "このページを利用するにはログインが必要です。"
+    )
+
+    if st.button(
+        "ログイン画面へ",
+        key="require_login_button",
+        use_container_width=True,
+    ):
+
+        st.switch_page(
+            "pages/0_ログイン.py"
+        )
+
+    st.stop()
+
+
+# =========================================================
+# 新規ユーザー
+# =========================================================
+def create_user_id(login_id):
+
+    base = clean_text(login_id)
+
+    if not base:
+        base = "user"
+
+    existing = {
+        clean_text(
+            user.get("user_id")
+        )
+        for user in load_users()
+    }
+
+    if base not in existing:
+        return base
+
+    while True:
+
+        candidate = (
+            f"{base}_{secrets.token_hex(3)}"
+        )
+
+        if candidate not in existing:
+            return candidate
+
+
+def create_user(
+    login_id,
+    password,
+    nickname="",
+    birth_date=None,
+):
+
+    login_id = clean_text(login_id)
+    password = clean_text(password)
+    nickname = clean_text(nickname)
+
+    if not login_id:
+        return None
+
+    if len(password) < 4:
+        return None
+
+    if find_user_by_login_id(login_id):
+        return None
+
+    user_id = create_user_id(
+        login_id
+    )
+
+    password_hash, password_salt = (
+        make_password_hash(password)
+    )
+
+    if isinstance(
+        birth_date,
+        (date, datetime),
+    ):
+
+        birth_text = birth_date.strftime(
+            "%Y-%m-%d"
+        )
+
+    else:
+
+        birth_text = clean_text(
+            birth_date
+        )
+
+    now = jst_datetime_str()
+
+    row = [
+        user_id,
+        login_id,
+        password_hash,
+        password_salt,
+        nickname,
+        birth_text,
+        now,
+        now,
+        "TRUE",
+    ]
+
+    get_sheet("Users").append_row(
+        row,
+        value_input_option="RAW",
+    )
+
+    return {
+        "user_id": user_id,
+        "login_id": login_id,
+        "password_hash": password_hash,
+        "password_salt": password_salt,
+        "nickname": nickname,
+        "birth_date": birth_text,
+        "created_at": now,
+        "updated_at": now,
+        "is_active": "TRUE",
     }
 
 
-    for standard_name, candidates in aliases.items():
+# =========================================================
+# パスワード再設定
+# =========================================================
+def reset_password(
+    login_id,
+    new_password,
+):
 
-        if standard_name in df.columns:
-            continue
+    login_id = clean_text(login_id)
+    new_password = clean_text(new_password)
 
-        for candidate in candidates:
+    if not login_id:
+        return False
 
-            if candidate in df.columns:
+    if len(new_password) < 4:
+        return False
 
-                df = df.rename(
-                    columns={
-                        candidate: standard_name
-                    }
-                )
+    sheet = get_sheet("Users")
 
-                break
+    values = sheet.get_all_values()
 
+    if not values:
+        return False
 
-    # -----------------------------------------------------
-    # 旧DietLogs
-    #
-    # A user_id
-    # B log_date
-    # C weight
-    # D body_fat
-    # E muscle_mass
-    # F meal_memo
-    # -----------------------------------------------------
-    columns = list(df.columns)
-
-    expected = [
-        "user_id",
-        "log_date",
-        "weight",
-        "body_fat",
-        "muscle_mass",
-        "meal_memo",
+    headers = [
+        clean_text(v)
+        for v in values[0]
     ]
 
-    for index, standard_name in enumerate(expected):
+    required = [
+        "login_id",
+        "password_hash",
+        "password_salt",
+        "updated_at",
+    ]
 
-        if (
-            standard_name not in df.columns
-            and len(columns) > index
+    if any(
+        col not in headers
+        for col in required
+    ):
+        return False
+
+    login_col = (
+        headers.index("login_id") + 1
+    )
+
+    hash_col = (
+        headers.index("password_hash") + 1
+    )
+
+    salt_col = (
+        headers.index("password_salt") + 1
+    )
+
+    updated_col = (
+        headers.index("updated_at") + 1
+    )
+
+    target_row = None
+
+    for row_no in range(
+        2,
+        len(values) + 1,
+    ):
+
+        row = values[
+            row_no - 1
+        ]
+
+        current = ""
+
+        if len(row) >= login_col:
+
+            current = clean_text(
+                row[login_col - 1]
+            )
+
+        if current == login_id:
+
+            target_row = row_no
+            break
+
+    if target_row is None:
+        return False
+
+    new_hash, new_salt = (
+        make_password_hash(
+            new_password
+        )
+    )
+
+    sheet.update_cell(
+        target_row,
+        hash_col,
+        new_hash,
+    )
+
+    sheet.update_cell(
+        target_row,
+        salt_col,
+        new_salt,
+    )
+
+    sheet.update_cell(
+        target_row,
+        updated_col,
+        jst_datetime_str(),
+    )
+
+    return True
+
+
+# =========================================================
+# DietLogs
+#
+# A user_id
+# B log_date
+# C weight
+# D body_fat
+# E muscle_mass
+# F meal_memo
+# =========================================================
+DIET_LOG_HEADERS = [
+    "user_id",
+    "log_date",
+    "weight",
+    "body_fat",
+    "muscle_mass",
+    "meal_memo",
+]
+
+
+def save_diet_log(
+    user_id,
+    log_data,
+):
+
+    user_id = clean_text(user_id)
+
+    if not user_id:
+        return False
+
+    row = [
+        user_id,
+        clean_text(
+            log_data.get(
+                "log_date",
+                jst_today_str(),
+            )
+        ),
+        log_data.get(
+            "weight",
+            "",
+        ),
+        log_data.get(
+            "body_fat",
+            "",
+        ),
+        log_data.get(
+            "muscle_mass",
+            "",
+        ),
+        clean_text(
+            log_data.get(
+                "meal_memo",
+                "",
+            )
+        ),
+    ]
+
+    get_sheet(
+        "DietLogs"
+    ).append_row(
+        row,
+        value_input_option="USER_ENTERED",
+    )
+
+    return True
+
+
+def load_diet_logs(user_id=None):
+
+    if user_id is None:
+        user_id = get_user_id()
+
+    user_id = clean_text(user_id)
+
+    if not user_id:
+        return []
+
+    sheet = get_sheet(
+        "DietLogs"
+    )
+
+    # get_all_values を使用して
+    # 列位置を確実に保持
+    values = sheet.get_all_values()
+
+    if not values:
+        return []
+
+    headers = [
+        clean_text(v)
+        for v in values[0]
+    ]
+
+    logs = []
+
+    for row in values[1:]:
+
+        row = row + [""] * (
+            len(headers) - len(row)
+        )
+
+        record = {}
+
+        for i, header in enumerate(
+            headers
         ):
 
-            old_name = columns[index]
+            if header:
 
-            if old_name not in expected:
-
-                df = df.rename(
-                    columns={
-                        old_name: standard_name
-                    }
+                record[header] = (
+                    row[i]
+                    if i < len(row)
+                    else ""
                 )
 
+        # ---------------------------------------------
+        # 標準ヘッダーがない古いシートにも対応
+        # ---------------------------------------------
+        if "user_id" not in record and len(row) >= 1:
+            record["user_id"] = row[0]
 
-    # -----------------------------------------------------
-    # 日付
-    # -----------------------------------------------------
+        if "log_date" not in record and len(row) >= 2:
+            record["log_date"] = row[1]
+
+        if "weight" not in record and len(row) >= 3:
+            record["weight"] = row[2]
+
+        if "body_fat" not in record and len(row) >= 4:
+            record["body_fat"] = row[3]
+
+        if "muscle_mass" not in record and len(row) >= 5:
+            record["muscle_mass"] = row[4]
+
+        if "meal_memo" not in record and len(row) >= 6:
+            record["meal_memo"] = row[5]
+
+        if clean_text(
+            record.get("user_id")
+        ) != user_id:
+
+            continue
+
+        logs.append(
+            {
+                "user_id":
+                    clean_text(
+                        record.get("user_id")
+                    ),
+
+                "log_date":
+                    clean_text(
+                        record.get("log_date")
+                    ),
+
+                "weight":
+                    clean_text(
+                        record.get("weight")
+                    ),
+
+                "body_fat":
+                    clean_text(
+                        record.get("body_fat")
+                    ),
+
+                "muscle_mass":
+                    clean_text(
+                        record.get("muscle_mass")
+                    ),
+
+                "meal_memo":
+                    clean_text(
+                        record.get("meal_memo")
+                    ),
+            }
+        )
+
+    return logs
+
+
+# =========================================================
+# DietLogs DataFrame
+# Home・記録ページ共通
+# =========================================================
+def load_diet_dataframe(user_id=None):
+
+    logs = load_diet_logs(
+        user_id
+    )
+
+    if not logs:
+        return pd.DataFrame(
+            columns=DIET_LOG_HEADERS
+        )
+
+    df = pd.DataFrame(
+        logs
+    )
+
     if "log_date" in df.columns:
 
         df["log_date"] = pd.to_datetime(
@@ -220,14 +812,6 @@ def prepare_diet_dataframe(logs):
             errors="coerce",
         )
 
-        df = df.dropna(
-            subset=["log_date"]
-        )
-
-
-    # -----------------------------------------------------
-    # 数値
-    # -----------------------------------------------------
     for column in [
         "weight",
         "body_fat",
@@ -241,67 +825,63 @@ def prepare_diet_dataframe(logs):
                 errors="coerce",
             )
 
-
-    # -----------------------------------------------------
-    # 0以下は未入力扱い
-    # -----------------------------------------------------
-    for column in [
-        "weight",
-        "body_fat",
-        "muscle_mass",
-    ]:
-
-        if column in df.columns:
-
             df.loc[
                 df[column] <= 0,
                 column
             ] = pd.NA
 
+    df = df.dropna(
+        subset=["log_date"]
+    )
 
-    # -----------------------------------------------------
-    # 日付順
-    # -----------------------------------------------------
-    if "log_date" in df.columns:
-
-        df = (
-            df
-            .sort_values("log_date")
-            .reset_index(drop=True)
-        )
-
+    df = (
+        df
+        .sort_values("log_date")
+        .reset_index(drop=True)
+    )
 
     return df
 
 
-# =========================================================
-# 最新有効値
-# =========================================================
 def latest_valid_value(
     df,
     column,
 ):
 
     if (
-        df.empty
-        or column not in df.columns
+        df is None
+        or df.empty
         or "log_date" not in df.columns
+        or column not in df.columns
     ):
         return None, None
 
+    temp = df[
+        ["log_date", column]
+    ].copy()
 
-    temp = (
-        df[
-            ["log_date", column]
-        ]
-        .dropna()
-        .sort_values("log_date")
+    temp[column] = pd.to_numeric(
+        temp[column],
+        errors="coerce",
     )
 
+    temp = temp.dropna(
+        subset=[
+            "log_date",
+            column,
+        ]
+    )
+
+    temp = temp[
+        temp[column] > 0
+    ]
 
     if temp.empty:
         return None, None
 
+    temp = temp.sort_values(
+        "log_date"
+    )
 
     row = temp.iloc[-1]
 
@@ -311,757 +891,1162 @@ def latest_valid_value(
     )
 
 
-# =========================================================
-# グラフ作成
-# =========================================================
-def make_body_chart(
-    data,
+def previous_valid_difference(
+    df,
     column,
-    label,
-    unit,
-    minimum_margin,
 ):
 
     if (
-        data.empty
-        or column not in data.columns
+        df is None
+        or df.empty
+        or "log_date" not in df.columns
+        or column not in df.columns
     ):
         return None
 
+    temp = df[
+        ["log_date", column]
+    ].copy()
 
-    plot_df = (
-        data[
-            ["log_date", column]
-        ]
-        .dropna()
-        .copy()
-    )
-
-
-    if plot_df.empty:
-        return None
-
-
-    plot_df[column] = pd.to_numeric(
-        plot_df[column],
+    temp[column] = pd.to_numeric(
+        temp[column],
         errors="coerce",
     )
 
-    plot_df = plot_df.dropna()
+    temp = temp.dropna(
+        subset=[
+            "log_date",
+            column,
+        ]
+    )
 
+    temp = temp[
+        temp[column] > 0
+    ]
 
-    if plot_df.empty:
+    temp = temp.sort_values(
+        "log_date"
+    )
+
+    if len(temp) < 2:
         return None
 
-
-    minimum = float(
-        plot_df[column].min()
-    )
-
-    maximum = float(
-        plot_df[column].max()
-    )
-
-
-    # -----------------------------------------------------
-    # 0始まりにしない
-    # -----------------------------------------------------
-    spread = maximum - minimum
-
-    padding = max(
-        spread * 0.35,
-        minimum_margin,
-    )
-
-    y_min = max(
-        0,
-        minimum - padding,
-    )
-
-    y_max = (
-        maximum + padding
-    )
-
-
-    # -----------------------------------------------------
-    # 同じ値しかない場合
-    # -----------------------------------------------------
-    if y_max <= y_min:
-
-        y_min = max(
-            0,
-            minimum - minimum_margin,
-        )
-
-        y_max = (
-            maximum + minimum_margin
-        )
-
-
-    base = alt.Chart(
-        plot_df
-    )
-
-
-    line = (
-        base
-        .mark_line(
-            point=True
-        )
-        .encode(
-
-            x=alt.X(
-                "log_date:T",
-                title=None,
-                axis=alt.Axis(
-                    format="%m/%d",
-                    labelAngle=0,
-                    tickCount=6,
-                ),
-            ),
-
-            y=alt.Y(
-                f"{column}:Q",
-                title=f"{label}（{unit}）",
-                scale=alt.Scale(
-                    domain=[
-                        y_min,
-                        y_max,
-                    ],
-                    zero=False,
-                ),
-            ),
-
-            tooltip=[
-                alt.Tooltip(
-                    "log_date:T",
-                    title="日付",
-                    format="%Y/%m/%d",
-                ),
-                alt.Tooltip(
-                    f"{column}:Q",
-                    title=label,
-                    format=".1f",
-                ),
-            ],
-        )
-    )
-
-
     return (
-        line
-        .properties(
-            height=300
-        )
-        .interactive()
+        float(temp.iloc[-1][column])
+        -
+        float(temp.iloc[-2][column])
     )
 
 
-# =========================================================
-# 現在の記録を先に取得
-# =========================================================
-try:
+def load_latest_log(user_id=None):
 
-    logs = load_diet_logs(
+    df = load_diet_dataframe(
         user_id
     )
 
-except Exception as e:
+    if df.empty:
+        return None
 
-    st.error(
-        "記録データの読み込み中にエラーが発生しました。"
+    row = df.iloc[-1]
+
+    return {
+        "user_id":
+            clean_text(
+                row.get("user_id")
+            ),
+
+        "log_date":
+            (
+                row["log_date"].strftime(
+                    "%Y-%m-%d"
+                )
+                if pd.notna(
+                    row.get("log_date")
+                )
+                else ""
+            ),
+
+        "weight":
+            row.get("weight"),
+
+        "body_fat":
+            row.get("body_fat"),
+
+        "muscle_mass":
+            row.get("muscle_mass"),
+
+        "meal_memo":
+            clean_text(
+                row.get("meal_memo")
+            ),
+    }
+
+
+# 旧ページ互換
+load_user_logs = load_diet_logs
+save_user_log = save_diet_log
+save_log = save_diet_log
+load_record_logs = load_diet_logs
+save_record_log = save_diet_log
+load_daily_logs = load_diet_logs
+save_daily_log = save_diet_log
+load_today_logs = load_diet_logs
+save_today_log = save_diet_log
+load_user_records = load_diet_logs
+save_user_record = save_diet_log
+
+
+# =========================================================
+# UserSettings
+# =========================================================
+USER_SETTINGS_HEADERS = [
+    "user_id",
+    "nickname",
+    "height",
+    "current_weight",
+    "target_weight",
+    "current_body_fat",
+    "target_body_fat",
+    "user_type",
+    "activity_level",
+    "food_style",
+    "constitution_traits",
+    "advice_tone",
+    "workout_today",
+    "fridge_items",
+    "avoid_foods",
+    "favorite_meals",
+    "updated_at",
+]
+
+
+def get_or_create_user_settings_sheet():
+
+    spreadsheet = get_spreadsheet()
+
+    try:
+
+        sheet = spreadsheet.worksheet(
+            "UserSettings"
+        )
+
+    except gspread.WorksheetNotFound:
+
+        sheet = spreadsheet.add_worksheet(
+            title="UserSettings",
+            rows=1000,
+            cols=max(
+                len(USER_SETTINGS_HEADERS),
+                20,
+            ),
+        )
+
+        sheet.update(
+            "A1",
+            [USER_SETTINGS_HEADERS],
+            value_input_option="RAW",
+        )
+
+        return sheet
+
+    values = sheet.get_all_values()
+
+    if not values:
+
+        sheet.update(
+            "A1",
+            [USER_SETTINGS_HEADERS],
+            value_input_option="RAW",
+        )
+
+        return sheet
+
+    headers = [
+        clean_text(v)
+        for v in values[0]
+    ]
+
+    changed = False
+
+    for header in USER_SETTINGS_HEADERS:
+
+        if header not in headers:
+
+            headers.append(header)
+            changed = True
+
+    if changed:
+
+        sheet.update(
+            "A1",
+            [headers],
+            value_input_option="RAW",
+        )
+
+    return sheet
+
+
+def settings_value_to_text(value):
+
+    if isinstance(
+        value,
+        (list, tuple, set),
+    ):
+
+        return "、".join(
+            clean_text(v)
+            for v in value
+            if clean_text(v)
+        )
+
+    return clean_text(value)
+
+
+def settings_text_to_list(value):
+
+    text = clean_text(value)
+
+    if not text:
+        return []
+
+    text = text.replace(
+        ",",
+        "、",
     )
 
-    st.caption(str(e))
-
-    logs = []
-
-
-df = prepare_diet_dataframe(
-    logs
-)
+    return [
+        item.strip()
+        for item in text.split("、")
+        if item.strip()
+    ]
 
 
-# =========================================================
-# 入力欄の初期値
-# 最新の有効値を使用
-# =========================================================
-latest_weight, _ = latest_valid_value(
-    df,
-    "weight",
-)
+def load_user_settings(user_id=None):
 
-latest_fat, _ = latest_valid_value(
-    df,
-    "body_fat",
-)
+    if user_id is None:
+        user_id = get_user_id()
 
-latest_muscle, _ = latest_valid_value(
-    df,
-    "muscle_mass",
-)
+    user_id = clean_text(user_id)
 
+    if not user_id:
+        return {}
 
-default_weight = (
-    latest_weight
-    if latest_weight is not None
-    else 50.0
-)
+    sheet = (
+        get_or_create_user_settings_sheet()
+    )
 
-default_fat = (
-    latest_fat
-    if latest_fat is not None
-    else 20.0
-)
+    values = sheet.get_all_values()
 
-default_muscle = (
-    latest_muscle
-    if latest_muscle is not None
-    else 0.0
-)
+    if not values:
+        return {}
 
+    headers = [
+        clean_text(v)
+        for v in values[0]
+    ]
 
-# =========================================================
-# ページタイトル
-# =========================================================
-render_page_header(
-    title="記録する",
-    subtitle=(
-        "体重・体脂肪率・筋肉量・食事を記録して、"
-        "からだの変化を確認できます。"
-    ),
-    icon_file="ShufuMate_home_icons_8/record.png",
-    emoji="📝",
-)
+    for row in values[1:]:
+
+        row = row + [""] * (
+            len(headers) - len(row)
+        )
+
+        record = {
+            header: clean_text(
+                row[i]
+            )
+            for i, header in enumerate(
+                headers
+            )
+            if header
+        }
+
+        if clean_text(
+            record.get("user_id")
+        ) == user_id:
+
+            return record
+
+    return {}
 
 
-# =========================================================
-# 今日の記録
-# =========================================================
-render_section_header(
-    title="今日の記録",
-    icon_file="ShufuMate_home_icons_8/record.png",
-    emoji="🌿",
-)
-
-
-today = jst_today_str()
-
-
-render_note(
-    f"記録日：{today}"
-)
-
-
-# =========================================================
-# 入力フォーム
-# =========================================================
-with st.form(
-    "daily_log_form"
+def save_user_settings(
+    user_id,
+    settings_data,
 ):
 
-    st.markdown(
-        "#### からだ"
+    user_id = clean_text(user_id)
+
+    if not user_id:
+        return False
+
+    sheet = (
+        get_or_create_user_settings_sheet()
     )
 
+    values = sheet.get_all_values()
 
-    col1, col2 = st.columns(2)
+    headers = [
+        clean_text(v)
+        for v in values[0]
+    ]
 
+    existing = load_user_settings(
+        user_id
+    )
 
-    with col1:
+    merged = dict(existing)
 
-        weight = st.number_input(
-            "体重（kg）",
-            min_value=0.0,
-            max_value=200.0,
-            value=float(default_weight),
-            step=0.1,
-            format="%.1f",
+    merged.update(
+        settings_data or {}
+    )
+
+    merged["user_id"] = user_id
+    merged["updated_at"] = (
+        jst_datetime_str()
+    )
+
+    row_values = [
+        settings_value_to_text(
+            merged.get(
+                header,
+                "",
+            )
+        )
+        for header in headers
+    ]
+
+    target_row = None
+
+    user_col = (
+        headers.index("user_id")
+    )
+
+    for row_no, row in enumerate(
+        values[1:],
+        start=2,
+    ):
+
+        current = (
+            row[user_col]
+            if len(row) > user_col
+            else ""
         )
 
+        if clean_text(current) == user_id:
 
-    with col2:
+            target_row = row_no
+            break
 
-        body_fat = st.number_input(
-            "体脂肪率（%）",
-            min_value=0.0,
-            max_value=60.0,
-            value=float(default_fat),
-            step=0.1,
-            format="%.1f",
+    if target_row is None:
+
+        sheet.append_row(
+            row_values,
+            value_input_option="RAW",
         )
 
+    else:
 
-    muscle_mass = st.number_input(
-        "筋肉量（kg）",
-        min_value=0.0,
-        max_value=100.0,
-        value=float(default_muscle),
-        step=0.1,
-        format="%.1f",
-        help=(
-            "測っていない日は0にしてください。"
-            "0は未入力として保存します。"
-        ),
-    )
-
-
-    st.markdown("---")
-
-
-    # =====================================================
-    # 食事
-    # =====================================================
-    st.markdown(
-        "#### 食事"
-    )
-
-
-    breakfast = st.text_area(
-        "朝",
-        placeholder=(
-            "例：白湯、豆乳、"
-            "アサイー、キウイ"
-        ),
-        height=80,
-    )
-
-
-    lunch = st.text_area(
-        "昼",
-        placeholder=(
-            "例：おにぎり、"
-            "鶏むね肉、卵、味噌汁"
-        ),
-        height=80,
-    )
-
-
-    dinner = st.text_area(
-        "夜",
-        placeholder=(
-            "例：豚しゃぶ、"
-            "豆腐、野菜、ご飯"
-        ),
-        height=80,
-    )
-
-
-    snack = st.text_area(
-        "間食",
-        placeholder=(
-            "例：ヨーグルト、バナナ"
-        ),
-        height=70,
-    )
-
-
-    st.markdown("---")
-
-
-    # =====================================================
-    # メモ
-    # =====================================================
-    st.markdown(
-        "#### 今日のメモ"
-    )
-
-
-    memo = st.text_area(
-        "運動・体調など",
-        placeholder=(
-            "例：筋トレ＋ラン20分。"
-            "脚は軽い。睡眠7時間。"
-        ),
-        height=100,
-    )
-
-
-    submitted = (
-        st.form_submit_button(
-            "保存する",
-            use_container_width=True,
+        end_col = gspread.utils.rowcol_to_a1(
+            target_row,
+            len(headers),
         )
+
+        sheet.update(
+            f"A{target_row}:{end_col}",
+            [row_values],
+            value_input_option="RAW",
+        )
+
+    return True
+
+
+def load_current_user_profile(
+    user_id=None
+):
+
+    if user_id is None:
+        user_id = get_user_id()
+
+    return (
+        find_user_by_user_id(user_id)
+        or {}
     )
+
+
+def update_current_user_profile(
+    user_id,
+    nickname=None,
+):
+
+    user_id = clean_text(user_id)
+
+    if not user_id:
+        return False
+
+    sheet = get_sheet("Users")
+
+    values = sheet.get_all_values()
+
+    if not values:
+        return False
+
+    headers = [
+        clean_text(v)
+        for v in values[0]
+    ]
+
+    if "user_id" not in headers:
+        return False
+
+    user_col = (
+        headers.index("user_id") + 1
+    )
+
+    target_row = None
+
+    for row_no in range(
+        2,
+        len(values) + 1,
+    ):
+
+        row = values[
+            row_no - 1
+        ]
+
+        current = ""
+
+        if len(row) >= user_col:
+
+            current = clean_text(
+                row[user_col - 1]
+            )
+
+        if current == user_id:
+
+            target_row = row_no
+            break
+
+    if target_row is None:
+        return False
+
+    if (
+        nickname is not None
+        and "nickname" in headers
+    ):
+
+        nickname_col = (
+            headers.index("nickname") + 1
+        )
+
+        nickname = clean_text(
+            nickname
+        )
+
+        sheet.update_cell(
+            target_row,
+            nickname_col,
+            nickname,
+        )
+
+        st.session_state[
+            "nickname"
+        ] = nickname
+
+    if "updated_at" in headers:
+
+        updated_col = (
+            headers.index("updated_at") + 1
+        )
+
+        sheet.update_cell(
+            target_row,
+            updated_col,
+            jst_datetime_str(),
+        )
+
+    return True
 
 
 # =========================================================
-# 保存
+# 写真記録
 # =========================================================
-if submitted:
+def detect_meal_type_by_time(now=None):
 
-    muscle_value = (
-        round(
-            float(muscle_mass),
-            1,
+    if now is None:
+        now = jst_now()
+
+    hour = now.hour
+
+    if 4 <= hour < 10:
+        return "朝"
+
+    if 10 <= hour < 15:
+        return "昼"
+
+    if 15 <= hour < 18:
+        return "間食"
+
+    return "夜"
+
+
+def _photo_logs_key(user_id=None):
+
+    user_id = (
+        user_id
+        or get_user_id()
+        or "guest"
+    )
+
+    return f"photo_logs_{user_id}"
+
+
+def save_photo_meal_log(
+    user_id=None,
+    meal_type="",
+    food_text="",
+    image_file=None,
+):
+
+    user_id = (
+        user_id
+        or get_user_id()
+        or "guest"
+    )
+
+    key = _photo_logs_key(
+        user_id
+    )
+
+    if key not in st.session_state:
+
+        st.session_state[key] = []
+
+    image_name = ""
+
+    if image_file is not None:
+
+        image_name = clean_text(
+            getattr(
+                image_file,
+                "name",
+                "",
+            )
         )
-        if muscle_mass > 0
-        else ""
-    )
 
-
-    meal_memo = (
-        f"朝: {breakfast.strip()}\n"
-        f"昼: {lunch.strip()}\n"
-        f"夜: {dinner.strip()}\n"
-        f"間食: {snack.strip()}\n"
-        f"メモ: {memo.strip()}"
-    )
-
-
-    log = {
-
+    record = {
         "user_id":
             user_id,
 
         "log_date":
-            today,
+            jst_today_str(),
 
-        "weight":
-            round(
-                float(weight),
-                1,
+        "created_at":
+            jst_datetime_str(),
+
+        "meal_type":
+            clean_text(
+                meal_type
             ),
 
-        "body_fat":
-            round(
-                float(body_fat),
-                1,
+        "food_text":
+            clean_text(
+                food_text
             ),
 
-        "muscle_mass":
-            muscle_value,
+        "image_name":
+            image_name,
+    }
 
-        "meal_memo":
-            meal_memo,
+    st.session_state[
+        key
+    ].append(
+        record
+    )
+
+    return True
+
+
+def load_photo_logs(
+    user_id=None
+):
+
+    user_id = (
+        user_id
+        or get_user_id()
+        or "guest"
+    )
+
+    return st.session_state.get(
+        _photo_logs_key(user_id),
+        [],
+    )
+
+
+# =========================================================
+# 食事判定
+# =========================================================
+PROTEIN_KEYWORDS = [
+    "鶏",
+    "豚",
+    "牛",
+    "魚",
+    "鮭",
+    "サバ",
+    "さば",
+    "ツナ",
+    "卵",
+    "たまご",
+    "納豆",
+    "豆腐",
+    "豆乳",
+    "ヨーグルト",
+    "チーズ",
+]
+
+
+VEGETABLE_KEYWORDS = [
+    "野菜",
+    "サラダ",
+    "人参",
+    "にんじん",
+    "キャベツ",
+    "レタス",
+    "トマト",
+    "ほうれん草",
+    "小松菜",
+    "青菜",
+    "きのこ",
+    "しめじ",
+    "わかめ",
+    "海藻",
+]
+
+
+CARB_KEYWORDS = [
+    "ご飯",
+    "ごはん",
+    "米",
+    "おにぎり",
+    "パン",
+    "うどん",
+    "そば",
+    "麺",
+    "パスタ",
+    "芋",
+]
+
+
+def contains_keyword(
+    text,
+    keywords,
+):
+
+    text = clean_text(text)
+
+    return any(
+        keyword in text
+        for keyword in keywords
+    )
+
+
+def evaluate_meal_text(text):
+
+    text = clean_text(text)
+
+    if not text:
+        return {
+            "score": 0,
+            "protein": False,
+            "vegetable": False,
+            "carb": False,
+        }
+
+    protein = contains_keyword(
+        text,
+        PROTEIN_KEYWORDS,
+    )
+
+    vegetable = contains_keyword(
+        text,
+        VEGETABLE_KEYWORDS,
+    )
+
+    carb = contains_keyword(
+        text,
+        CARB_KEYWORDS,
+    )
+
+    score = (
+        int(protein)
+        + int(vegetable)
+        + int(carb)
+    )
+
+    return {
+        "score": score,
+        "protein": protein,
+        "vegetable": vegetable,
+        "carb": carb,
     }
 
 
-    try:
-
-        save_diet_log(
-            user_id,
-            log,
-        )
-
-        st.success(
-            "今日の記録を保存しました ✨"
-        )
-
-        st.rerun()
-
-
-    except Exception as e:
-
-        st.error(
-            "保存中にエラーが発生しました。"
-        )
-
-        st.caption(
-            str(e)
-        )
-
-
 # =========================================================
-# からだの変化
+# アイコン
 # =========================================================
-render_section_header(
-    title="からだの変化",
-    icon_file="ShufuMate_home_icons_8/trend.png",
-    emoji="📈",
-)
+def resolve_icon_path(filename):
 
+    if not filename:
+        return None
 
-if df.empty:
+    filename = str(filename)
 
-    st.info(
-        "まだ記録がありません。"
-        "上のフォームから記録すると、"
-        "ここにグラフが表示されます。"
-    )
-
-
-else:
-
-    # =====================================================
-    # 表示期間
-    # =====================================================
-    period = st.radio(
-        "表示期間",
-        [
-            "直近30日",
-            "直近90日",
-            "すべて",
-        ],
-        horizontal=True,
-        key="record_chart_period",
-    )
-
-
-    chart_df = df.copy()
-
-
-    if period == "直近30日":
-
-        latest_date = (
-            chart_df["log_date"].max()
-        )
-
-        start_date = (
-            latest_date
-            - pd.Timedelta(
-                days=29
-            )
-        )
-
-        chart_df = chart_df[
-            chart_df["log_date"]
-            >= start_date
-        ]
-
-
-    elif period == "直近90日":
-
-        latest_date = (
-            chart_df["log_date"].max()
-        )
-
-        start_date = (
-            latest_date
-            - pd.Timedelta(
-                days=89
-            )
-        )
-
-        chart_df = chart_df[
-            chart_df["log_date"]
-            >= start_date
-        ]
-
-
-    # =====================================================
-    # 体脂肪率
-    # =====================================================
-    st.markdown(
-        "### 体脂肪率"
-    )
-
-
-    fat_chart = make_body_chart(
-        data=chart_df,
-        column="body_fat",
-        label="体脂肪率",
-        unit="%",
-        minimum_margin=2.0,
-    )
-
-
-    if fat_chart is not None:
-
-        st.altair_chart(
-            fat_chart,
-            use_container_width=True,
-        )
-
-    else:
-
-        st.info(
-            "体脂肪率の記録がまだありません。"
-        )
-
-
-    # =====================================================
-    # 筋肉量
-    # =====================================================
-    st.markdown(
-        "### 筋肉量"
-    )
-
-
-    muscle_chart = make_body_chart(
-        data=chart_df,
-        column="muscle_mass",
-        label="筋肉量",
-        unit="kg",
-        minimum_margin=1.0,
-    )
-
-
-    if muscle_chart is not None:
-
-        st.altair_chart(
-            muscle_chart,
-            use_container_width=True,
-        )
-
-    else:
-
-        st.info(
-            "筋肉量の記録がまだありません。"
-        )
-
-
-    # =====================================================
-    # 体重
-    # =====================================================
-    st.markdown(
-        "### 体重"
-    )
-
-
-    weight_chart = make_body_chart(
-        data=chart_df,
-        column="weight",
-        label="体重",
-        unit="kg",
-        minimum_margin=2.0,
-    )
-
-
-    if weight_chart is not None:
-
-        st.altair_chart(
-            weight_chart,
-            use_container_width=True,
-        )
-
-    else:
-
-        st.info(
-            "体重の記録がまだありません。"
-        )
-
-
-# =========================================================
-# 最新記録
-# =========================================================
-render_section_header(
-    title="最新記録",
-    icon_file="ShufuMate_home_icons_8/latest.png",
-    emoji="📋",
-)
-
-
-if not df.empty:
-
-    latest_row = (
-        df
-        .sort_values("log_date")
-        .iloc[-1]
-    )
-
-
-    latest_date = latest_row[
-        "log_date"
+    candidates = [
+        ICON_DIR / filename,
+        WATERCOLOR_ICON_DIR / filename,
     ]
 
+    for path in candidates:
 
-    if pd.notna(latest_date):
+        if path.exists():
+            return path
 
-        render_note(
-            "最新記録："
-            + latest_date.strftime(
-                "%Y/%m/%d"
-            )
-        )
+    return None
 
 
-    # =====================================================
-    # 各項目の最新有効値
-    # =====================================================
-    latest_weight, weight_date = (
-        latest_valid_value(
-            df,
-            "weight",
-        )
+def get_page_icon(
+    filename,
+    fallback="🌿",
+):
+
+    path = resolve_icon_path(
+        filename
     )
 
-    latest_fat, fat_date = (
-        latest_valid_value(
-            df,
-            "body_fat",
-        )
+    if path is None:
+        return fallback
+
+    try:
+
+        return Image.open(path)
+
+    except Exception:
+
+        return fallback
+
+
+def file_to_base64(path):
+
+    if not path:
+        return None
+
+    path = Path(path)
+
+    if not path.exists():
+        return None
+
+    suffix = path.suffix.lower()
+
+    mime = {
+        ".png": "image/png",
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".webp": "image/webp",
+    }.get(
+        suffix,
+        "image/png",
     )
 
-    latest_muscle, muscle_date = (
-        latest_valid_value(
-            df,
-            "muscle_mass",
-        )
+    encoded = base64.b64encode(
+        path.read_bytes()
+    ).decode("utf-8")
+
+    return (
+        f"data:{mime};base64,{encoded}"
     )
 
 
-    metric1, metric2, metric3 = (
-        st.columns(3)
+def load_icon(filename):
+
+    path = resolve_icon_path(
+        filename
+    )
+
+    if path is None:
+        return None
+
+    return file_to_base64(
+        path
     )
 
 
-    with metric1:
+# =========================================================
+# 共通CSS
+# =========================================================
+def inject_shufumate_css():
 
-        st.metric(
-            "体重",
-            (
-                f"{latest_weight:.1f} kg"
-                if latest_weight is not None
-                else "—"
-            ),
+    st.markdown(
+        textwrap.dedent(
+            """
+            <style>
+
+            .stApp {
+                background:
+                    linear-gradient(
+                        180deg,
+                        #fffaf4 0%,
+                        #fff4e8 48%,
+                        #fffaf4 100%
+                    );
+            }
+
+            .block-container {
+                max-width: 820px;
+                padding-top: 2.4rem !important;
+                padding-bottom: 3rem;
+            }
+
+            .sm-top-card {
+                background: rgba(255,255,255,.94);
+                border-radius: 25px;
+                padding: 22px;
+                border: 1px solid rgba(139,100,72,.12);
+                box-shadow:
+                    0 7px 20px
+                    rgba(96,65,45,.08);
+                margin-bottom: 18px;
+            }
+
+            .sm-page-head {
+                display: flex;
+                align-items: center;
+                gap: 15px;
+            }
+
+            .sm-page-head-icon {
+                width: 70px;
+                min-width: 70px;
+                height: 70px;
+                border-radius: 20px;
+                background: #fff8ef;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                overflow: hidden;
+            }
+
+            .sm-page-head-icon img {
+                width: 58px;
+                height: 58px;
+                object-fit: contain;
+            }
+
+            .sm-page-emoji {
+                font-size: 2rem;
+            }
+
+            .sm-page-title {
+                color: #5c4033;
+                font-size: 1.7rem;
+                font-weight: 900;
+            }
+
+            .sm-page-subtitle {
+                color: #7b6658;
+                font-size: .92rem;
+                line-height: 1.7;
+                margin-top: 4px;
+            }
+
+            .sm-section-head {
+                display: flex;
+                align-items: center;
+                gap: 11px;
+                margin: 26px 0 13px;
+            }
+
+            .sm-section-icon {
+                width: 52px;
+                min-width: 52px;
+                height: 52px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            .sm-section-icon img {
+                width: 48px;
+                height: 48px;
+                object-fit: contain;
+            }
+
+            .sm-section-emoji {
+                font-size: 1.6rem;
+            }
+
+            .sm-section-title {
+                color: #5c4033;
+                font-size: 1.22rem;
+                font-weight: 900;
+            }
+
+            .sm-note-card,
+            .sm-card,
+            .sm-focus-card,
+            .sm-answer-card {
+                border-radius: 19px;
+                padding: 15px 17px;
+                line-height: 1.75;
+                margin: 10px 0 16px;
+            }
+
+            .sm-note-card {
+                background: #fff8ef;
+                color: #765b4b;
+                border: 1px solid rgba(139,100,72,.10);
+            }
+
+            .sm-card {
+                background: rgba(255,255,255,.92);
+                color: #5c4033;
+                border: 1px solid rgba(139,100,72,.10);
+            }
+
+            .sm-focus-card {
+                background: #f4f8ef;
+                color: #50644c;
+                border: 1px solid rgba(92,130,83,.16);
+            }
+
+            .sm-answer-card {
+                background: #fffdf9;
+                color: #5c4033;
+                border: 1px solid rgba(139,100,72,.12);
+            }
+
+            .sm-divider {
+                height: 1px;
+                background: #eadfce;
+                margin: 2rem 0;
+            }
+
+            .stButton > button,
+            .stFormSubmitButton > button {
+                background: #8d6e63;
+                color: #ffffff;
+                border: none;
+                border-radius: 14px;
+                min-height: 45px;
+                font-weight: 800;
+            }
+
+            .stButton > button:hover,
+            .stFormSubmitButton > button:hover {
+                background: #76594f;
+                color: #ffffff;
+                border: none;
+            }
+
+            div[data-testid="stMetric"] {
+                background: rgba(255,255,255,.92);
+                border: 1px solid rgba(168,126,88,.14);
+                border-radius: 18px;
+                padding: 14px 16px;
+            }
+
+            @media (max-width: 640px) {
+
+                .block-container {
+                    padding-left: 1rem;
+                    padding-right: 1rem;
+                    padding-top: 1.3rem !important;
+                }
+
+                .sm-page-head-icon {
+                    width: 60px;
+                    min-width: 60px;
+                    height: 60px;
+                }
+
+                .sm-page-head-icon img {
+                    width: 49px;
+                    height: 49px;
+                }
+
+                .sm-page-title {
+                    font-size: 1.45rem;
+                }
+
+                .sm-section-title {
+                    font-size: 1.12rem;
+                }
+            }
+
+            </style>
+            """
+        ).strip(),
+        unsafe_allow_html=True,
+    )
+
+
+# =========================================================
+# 共通UI
+# =========================================================
+def render_page_header(
+    title,
+    subtitle="",
+    icon_file=None,
+    emoji="🌿",
+):
+
+    icon_src = (
+        load_icon(icon_file)
+        if icon_file
+        else None
+    )
+
+    if icon_src:
+
+        icon_html = (
+            f'<img src="{icon_src}" '
+            f'alt="{safe_text(title)}">'
         )
 
+    else:
 
-    with metric2:
-
-        st.metric(
-            "体脂肪率",
-            (
-                f"{latest_fat:.1f} %"
-                if latest_fat is not None
-                else "—"
-            ),
+        icon_html = (
+            '<div class="sm-page-emoji">'
+            f'{safe_text(emoji)}'
+            '</div>'
         )
 
+    markup = f"""
+    <div class="sm-top-card">
+        <div class="sm-page-head">
+            <div class="sm-page-head-icon">
+                {icon_html}
+            </div>
+            <div>
+                <div class="sm-page-title">
+                    {safe_text(title)}
+                </div>
+                <div class="sm-page-subtitle">
+                    {safe_html_with_br(subtitle)}
+                </div>
+            </div>
+        </div>
+    </div>
+    """
 
-    with metric3:
+    st.markdown(
+        textwrap.dedent(markup).strip(),
+        unsafe_allow_html=True,
+    )
 
-        st.metric(
-            "筋肉量",
-            (
-                f"{latest_muscle:.1f} kg"
-                if latest_muscle is not None
-                else "—"
-            ),
+
+def render_section_header(
+    title,
+    icon_file=None,
+    emoji="🌿",
+):
+
+    icon_src = (
+        load_icon(icon_file)
+        if icon_file
+        else None
+    )
+
+    if icon_src:
+
+        icon_html = (
+            f'<img src="{icon_src}" '
+            f'alt="{safe_text(title)}">'
         )
 
+    else:
 
-    # =====================================================
-    # 食事・メモ
-    # 最新行のものを表示
-    # =====================================================
-    if "meal_memo" in df.columns:
-
-        meal_memo = (
-            latest_row.get(
-                "meal_memo",
-                ""
-            )
+        icon_html = (
+            '<div class="sm-section-emoji">'
+            f'{safe_text(emoji)}'
+            '</div>'
         )
 
+    markup = f"""
+    <div class="sm-section-head">
+        <div class="sm-section-icon">
+            {icon_html}
+        </div>
+        <div class="sm-section-title">
+            {safe_text(title)}
+        </div>
+    </div>
+    """
 
-        if (
-            pd.notna(meal_memo)
-            and str(meal_memo).strip()
-        ):
-
-            st.markdown(
-                "#### 食事・メモ"
-            )
-
-            st.text(
-                str(meal_memo)
-            )
+    st.markdown(
+        textwrap.dedent(markup).strip(),
+        unsafe_allow_html=True,
+    )
 
 
-else:
+def render_note(text):
 
-    st.info(
-        "まだ記録がありません。"
+    markup = f"""
+    <div class="sm-note-card">
+        {safe_html_with_br(text)}
+    </div>
+    """
+
+    st.markdown(
+        textwrap.dedent(markup).strip(),
+        unsafe_allow_html=True,
+    )
+
+
+def render_card(text):
+
+    markup = f"""
+    <div class="sm-card">
+        {safe_html_with_br(text)}
+    </div>
+    """
+
+    st.markdown(
+        textwrap.dedent(markup).strip(),
+        unsafe_allow_html=True,
+    )
+
+
+def render_focus_card(text):
+
+    markup = f"""
+    <div class="sm-focus-card">
+        {safe_html_with_br(text)}
+    </div>
+    """
+
+    st.markdown(
+        textwrap.dedent(markup).strip(),
+        unsafe_allow_html=True,
+    )
+
+
+def render_answer_card(text):
+
+    markup = f"""
+    <div class="sm-answer-card">
+        {safe_html_with_br(text)}
+    </div>
+    """
+
+    st.markdown(
+        textwrap.dedent(markup).strip(),
+        unsafe_allow_html=True,
+    )
+
+
+def render_divider():
+
+    st.markdown(
+        '<div class="sm-divider"></div>',
+        unsafe_allow_html=True,
     )
