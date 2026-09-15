@@ -350,9 +350,7 @@ render_divider()
 
 render_section_header(
     title="記録グラフ",
-    icon_file=watercolor_icon(
-        "trend.png"
-    ),
+    icon_file=watercolor_icon("trend.png"),
     emoji="📊",
 )
 
@@ -361,6 +359,9 @@ render_note(
 )
 
 
+# =========================================================
+# 表示期間
+# =========================================================
 period = st.radio(
     "表示期間",
     [
@@ -381,19 +382,15 @@ if (
     and "log_date" in chart_df.columns
 ):
 
-    latest_chart_date = (
-        chart_df[
-            "log_date"
-        ].max()
-    )
+    latest_chart_date = chart_df[
+        "log_date"
+    ].max()
 
     if period == "直近30日":
 
         start_date = (
             latest_chart_date
-            - pd.Timedelta(
-                days=29
-            )
+            - pd.Timedelta(days=29)
         )
 
         chart_df = chart_df[
@@ -405,9 +402,7 @@ if (
 
         start_date = (
             latest_chart_date
-            - pd.Timedelta(
-                days=89
-            )
+            - pd.Timedelta(days=89)
         )
 
         chart_df = chart_df[
@@ -417,41 +412,161 @@ if (
 
 
 # =========================================================
+# 共通グラフ関数
+# =========================================================
+def make_body_chart(
+    data,
+    value_column,
+    label,
+    unit,
+    minimum_margin,
+):
+
+    plot_df = (
+        data[
+            [
+                "log_date",
+                value_column,
+            ]
+        ]
+        .dropna()
+        .copy()
+    )
+
+    # 筋肉量など0を未入力扱いする項目
+    if value_column == "muscle_mass":
+
+        plot_df = plot_df[
+            plot_df[value_column] > 0
+        ]
+
+    if plot_df.empty:
+
+        return None
+
+
+    # -----------------------------------------------------
+    # 縦軸の自動範囲
+    # -----------------------------------------------------
+    value_min = plot_df[
+        value_column
+    ].min()
+
+    value_max = plot_df[
+        value_column
+    ].max()
+
+
+    # 1件だけ、または全部同じ値の場合
+    if value_min == value_max:
+
+        y_min = max(
+            0,
+            value_min - minimum_margin,
+        )
+
+        y_max = (
+            value_max
+            + minimum_margin
+        )
+
+    else:
+
+        value_range = (
+            value_max
+            - value_min
+        )
+
+        margin = max(
+            value_range * 0.25,
+            minimum_margin,
+        )
+
+        y_min = max(
+            0,
+            value_min - margin,
+        )
+
+        y_max = (
+            value_max
+            + margin
+        )
+
+
+    # -----------------------------------------------------
+    # グラフ
+    # -----------------------------------------------------
+    chart = (
+        alt.Chart(plot_df)
+        .mark_line(
+            point=True,
+            strokeWidth=3,
+        )
+        .encode(
+
+            x=alt.X(
+                "log_date:T",
+                title=None,
+                axis=alt.Axis(
+                    format="%m/%d",
+                    labelAngle=0,
+                ),
+            ),
+
+            y=alt.Y(
+                f"{value_column}:Q",
+                title=f"{label}（{unit}）",
+                scale=alt.Scale(
+                    domain=[
+                        y_min,
+                        y_max,
+                    ],
+                    zero=False,
+                    nice=True,
+                ),
+            ),
+
+            tooltip=[
+                alt.Tooltip(
+                    "log_date:T",
+                    title="日付",
+                    format="%Y/%m/%d",
+                ),
+                alt.Tooltip(
+                    f"{value_column}:Q",
+                    title=label,
+                    format=".1f",
+                ),
+            ],
+        )
+        .properties(
+            height=300
+        )
+    )
+
+    return chart
+
+
+# =========================================================
 # 体脂肪率
 # =========================================================
 st.markdown(
     "### 体脂肪率"
 )
 
-if (
-    "body_fat" in chart_df.columns
-    and
-    not chart_df[
-        "body_fat"
-    ].dropna().empty
-):
+fat_chart = make_body_chart(
+    data=chart_df,
+    value_column="body_fat",
+    label="体脂肪率",
+    unit="%",
+    minimum_margin=2.0,
+)
 
-    fat_df = (
-        chart_df[
-            [
-                "log_date",
-                "body_fat",
-            ]
-        ]
-        .dropna()
-        .set_index(
-            "log_date"
-        )
-        .rename(
-            columns={
-                "body_fat":
-                "体脂肪率（%）"
-            }
-        )
-    )
 
-    st.line_chart(
-        fat_df,
+if fat_chart is not None:
+
+    st.altair_chart(
+        fat_chart,
         use_container_width=True,
     )
 
@@ -469,54 +584,21 @@ st.markdown(
     "### 筋肉量"
 )
 
-if (
-    "muscle_mass"
-    in chart_df.columns
-):
+muscle_chart = make_body_chart(
+    data=chart_df,
+    value_column="muscle_mass",
+    label="筋肉量",
+    unit="kg",
+    minimum_margin=1.0,
+)
 
-    muscle_chart_df = (
-        chart_df[
-            [
-                "log_date",
-                "muscle_mass",
-            ]
-        ]
-        .dropna()
+
+if muscle_chart is not None:
+
+    st.altair_chart(
+        muscle_chart,
+        use_container_width=True,
     )
-
-    muscle_chart_df = (
-        muscle_chart_df[
-            muscle_chart_df[
-                "muscle_mass"
-            ] > 0
-        ]
-    )
-
-    if not muscle_chart_df.empty:
-
-        muscle_chart_df = (
-            muscle_chart_df
-            .set_index(
-                "log_date"
-            )
-            .rename(
-                columns={
-                    "muscle_mass":
-                    "筋肉量（kg）"
-                }
-            )
-        )
-
-        st.line_chart(
-            muscle_chart_df,
-            use_container_width=True,
-        )
-
-    else:
-
-        st.info(
-            "筋肉量の記録がまだありません。"
-        )
 
 else:
 
@@ -532,35 +614,19 @@ st.markdown(
     "### 体重"
 )
 
-if (
-    "weight" in chart_df.columns
-    and
-    not chart_df[
-        "weight"
-    ].dropna().empty
-):
+weight_chart = make_body_chart(
+    data=chart_df,
+    value_column="weight",
+    label="体重",
+    unit="kg",
+    minimum_margin=2.0,
+)
 
-    weight_df = (
-        chart_df[
-            [
-                "log_date",
-                "weight",
-            ]
-        ]
-        .dropna()
-        .set_index(
-            "log_date"
-        )
-        .rename(
-            columns={
-                "weight":
-                "体重（kg）"
-            }
-        )
-    )
 
-    st.line_chart(
-        weight_df,
+if weight_chart is not None:
+
+    st.altair_chart(
+        weight_chart,
         use_container_width=True,
     )
 
@@ -569,7 +635,6 @@ else:
     st.info(
         "体重の記録がまだありません。"
     )
-
 
 # =========================================================
 # 最近の変化
