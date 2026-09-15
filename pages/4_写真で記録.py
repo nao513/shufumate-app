@@ -624,24 +624,21 @@ render_section_header(
     emoji="✨",
 )
 
+future_html = (
+    '<div class="photo-result-card">'
+    '<div class="photo-result-title">写真から自動で記録</div>'
+    '今後は写真を見て、料理や食材をShufuMateが候補として表示。'
+    '内容を確認・修正して、そのまま記録できるようにします。'
+    '<br><br>'
+    'さらに記録した食事から、'
+    '「今日はたんぱく質が少なそう」'
+    '「夜は野菜を足そう」'
+    'など、次の食事につながる提案もできる形にします。'
+    '</div>'
+)
+
 st.markdown(
-    """
-    <div class="photo-result-card">
-        <div class="photo-result-title">
-            写真から自動で記録
-        </div>
-
-        今後は写真を見て、料理や食材をShufuMateが候補として表示。
-        内容を確認・修正して、そのまま記録できるようにします。
-
-        <br><br>
-
-        さらに記録した食事から、
-        「今日はたんぱく質が少なそう」
-        「夜は野菜を足そう」
-        など、次の食事につながる提案もできる形にします。
-    </div>
-    """,
+    future_html,
     unsafe_allow_html=True,
 )
 
@@ -649,13 +646,17 @@ st.markdown(
 # =========================================================
 # 注意
 # =========================================================
+note_html = (
+    '<div class="photo-small">'
+    '写真だけでは食材や量を正確に判断できない場合があります。'
+    '自動解析を追加した後も、最終的な食事内容は'
+    '確認・修正して保存できる設計にします。'
+    '</div>'
+)
+
 st.markdown(
-    """
-    <div class="photo-small">
-        写真だけでは食材や量を正確に判断できない場合があります。
-        自動解析を追加した後も、最終的な食事内容は
-        確認・修正して保存できる設計にします。
-    </div>
-    """,
+    note_html,
+    unsafe_allow_html=True,
+)
     unsafe_allow_html=True,
 )
