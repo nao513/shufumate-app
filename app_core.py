@@ -1201,3 +1201,726 @@ def detect_meal_type_by_time(
 
     else:
         return "間食"
+
+# =========================================================
+# ShufuMate 共通UI
+# =========================================================
+from pathlib import Path
+from PIL import Image
+import base64
+import html
+import textwrap
+
+
+# =========================================================
+# アプリ・アイコンパス
+# =========================================================
+APP_ROOT = Path(__file__).resolve().parent
+ICON_DIR = APP_ROOT / "assets" / "icons"
+
+
+# =========================================================
+# アイコン読み込み
+# =========================================================
+def get_page_icon(
+    filename,
+    fallback="🌿",
+):
+    path = ICON_DIR / filename
+
+    if path.exists():
+        try:
+            return Image.open(path)
+        except Exception:
+            return fallback
+
+    return fallback
+
+
+def file_to_base64(path):
+
+    if not path.exists():
+        return None
+
+    suffix = path.suffix.lower()
+
+    if suffix == ".png":
+        mime = "image/png"
+
+    elif suffix in [
+        ".jpg",
+        ".jpeg",
+    ]:
+        mime = "image/jpeg"
+
+    elif suffix == ".webp":
+        mime = "image/webp"
+
+    else:
+        mime = "image/png"
+
+    data = base64.b64encode(
+        path.read_bytes()
+    ).decode("utf-8")
+
+    return (
+        f"data:{mime};base64,{data}"
+    )
+
+
+def load_icon(filename):
+
+    if not filename:
+        return None
+
+    path = ICON_DIR / filename
+
+    if not path.exists():
+        return None
+
+    return file_to_base64(path)
+
+
+# =========================================================
+# HTML安全処理
+# =========================================================
+def safe_text(value):
+
+    return html.escape(
+        str(value)
+    )
+
+
+def safe_html_with_br(value):
+
+    return html.escape(
+        str(value)
+    ).replace(
+        "\n",
+        "<br>",
+    )
+
+
+# =========================================================
+# ShufuMate 共通CSS
+# =========================================================
+def inject_shufumate_css():
+
+    st.markdown(
+        """
+<style>
+
+/* =========================================
+   ShufuMate 全体
+========================================= */
+
+.stApp {
+    background:
+        linear-gradient(
+            180deg,
+            #fffaf4 0%,
+            #fff4e8 48%,
+            #fffaf4 100%
+        );
+}
+
+.block-container {
+    max-width: 820px;
+    padding-top: 2.4rem;
+    padding-bottom: 3rem;
+}
+
+
+/* =========================================
+   ページヘッダー
+========================================= */
+
+.sm-top-card {
+    background: #ffffff;
+
+    border-radius: 26px;
+
+    padding: 22px;
+
+    margin-bottom: 18px;
+
+    border:
+        1px solid
+        rgba(139, 100, 72, 0.12);
+
+    box-shadow:
+        0 8px 24px
+        rgba(96, 65, 45, 0.09);
+}
+
+.sm-page-head {
+    display: flex;
+    align-items: center;
+    gap: 17px;
+}
+
+.sm-page-head-icon {
+    width: 78px;
+    min-width: 78px;
+    height: 78px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    overflow: hidden;
+
+    border-radius: 21px;
+
+    background: #fff8ef;
+
+    border:
+        1px solid
+        rgba(139, 100, 72, 0.12);
+
+    box-shadow:
+        0 4px 12px
+        rgba(96, 65, 45, 0.08);
+}
+
+.sm-page-head-icon img {
+    width: 68px;
+    height: 68px;
+
+    object-fit: contain;
+
+    border-radius: 17px;
+}
+
+.sm-page-title {
+    color: #5c4033;
+
+    font-size: 1.75rem;
+    font-weight: 900;
+
+    line-height: 1.3;
+
+    margin-bottom: 5px;
+}
+
+.sm-page-subtitle {
+    color: #7b6658;
+
+    font-size: 0.95rem;
+    font-weight: 600;
+
+    line-height: 1.7;
+}
+
+
+/* =========================================
+   セクション
+========================================= */
+
+.sm-section-head {
+    display: flex;
+    align-items: center;
+
+    gap: 12px;
+
+    margin:
+        28px 0 12px 0;
+}
+
+.sm-section-icon {
+    width: 50px;
+    min-width: 50px;
+    height: 50px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    overflow: hidden;
+
+    border-radius: 15px;
+
+    background: #ffffff;
+
+    border:
+        1px solid
+        rgba(139, 100, 72, 0.12);
+
+    box-shadow:
+        0 3px 10px
+        rgba(96, 65, 45, 0.08);
+}
+
+.sm-section-icon img {
+    width: 44px;
+    height: 44px;
+
+    object-fit: contain;
+
+    border-radius: 12px;
+}
+
+.sm-section-emoji {
+    font-size: 1.45rem;
+    line-height: 1;
+}
+
+.sm-section-title {
+    color: #5c4033;
+
+    font-size: 1.22rem;
+    font-weight: 900;
+}
+
+
+/* =========================================
+   案内カード
+========================================= */
+
+.sm-note-card {
+    background: #fffdf8;
+
+    border:
+        1px solid
+        rgba(139, 100, 72, 0.14);
+
+    border-radius: 18px;
+
+    padding: 14px 17px;
+
+    margin:
+        0 0 18px 0;
+
+    color: #755544;
+
+    font-size: 0.92rem;
+
+    line-height: 1.75;
+}
+
+
+/* =========================================
+   通常カード
+========================================= */
+
+.sm-card {
+    background: #ffffff;
+
+    border:
+        1px solid
+        rgba(139, 100, 72, 0.12);
+
+    border-radius: 20px;
+
+    padding: 18px;
+
+    margin-bottom: 16px;
+
+    color: #5c4033;
+
+    box-shadow:
+        0 4px 14px
+        rgba(96, 65, 45, 0.06);
+}
+
+
+/* =========================================
+   強調カード
+========================================= */
+
+.sm-focus-card {
+    background: #fff8ef;
+
+    border:
+        1px solid
+        rgba(139, 100, 72, 0.13);
+
+    border-radius: 20px;
+
+    padding: 17px;
+
+    margin-bottom: 16px;
+
+    color: #6b4c3b;
+
+    line-height: 1.8;
+}
+
+
+/* =========================================
+   AI・回答カード
+========================================= */
+
+.sm-answer-card {
+    background: #f2f8ef;
+
+    border:
+        1px solid
+        rgba(79, 133, 81, 0.18);
+
+    border-radius: 20px;
+
+    padding: 18px;
+
+    margin-bottom: 18px;
+
+    color: #466148;
+
+    font-size: 0.94rem;
+
+    line-height: 1.85;
+}
+
+
+/* =========================================
+   区切り線
+========================================= */
+
+.sm-divider {
+    height: 1px;
+
+    background:
+        rgba(139, 100, 72, 0.17);
+
+    margin:
+        30px 0 10px 0;
+}
+
+
+/* =========================================
+   入力ラベル
+========================================= */
+
+div[data-testid="stTextInput"] label,
+div[data-testid="stTextArea"] label,
+div[data-testid="stNumberInput"] label,
+div[data-testid="stSelectbox"] label,
+div[data-testid="stMultiSelect"] label,
+div[data-testid="stRadio"] label,
+div[data-testid="stFileUploader"] label,
+div[data-testid="stCameraInput"] label {
+
+    color: #5c4033;
+
+    font-weight: 700;
+}
+
+
+/* =========================================
+   入力欄
+========================================= */
+
+input,
+textarea {
+    border-radius: 13px !important;
+}
+
+
+/* =========================================
+   ボタン
+========================================= */
+
+.stButton > button,
+.stFormSubmitButton > button {
+
+    background-color: #8d6e63;
+
+    color: #ffffff;
+
+    border: none;
+
+    border-radius: 14px;
+
+    min-height: 48px;
+
+    padding:
+        0.70rem 1rem;
+
+    font-size: 0.96rem;
+
+    font-weight: 800;
+
+    box-shadow:
+        0 3px 8px
+        rgba(96, 65, 45, 0.10);
+}
+
+.stButton > button:hover,
+.stFormSubmitButton > button:hover {
+
+    background-color: #76594f;
+
+    color: #ffffff;
+
+    border: none;
+}
+
+
+/* =========================================
+   画像
+========================================= */
+
+div[data-testid="stImage"] img {
+    border-radius: 18px;
+}
+
+
+/* =========================================
+   スマホ
+========================================= */
+
+@media (max-width: 640px) {
+
+    .block-container {
+
+        padding-top: 1.3rem;
+
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+
+    .sm-top-card {
+
+        padding: 16px;
+
+        border-radius: 22px;
+    }
+
+    .sm-page-head {
+
+        gap: 12px;
+    }
+
+    .sm-page-head-icon {
+
+        width: 64px;
+        min-width: 64px;
+        height: 64px;
+
+        border-radius: 18px;
+    }
+
+    .sm-page-head-icon img {
+
+        width: 56px;
+        height: 56px;
+    }
+
+    .sm-page-title {
+
+        font-size: 1.42rem;
+    }
+
+    .sm-page-subtitle {
+
+        font-size: 0.84rem;
+    }
+
+    .sm-section-icon {
+
+        width: 45px;
+        min-width: 45px;
+        height: 45px;
+    }
+
+    .sm-section-icon img {
+
+        width: 39px;
+        height: 39px;
+    }
+
+    .sm-section-title {
+
+        font-size: 1.08rem;
+    }
+}
+
+</style>
+""",
+        unsafe_allow_html=True,
+    )
+
+
+# =========================================================
+# ページヘッダー
+# =========================================================
+def render_page_header(
+    title,
+    subtitle="",
+    icon_file=None,
+    emoji="🌿",
+):
+
+    icon_src = (
+        load_icon(icon_file)
+        if icon_file
+        else None
+    )
+
+    if icon_src:
+
+        icon_html = (
+            f'<img src="{icon_src}" '
+            f'alt="{safe_text(title)}">'
+        )
+
+    else:
+
+        icon_html = (
+            f'<div class="sm-section-emoji">'
+            f'{safe_text(emoji)}'
+            f'</div>'
+        )
+
+    html_code = f"""
+<div class="sm-top-card">
+<div class="sm-page-head">
+<div class="sm-page-head-icon">{icon_html}</div>
+<div>
+<div class="sm-page-title">{safe_text(title)}</div>
+<div class="sm-page-subtitle">{safe_html_with_br(subtitle)}</div>
+</div>
+</div>
+</div>
+"""
+
+    st.markdown(
+        textwrap.dedent(
+            html_code
+        ).strip(),
+        unsafe_allow_html=True,
+    )
+
+
+# =========================================================
+# セクション見出し
+# =========================================================
+def render_section_header(
+    title,
+    icon_file=None,
+    emoji="🌿",
+):
+
+    icon_src = (
+        load_icon(icon_file)
+        if icon_file
+        else None
+    )
+
+    if icon_src:
+
+        icon_html = (
+            f'<img src="{icon_src}" '
+            f'alt="{safe_text(title)}">'
+        )
+
+    else:
+
+        icon_html = (
+            f'<div class="sm-section-emoji">'
+            f'{safe_text(emoji)}'
+            f'</div>'
+        )
+
+    html_code = f"""
+<div class="sm-section-head">
+<div class="sm-section-icon">{icon_html}</div>
+<div class="sm-section-title">{safe_text(title)}</div>
+</div>
+"""
+
+    st.markdown(
+        textwrap.dedent(
+            html_code
+        ).strip(),
+        unsafe_allow_html=True,
+    )
+
+
+# =========================================================
+# 案内カード
+# =========================================================
+def render_note(
+    text
+):
+
+    html_code = f"""
+<div class="sm-note-card">{safe_html_with_br(text)}</div>
+"""
+
+    st.markdown(
+        textwrap.dedent(
+            html_code
+        ).strip(),
+        unsafe_allow_html=True,
+    )
+
+
+# =========================================================
+# 通常カード
+# =========================================================
+def render_card(
+    text
+):
+
+    html_code = f"""
+<div class="sm-card">{safe_html_with_br(text)}</div>
+"""
+
+    st.markdown(
+        textwrap.dedent(
+            html_code
+        ).strip(),
+        unsafe_allow_html=True,
+    )
+
+
+# =========================================================
+# 強調カード
+# =========================================================
+def render_focus_card(
+    text
+):
+
+    html_code = f"""
+<div class="sm-focus-card">{safe_html_with_br(text)}</div>
+"""
+
+    st.markdown(
+        textwrap.dedent(
+            html_code
+        ).strip(),
+        unsafe_allow_html=True,
+    )
+
+
+# =========================================================
+# AI・回答カード
+# =========================================================
+def render_answer_card(
+    text
+):
+
+    html_code = f"""
+<div class="sm-answer-card">{safe_html_with_br(text)}</div>
+"""
+
+    st.markdown(
+        textwrap.dedent(
+            html_code
+        ).strip(),
+        unsafe_allow_html=True,
+    )
+
+
+# =========================================================
+# 区切り
+# =========================================================
+def render_divider():
+
+    st.markdown(
+        '<div class="sm-divider"></div>',
+        unsafe_allow_html=True,
+    )
+
+
