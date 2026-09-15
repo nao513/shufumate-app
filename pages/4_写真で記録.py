@@ -1,12 +1,11 @@
 # =========================================================
 # ShufuMate
 # 4_写真で記録.py
-# 完全版
+# 完全置換版
 # =========================================================
 
 import streamlit as st
 import pandas as pd
-from datetime import datetime
 
 from app_core import *
 
@@ -23,16 +22,8 @@ st.set_page_config(
     layout="centered",
 )
 
-
-# =========================================================
-# 共通デザイン
-# =========================================================
 inject_shufumate_css()
 
-
-# =========================================================
-# ログイン確認
-# =========================================================
 require_login()
 
 user_id = get_user_id()
@@ -43,89 +34,82 @@ user_id = get_user_id()
 # =========================================================
 st.markdown(
     """
-    <style>
+<style>
+.photo-intro {
+    background: rgba(255,250,244,.95);
+    border: 1px solid rgba(139,100,72,.12);
+    border-radius: 20px;
+    padding: 17px 19px;
+    color: #6e584c;
+    line-height: 1.85;
+    margin-bottom: 18px;
+}
 
-    .photo-intro {
-        background: rgba(255,250,244,.95);
-        border: 1px solid rgba(139,100,72,.12);
-        border-radius: 20px;
-        padding: 17px 19px;
-        color: #6e584c;
-        line-height: 1.85;
-        margin-bottom: 18px;
-    }
+.photo-step {
+    background: rgba(255,255,255,.82);
+    border: 1px solid rgba(139,100,72,.11);
+    border-radius: 18px;
+    padding: 15px 17px;
+    margin: 8px 0 15px 0;
+    color: #665044;
+    line-height: 1.75;
+}
 
-    .photo-step {
-        background: rgba(255,255,255,.82);
-        border: 1px solid rgba(139,100,72,.11);
-        border-radius: 18px;
-        padding: 15px 17px;
-        margin: 8px 0 15px 0;
-        color: #665044;
-        line-height: 1.75;
-    }
+.photo-step-number {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: #9b7a69;
+    color: white;
+    font-weight: 800;
+    margin-right: 7px;
+}
 
-    .photo-step-number {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        width: 28px;
-        height: 28px;
-        border-radius: 50%;
-        background: #9b7a69;
-        color: white;
-        font-weight: 800;
-        margin-right: 7px;
-    }
+.photo-result-card {
+    background: linear-gradient(
+        135deg,
+        rgba(255,250,243,.98),
+        rgba(249,239,227,.98)
+    );
+    border: 1px solid rgba(139,100,72,.14);
+    border-radius: 21px;
+    padding: 18px 20px;
+    color: #5d473b;
+    line-height: 1.9;
+    margin-top: 12px;
+    margin-bottom: 14px;
+}
 
-    .photo-preview {
-        background: rgba(255,255,255,.88);
-        border: 1px solid rgba(139,100,72,.11);
-        border-radius: 20px;
-        padding: 13px;
-        margin-bottom: 15px;
-    }
+.photo-result-title {
+    color: #5c4033;
+    font-weight: 900;
+    font-size: 1.05rem;
+    margin-bottom: 7px;
+}
 
-    .photo-result-card {
-        background: linear-gradient(
-            135deg,
-            rgba(255,250,243,.98),
-            rgba(249,239,227,.98)
-        );
-        border: 1px solid rgba(139,100,72,.14);
-        border-radius: 21px;
-        padding: 18px 20px;
-        color: #5d473b;
-        line-height: 1.9;
-        margin-top: 12px;
-    }
+.photo-small {
+    color: #917b70;
+    font-size: .85rem;
+    line-height: 1.7;
+    margin-top: 10px;
+}
 
-    .photo-result-title {
-        color: #5c4033;
-        font-weight: 900;
-        margin-bottom: 7px;
-    }
+div[data-testid="stFileUploader"] {
+    background: rgba(255,255,255,.60);
+    border-radius: 18px;
+}
 
-    .photo-small {
-        color: #917b70;
-        font-size: .85rem;
-        line-height: 1.7;
-    }
+div[data-testid="stTextArea"] textarea {
+    border-radius: 15px !important;
+}
 
-    div[data-testid="stFileUploader"] {
-        background: rgba(255,255,255,.60);
-        border-radius: 18px;
-    }
-
-    div[data-testid="stTextArea"] textarea {
-        border-radius: 15px !important;
-    }
-
-    div[data-testid="stImage"] img {
-        border-radius: 17px;
-    }
-
-    </style>
+div[data-testid="stImage"] img {
+    border-radius: 17px;
+}
+</style>
     """,
     unsafe_allow_html=True,
 )
@@ -134,28 +118,18 @@ st.markdown(
 # =========================================================
 # 補助関数
 # =========================================================
-def get_latest_body_values():
-
+def latest_body_values():
     try:
-
-        df = load_diet_dataframe(
-            user_id
-        )
-
+        df = load_diet_dataframe(user_id)
     except Exception:
-
         return None, None, None
 
     if df is None or df.empty:
-
         return None, None, None
 
-    df = df.sort_values(
-        "log_date"
-    )
+    df = df.sort_values("log_date").reset_index(drop=True)
 
-    def latest_number(column):
-
+    def get_latest(column):
         if column not in df.columns:
             return None
 
@@ -164,28 +138,22 @@ def get_latest_body_values():
             errors="coerce",
         )
 
-        values = values[
-            values > 0
-        ]
+        values = values.dropna()
+        values = values[values > 0]
 
         if values.empty:
             return None
 
-        return float(
-            values.iloc[-1]
-        )
+        return float(values.iloc[-1])
 
     return (
-        latest_number("weight"),
-        latest_number("body_fat"),
-        latest_number("muscle_mass"),
+        get_latest("weight"),
+        get_latest("body_fat"),
+        get_latest("muscle_mass"),
     )
 
 
-def meal_label_to_prefix(
-    meal_type
-):
-
+def meal_prefix(meal_type):
     mapping = {
         "朝食": "朝",
         "昼食": "昼",
@@ -200,47 +168,46 @@ def meal_label_to_prefix(
     )
 
 
-def build_meal_memo(
+def make_meal_memo(
     meal_type,
     food_text,
     note_text,
 ):
-
-    prefix = meal_label_to_prefix(
-        meal_type
-    )
+    prefix = meal_prefix(meal_type)
 
     lines = []
 
-    if clean_text(food_text):
+    food = clean_text(food_text)
+    note = clean_text(note_text)
 
+    if food:
         lines.append(
-            f"{prefix}: "
-            f"{clean_text(food_text)}"
+            f"{prefix}: {food}"
         )
 
-    if clean_text(note_text):
-
+    if note:
         lines.append(
-            f"メモ: "
-            f"{clean_text(note_text)}"
+            f"メモ: {note}"
         )
 
     return "\n".join(lines)
 
 
 # =========================================================
-# セッション初期化
+# セッション
 # =========================================================
 if "photo_record_saved" not in st.session_state:
+    st.session_state["photo_record_saved"] = False
 
-    st.session_state[
-        "photo_record_saved"
-    ] = False
+if "photo_record_meal" not in st.session_state:
+    st.session_state["photo_record_meal"] = ""
+
+if "photo_record_food" not in st.session_state:
+    st.session_state["photo_record_food"] = ""
 
 
 # =========================================================
-# ページヘッダー
+# ヘッダー
 # =========================================================
 render_page_header(
     title="写真で記録",
@@ -253,18 +220,17 @@ render_page_header(
 )
 
 
-# =========================================================
-# 説明
-# =========================================================
+intro_html = (
+    '<div class="photo-intro">'
+    '食事を細かく入力するのが面倒な日は、'
+    '写真を1枚残して簡単に記録。'
+    '食べたものを少し入力しておけば、'
+    'あとの相談にも使いやすくなります。'
+    '</div>'
+)
+
 st.markdown(
-    """
-    <div class="photo-intro">
-        食事を細かく入力するのが面倒な日は、
-        写真を1枚残して簡単に記録。
-        食べたものを少し入力しておけば、
-        あとの相談にも使いやすくなります。
-    </div>
-    """,
+    intro_html,
     unsafe_allow_html=True,
 )
 
@@ -278,13 +244,15 @@ render_section_header(
     emoji="📷",
 )
 
+step1_html = (
+    '<div class="photo-step">'
+    '<span class="photo-step-number">1</span>'
+    '写真を撮るか、保存してある写真を選びます。'
+    '</div>'
+)
+
 st.markdown(
-    """
-    <div class="photo-step">
-        <span class="photo-step-number">1</span>
-        写真を撮るか、保存してある写真を選びます。
-    </div>
-    """,
+    step1_html,
     unsafe_allow_html=True,
 )
 
@@ -297,6 +265,7 @@ photo_method = st.radio(
     ],
     horizontal=True,
     label_visibility="collapsed",
+    key="photo_method",
 )
 
 
@@ -304,14 +273,12 @@ uploaded_photo = None
 
 
 if photo_method == "カメラで撮る":
-
     uploaded_photo = st.camera_input(
         "食事を撮影",
         key="meal_camera",
     )
 
 else:
-
     uploaded_photo = st.file_uploader(
         "写真を選択",
         type=[
@@ -323,11 +290,7 @@ else:
     )
 
 
-# =========================================================
-# 写真プレビュー
-# =========================================================
 if uploaded_photo is not None:
-
     st.image(
         uploaded_photo,
         caption="記録する写真",
@@ -344,14 +307,16 @@ render_section_header(
     emoji="🍽️",
 )
 
+step2_html = (
+    '<div class="photo-step">'
+    '<span class="photo-step-number">2</span>'
+    '分かる範囲で食べたものを入力します。'
+    '細かい量まで入力しなくても大丈夫です。'
+    '</div>'
+)
+
 st.markdown(
-    """
-    <div class="photo-step">
-        <span class="photo-step-number">2</span>
-        分かる範囲で食べたものを入力します。
-        細かい量まで入力しなくても大丈夫です。
-    </div>
-    """,
+    step2_html,
     unsafe_allow_html=True,
 )
 
@@ -366,6 +331,7 @@ meal_type = st.radio(
         "その他",
     ],
     horizontal=True,
+    key="photo_meal_type",
 )
 
 
@@ -376,6 +342,7 @@ food_text = st.text_area(
         "納豆、キウイ"
     ),
     height=100,
+    key="photo_food_text",
 )
 
 
@@ -386,6 +353,7 @@ note_text = st.text_area(
         "少しお腹が空いていた。"
     ),
     height=80,
+    key="photo_note_text",
 )
 
 
@@ -398,22 +366,24 @@ render_section_header(
     emoji="✓",
 )
 
+step3_html = (
+    '<div class="photo-step">'
+    '<span class="photo-step-number">3</span>'
+    '内容を確認して今日の記録に追加します。'
+    '</div>'
+)
+
 st.markdown(
-    """
-    <div class="photo-step">
-        <span class="photo-step-number">3</span>
-        内容を確認して今日の記録に追加します。
-    </div>
-    """,
+    step3_html,
     unsafe_allow_html=True,
 )
 
 
 # =========================================================
-# 現在の体組成値
+# 最新体組成
 # =========================================================
 latest_weight, latest_fat, latest_muscle = (
-    get_latest_body_values()
+    latest_body_values()
 )
 
 
@@ -421,11 +391,9 @@ with st.expander(
     "一緒に保存される体組成を見る",
     expanded=False,
 ):
-
     col1, col2, col3 = st.columns(3)
 
     with col1:
-
         st.metric(
             "体重",
             (
@@ -436,7 +404,6 @@ with st.expander(
         )
 
     with col2:
-
         st.metric(
             "体脂肪率",
             (
@@ -447,7 +414,6 @@ with st.expander(
         )
 
     with col3:
-
         st.metric(
             "筋肉量",
             (
@@ -459,83 +425,58 @@ with st.expander(
 
 
 # =========================================================
-# 保存
+# 保存ボタン
 # =========================================================
 if st.button(
     "この食事を記録する",
     key="photo_save_button",
     use_container_width=True,
 ):
-
     if uploaded_photo is None:
-
         st.warning(
             "食事の写真を撮るか選んでください。"
         )
 
     elif not clean_text(food_text):
-
         st.warning(
             "食べたものを入力してください。"
         )
 
     else:
-
-        meal_memo = build_meal_memo(
+        meal_memo = make_meal_memo(
             meal_type,
             food_text,
             note_text,
         )
 
         log_data = {
-            "log_date":
-                jst_today_str(),
-
-            "weight":
-                (
-                    latest_weight
-                    if latest_weight is not None
-                    else ""
-                ),
-
-            "body_fat":
-                (
-                    latest_fat
-                    if latest_fat is not None
-                    else ""
-                ),
-
-            "muscle_mass":
-                (
-                    latest_muscle
-                    if latest_muscle is not None
-                    else ""
-                ),
-
-            "meal_memo":
-                meal_memo,
+            "log_date": jst_today_str(),
+            "weight": (
+                latest_weight
+                if latest_weight is not None
+                else ""
+            ),
+            "body_fat": (
+                latest_fat
+                if latest_fat is not None
+                else ""
+            ),
+            "muscle_mass": (
+                latest_muscle
+                if latest_muscle is not None
+                else ""
+            ),
+            "meal_memo": meal_memo,
         }
 
         try:
-
-            # ---------------------------------------------
-            # DietLogsへ保存
-            # ---------------------------------------------
             save_diet_log(
                 user_id,
                 log_data,
             )
 
-
-            # ---------------------------------------------
-            # 写真情報
-            #
-            # 現在のapp_core.pyでは
-            # PhotoLogsは簡易保存のため、
-            # 対応関数がある場合だけ保存
-            # ---------------------------------------------
+            # 現在のapp_coreに写真ログ関数がある場合のみ実行
             try:
-
                 save_photo_meal_log(
                     user_id=user_id,
                     log_date=jst_today_str(),
@@ -543,11 +484,8 @@ if st.button(
                     food_text=food_text,
                     note_text=note_text,
                 )
-
             except Exception:
-
                 pass
-
 
             st.session_state[
                 "photo_record_saved"
@@ -559,43 +497,37 @@ if st.button(
 
             st.session_state[
                 "photo_record_food"
-            ] = clean_text(
-                food_text
-            )
+            ] = clean_text(food_text)
 
             st.success(
                 "食事を記録しました ✨"
             )
 
         except Exception as e:
-
             st.error(
                 "記録の保存中にエラーが発生しました。"
             )
-
-            st.caption(
-                str(e)
-            )
+            st.caption(str(e))
 
 
 # =========================================================
-# 保存後
+# 保存結果
 # =========================================================
 if st.session_state.get(
-    "photo_record_saved"
+    "photo_record_saved",
+    False,
 ):
-
-    saved_meal = (
+    saved_meal = clean_text(
         st.session_state.get(
             "photo_record_meal",
-            ""
+            "",
         )
     )
 
-    saved_food = (
+    saved_food = clean_text(
         st.session_state.get(
             "photo_record_food",
-            ""
+            "",
         )
     )
 
@@ -604,7 +536,8 @@ if st.session_state.get(
         '<div class="photo-result-title">'
         '記録できました'
         '</div>'
-        f'<strong>{safe_text(saved_meal)}</strong><br>'
+        f'<strong>{safe_text(saved_meal)}</strong>'
+        '<br>'
         f'{safe_text(saved_food)}'
         '</div>'
     )
@@ -616,7 +549,7 @@ if st.session_state.get(
 
 
 # =========================================================
-# AI解析予定
+# 今後のAI解析
 # =========================================================
 render_section_header(
     title="これからできること",
@@ -624,16 +557,22 @@ render_section_header(
     emoji="✨",
 )
 
+
 future_html = (
     '<div class="photo-result-card">'
-    '<div class="photo-result-title">写真から自動で記録</div>'
-    '今後は写真を見て、料理や食材をShufuMateが候補として表示。'
-    '内容を確認・修正して、そのまま記録できるようにします。'
+    '<div class="photo-result-title">'
+    '写真から自動で記録'
+    '</div>'
+    '今後は写真を見て、料理や食材を'
+    'ShufuMateが候補として表示。'
+    '内容を確認・修正して、'
+    'そのまま記録できるようにします。'
     '<br><br>'
     'さらに記録した食事から、'
     '「今日はたんぱく質が少なそう」'
-    '「夜は野菜を足そう」'
-    'など、次の食事につながる提案もできる形にします。'
+    '「夜は野菜を足そう」など、'
+    '次の食事につながる提案も'
+    'できる形にします。'
     '</div>'
 )
 
@@ -644,19 +583,19 @@ st.markdown(
 
 
 # =========================================================
-# 注意
+# 注意書き
 # =========================================================
 note_html = (
     '<div class="photo-small">'
-    '写真だけでは食材や量を正確に判断できない場合があります。'
-    '自動解析を追加した後も、最終的な食事内容は'
-    '確認・修正して保存できる設計にします。'
+    '写真だけでは食材や量を'
+    '正確に判断できない場合があります。'
+    '自動解析を追加した後も、'
+    '最終的な食事内容は確認・修正して'
+    '保存できる設計にします。'
     '</div>'
 )
 
 st.markdown(
     note_html,
-    unsafe_allow_html=True,
-)
     unsafe_allow_html=True,
 )
