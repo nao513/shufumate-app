@@ -856,25 +856,114 @@ def load_diet_logs(
         "DietLogs"
     )
 
-    data = sheet.get_all_records(
-        default_blank=""
-    )
+    # -----------------------------------------------------
+    # 文字列のまま取得
+    # -----------------------------------------------------
+    values = sheet.get_all_values()
+
+    if not values:
+        return []
+
+    if len(values) < 2:
+        return []
+
+
+    # -----------------------------------------------------
+    # ヘッダー
+    # 前後の空白も除去
+    # -----------------------------------------------------
+    headers = [
+        clean_text(header)
+        for header in values[0]
+    ]
+
 
     logs = []
 
-    for row in data:
 
-        row_user_id = clean_text(
-            row.get(
-                "user_id"
+    # -----------------------------------------------------
+    # データ行
+    # -----------------------------------------------------
+    for values_row in values[1:]:
+
+        # 列数が足りない場合は空欄で補う
+        padded_row = (
+            values_row
+            + [""] * (
+                len(headers)
+                - len(values_row)
             )
         )
 
-        if row_user_id == user_id:
-            logs.append(row)
+        row = {
+            headers[i]: padded_row[i]
+            for i in range(
+                len(headers)
+            )
+            if headers[i]
+        }
+
+
+        row_user_id = clean_text(
+            row.get(
+                "user_id",
+                ""
+            )
+        )
+
+
+        if row_user_id != user_id:
+            continue
+
+
+        # -------------------------------------------------
+        # 必要項目を確実に取得
+        # -------------------------------------------------
+        log = {
+            "user_id": row_user_id,
+
+            "log_date": clean_text(
+                row.get(
+                    "log_date",
+                    ""
+                )
+            ),
+
+            "weight": clean_text(
+                row.get(
+                    "weight",
+                    ""
+                )
+            ),
+
+            "body_fat": clean_text(
+                row.get(
+                    "body_fat",
+                    ""
+                )
+            ),
+
+            "muscle_mass": clean_text(
+                row.get(
+                    "muscle_mass",
+                    ""
+                )
+            ),
+
+            "meal_memo": clean_text(
+                row.get(
+                    "meal_memo",
+                    ""
+                )
+            ),
+        }
+
+        logs.append(
+            log
+        )
+
 
     return logs
-
 
 # =========================================================
 # グラフ用データ
