@@ -1,537 +1,632 @@
+# =========================================================
+# ShufuMate
+# 0_新規登録.py
+# 完全置換版
+# =========================================================
+
 import streamlit as st
 from datetime import date
+
 from app_core import *
 
-from pathlib import Path
-from PIL import Image
-import base64
-import html
 
-
-# =========================
-# パス・アイコン設定
-# =========================
-THIS_FILE = Path(__file__).resolve()
-
-if THIS_FILE.parent.name == "pages":
-    APP_ROOT = THIS_FILE.parent.parent
-else:
-    APP_ROOT = THIS_FILE.parent
-
-ICON_DIR = APP_ROOT / "assets" / "icons"
-
-
-def get_page_icon(filename, fallback="🆕"):
-    path = ICON_DIR / filename
-    if path.exists():
-        try:
-            return Image.open(path)
-        except Exception:
-            return fallback
-    return fallback
-
-
-# -----------------
+# =========================================================
 # ページ設定
-# -----------------
+# =========================================================
 st.set_page_config(
     page_title="新規登録｜ShufuMate",
-    page_icon=get_page_icon("register.png", "🆕"),
-    layout="centered"
+    page_icon="🌿",
+    layout="centered",
 )
 
-
-# =========================
-# 画像読み込み
-# =========================
-def file_to_base64(path):
-    if not path.exists():
-        return None
-
-    suffix = path.suffix.lower()
-
-    if suffix == ".png":
-        mime = "image/png"
-    elif suffix in [".jpg", ".jpeg"]:
-        mime = "image/jpeg"
-    elif suffix == ".webp":
-        mime = "image/webp"
-    else:
-        mime = "image/png"
-
-    data = base64.b64encode(path.read_bytes()).decode("utf-8")
-    return f"data:{mime};base64,{data}"
+inject_shufumate_css()
 
 
-def load_icon(filename):
-    if not filename:
-        return None
-
-    candidates = [
-        ICON_DIR / filename,
-        APP_ROOT / "assets" / "icons" / filename,
-    ]
-
-    for path in candidates:
-        if path.exists():
-            return file_to_base64(path)
-
-    return None
-
-
-def safe_text(value):
-    return html.escape(str(value))
-
-
-def safe_html_with_br(value):
-    return html.escape(str(value)).replace("\n", "<br>")
-
-
-# =========================
-# CSS
-# =========================
+# =========================================================
+# ページ専用CSS
+# =========================================================
 st.markdown(
     """
 <style>
-    .stApp {
-        background: linear-gradient(180deg, #fffaf4 0%, #fff4e8 45%, #fffaf4 100%);
-    }
+.register-intro {
+    background: rgba(255,250,244,.94);
+    border: 1px solid rgba(139,100,72,.12);
+    border-radius: 20px;
+    padding: 17px 19px;
+    color: #6d5649;
+    line-height: 1.85;
+    margin-bottom: 18px;
+}
 
-    .block-container {
-        max-width: 760px;
-        padding-top: 1.8rem;
-        padding-bottom: 2.5rem;
-    }
+.register-note {
+    background: rgba(255,255,255,.76);
+    border: 1px solid rgba(139,100,72,.11);
+    border-radius: 17px;
+    padding: 14px 16px;
+    color: #806b60;
+    font-size: .87rem;
+    line-height: 1.75;
+    margin-top: 13px;
+    margin-bottom: 16px;
+}
 
-    .top-card {
-        background: #ffffff;
-        border-radius: 26px;
-        padding: 24px 22px;
-        box-shadow: 0 8px 24px rgba(96, 65, 45, 0.10);
-        border: 1px solid rgba(139, 100, 72, 0.12);
-        margin-bottom: 18px;
-    }
+.register-success {
+    background: rgba(249,243,231,.95);
+    border: 1px solid rgba(139,100,72,.14);
+    border-radius: 20px;
+    padding: 18px 20px;
+    color: #60493d;
+    line-height: 1.9;
+    margin-bottom: 18px;
+}
 
-    .page-head {
-        display: flex;
-        align-items: center;
-        gap: 16px;
-    }
+.register-success-title {
+    color: #5c4033;
+    font-weight: 900;
+    font-size: 1.08rem;
+    margin-bottom: 7px;
+}
 
-    .page-head-icon {
-        width: 74px;
-        min-width: 74px;
-        height: 74px;
-        border-radius: 22px;
-        background: #fff8ef;
-        border: 1px solid rgba(139, 100, 72, 0.12);
-        box-shadow: 0 4px 12px rgba(96, 65, 45, 0.09);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        overflow: hidden;
-    }
+div[data-testid="stForm"] {
+    background: rgba(255,255,255,.70);
+    border: 1px solid rgba(139,100,72,.12);
+    border-radius: 22px;
+    padding: 22px;
+}
 
-    .page-head-icon img {
-        width: 58px;
-        height: 58px;
-        object-fit: contain;
-    }
-
-    .page-head-emoji {
-        font-size: 2.1rem;
-        line-height: 1;
-    }
-
-    .page-title {
-        font-size: 1.75rem;
-        font-weight: 900;
-        color: #5c4033;
-        margin-bottom: 5px;
-    }
-
-    .page-subtitle {
-        font-size: 0.95rem;
-        color: #7b6658;
-        line-height: 1.7;
-        font-weight: 600;
-    }
-
-    .card {
-        background: #ffffff;
-        border-radius: 24px;
-        padding: 20px 18px;
-        box-shadow: 0 6px 18px rgba(96, 65, 45, 0.08);
-        border: 1px solid rgba(139, 100, 72, 0.10);
-        margin-bottom: 18px;
-    }
-
-    .section-head {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        margin: 8px 0 16px 0;
-    }
-
-    .section-head-icon {
-        width: 52px;
-        min-width: 52px;
-        height: 52px;
-        border-radius: 17px;
-        background: #ffffff;
-        border: 1px solid rgba(139, 100, 72, 0.12);
-        box-shadow: 0 4px 12px rgba(96, 65, 45, 0.09);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        overflow: hidden;
-    }
-
-    .section-head-icon img {
-        width: 40px;
-        height: 40px;
-        object-fit: contain;
-    }
-
-    .section-head-emoji {
-        font-size: 1.45rem;
-        line-height: 1;
-    }
-
-    .section-head-title {
-        font-size: 1.18rem;
-        font-weight: 900;
-        color: #5c4033;
-        line-height: 1.2;
-    }
-
-    .note-card {
-        background: #fff8ef;
-        border-radius: 20px;
-        padding: 14px 16px;
-        color: #7b6658;
-        font-size: 0.88rem;
-        line-height: 1.7;
-        border: 1px solid rgba(139, 100, 72, 0.10);
-        margin-bottom: 18px;
-    }
-
-    .success-card {
-        background: #eef8ef;
-        border-radius: 20px;
-        padding: 16px;
-        border: 1px solid rgba(78, 140, 82, 0.14);
-        color: #316c37;
-        font-size: 0.95rem;
-        font-weight: 700;
-        line-height: 1.7;
-        margin-bottom: 18px;
-    }
-
-    .stButton > button,
-    .stFormSubmitButton > button {
-        background-color: #8d6e63;
-        color: #ffffff;
-        border: none;
-        border-radius: 14px;
-        padding: 0.75rem 1rem;
-        font-size: 1rem;
-        font-weight: 800;
-    }
-
-    .stButton > button:hover,
-    .stFormSubmitButton > button:hover {
-        background-color: #76594f;
-        color: #ffffff;
-    }
-
-    div[data-testid="stTextInput"] label,
-    div[data-testid="stSelectbox"] label {
-        color: #5c4033;
-        font-weight: 700;
-    }
-
-    @media (max-width: 640px) {
-        .block-container {
-            padding-left: 1rem;
-            padding-right: 1rem;
-            padding-top: 1.2rem;
-        }
-
-        .top-card {
-            padding: 20px 17px;
-        }
-
-        .page-head-icon {
-            width: 62px;
-            min-width: 62px;
-            height: 62px;
-            border-radius: 19px;
-        }
-
-        .page-head-icon img {
-            width: 48px;
-            height: 48px;
-        }
-
-        .page-title {
-            font-size: 1.45rem;
-        }
-
-        .page-subtitle {
-            font-size: 0.88rem;
-        }
-
-        .section-head-icon {
-            width: 46px;
-            min-width: 46px;
-            height: 46px;
-            border-radius: 15px;
-        }
-
-        .section-head-icon img {
-            width: 35px;
-            height: 35px;
-        }
-
-        .section-head-title {
-            font-size: 1.08rem;
-        }
-    }
+div[data-baseweb="input"] > div {
+    border-radius: 14px !important;
+}
 </style>
-""",
-    unsafe_allow_html=True
+    """,
+    unsafe_allow_html=True,
 )
 
 
-# =========================
-# 表示用関数
-# =========================
-def render_page_header(title, subtitle, icon_file="register.png", emoji="🆕"):
-    icon_src = load_icon(icon_file)
+# =========================================================
+# すでにログイン済み
+# =========================================================
+if get_user_id():
 
-    if icon_src:
-        icon_html = f'<img src="{icon_src}" alt="{safe_text(title)}">'
-    else:
-        icon_html = f'<div class="page-head-emoji">{safe_text(emoji)}</div>'
-
-    st.markdown(
-        f"""
-<div class="top-card">
-    <div class="page-head">
-        <div class="page-head-icon">
-            {icon_html}
-        </div>
-        <div>
-            <div class="page-title">{safe_text(title)}</div>
-            <div class="page-subtitle">{safe_html_with_br(subtitle)}</div>
-        </div>
-    </div>
-</div>
-""",
-        unsafe_allow_html=True
+    render_page_header(
+        title="新規登録",
+        subtitle="現在ログインしています。",
+        icon_file="ShufuMate_home_icons_8/state.png",
+        emoji="🌿",
     )
 
-
-def render_section_header(title, icon_file=None, emoji=""):
-    icon_src = load_icon(icon_file) if icon_file else None
-
-    if icon_src:
-        icon_html = f'<img src="{icon_src}" alt="{safe_text(title)}">'
-    else:
-        icon_html = f'<div class="section-head-emoji">{safe_text(emoji)}</div>'
-
-    st.markdown(
-        f"""
-<div class="section-head">
-    <div class="section-head-icon">
-        {icon_html}
-    </div>
-    <div class="section-head-title">{safe_text(title)}</div>
-</div>
-""",
-        unsafe_allow_html=True
+    logged_html = (
+        '<div class="register-intro">'
+        'すでにアカウントへログインしています。'
+        '<br>'
+        '新しく登録する必要はありません。'
+        '</div>'
     )
 
-
-def render_note(text):
     st.markdown(
-        f"""
-<div class="note-card">
-    {safe_html_with_br(text)}
-</div>
-""",
-        unsafe_allow_html=True
+        logged_html,
+        unsafe_allow_html=True,
     )
 
-
-def render_success(text):
-    st.markdown(
-        f"""
-<div class="success-card">
-    {safe_html_with_br(text)}
-</div>
-""",
-        unsafe_allow_html=True
-    )
-
-
-# =========================
-# ヘッダー
-# =========================
-render_page_header(
-    title="新規登録",
-    subtitle="ShufuMateのアカウントを作成します。",
-    icon_file="register.png",
-    emoji="🆕"
-)
-
-render_note(
-    "ログインID・パスワード・ニックネーム・生年月日を入力してください。"
-)
-
-
-# -----------------
-# ログイン済みの場合
-# -----------------
-if is_logged_in():
-    user_id = get_user_id()
-
-    render_success(f"{user_id} さんはすでにログイン済みです。")
-
-    if st.button("ホームへ", use_container_width=True):
+    if st.button(
+        "Homeへ",
+        key="register_logged_home",
+        use_container_width=True,
+    ):
         st.switch_page("Home.py")
 
     st.stop()
 
 
-# -----------------
-# 年月日
-# -----------------
-current_year = date.today().year
-year_options = list(range(current_year, 1899, -1))
+# =========================================================
+# ヘッダー
+# =========================================================
+render_page_header(
+    title="新規登録",
+    subtitle=(
+        "ShufuMateをあなた専用にするための"
+        "最初の設定です。"
+    ),
+    icon_file="ShufuMate_home_icons_8/state.png",
+    emoji="🌿",
+)
 
 
-# =====================
+intro_html = (
+    '<div class="register-intro">'
+    'まずはログインに必要な情報を登録します。'
+    '<br>'
+    '体重や食事などの詳しい設定は、'
+    '登録後に「設定」ページから変更できます。'
+    '</div>'
+)
+
+st.markdown(
+    intro_html,
+    unsafe_allow_html=True,
+)
+
+
+# =========================================================
 # 新規登録フォーム
-# =====================
+# =========================================================
+with st.form(
+    "shufumate_register_form"
+):
 
-
-render_section_header("アカウント情報", icon_file="register.png", emoji="🆕")
-
-with st.form("register_form"):
+    st.markdown("### アカウント")
 
     login_id = st.text_input(
         "ログインID",
-        placeholder="例：naomi"
-    )
-
-    password = st.text_input(
-        "パスワード",
-        type="password",
-        placeholder="4文字以上"
-    )
-
-    password_confirm = st.text_input(
-        "パスワード（確認）",
-        type="password"
+        placeholder="例：nao0513",
+        key="register_login_id",
+        help=(
+            "ログインするときに使うIDです。"
+            "半角英数字をおすすめします。"
+        ),
     )
 
     nickname = st.text_input(
         "ニックネーム",
-        placeholder="例：なおみ"
+        placeholder="ShufuMateで表示する名前",
+        key="register_nickname",
     )
 
-    st.markdown("**生年月日**")
+    st.markdown("---")
 
-    col1, col2, col3 = st.columns(3)
+    st.markdown("### 生年月日")
 
-    with col1:
-        birth_year = st.selectbox(
-            "年",
-            options=year_options,
-            index=year_options.index(1976) if 1976 in year_options else 0,
-        )
+    birth_date = st.date_input(
+        "生年月日",
+        value=date(1980, 1, 1),
+        min_value=date(1920, 1, 1),
+        max_value=date.today(),
+        key="register_birth_date",
+    )
 
-    with col2:
-        birth_month = st.selectbox(
-            "月",
-            options=list(range(1, 13)),
-            index=0,
-        )
+    st.markdown("---")
 
-    with col3:
-        birth_day = st.selectbox(
-            "日",
-            options=list(range(1, 32)),
-            index=0,
-        )
+    st.markdown("### パスワード")
+
+    password = st.text_input(
+        "パスワード",
+        type="password",
+        placeholder="4文字以上",
+        key="register_password",
+    )
+
+    password_confirm = st.text_input(
+        "パスワード（確認）",
+        type="password",
+        placeholder="もう一度入力",
+        key="register_password_confirm",
+    )
+
+    agree = st.checkbox(
+        "入力した内容をShufuMateの記録・相談機能で使用することに同意します。",
+        key="register_agree",
+    )
 
     submitted = st.form_submit_button(
-        "登録する",
-        use_container_width=True
+        "ShufuMateをはじめる",
+        use_container_width=True,
     )
 
 
+# =========================================================
+# パスワード案内
+# =========================================================
+password_note = (
+    '<div class="register-note">'
+    '<strong>パスワードについて</strong>'
+    '<br>'
+    '数字だけでも登録できますが、'
+    '英字と数字を組み合わせるとより安全です。'
+    '<br>'
+    '他のサービスと同じパスワードの'
+    '使い回しは避けてください。'
+    '</div>'
+)
 
-# =====================
+st.markdown(
+    password_note,
+    unsafe_allow_html=True,
+)
+
+
+# =========================================================
 # 登録処理
-# =====================
+# =========================================================
 if submitted:
 
-    clean_login_id = str(login_id).strip()
-    clean_password = str(password).strip()
-    clean_password_confirm = str(password_confirm).strip()
-    clean_nickname = str(nickname).strip()
+    login_id_clean = clean_text(login_id)
+    nickname_clean = clean_text(nickname)
+    password_clean = clean_text(password)
+    password_confirm_clean = clean_text(
+        password_confirm
+    )
 
-    if not clean_login_id:
-        st.warning("ログインIDを入力してください")
+    error_message = None
 
-    elif not clean_password:
-        st.warning("パスワードを入力してください")
 
-    elif clean_password != clean_password_confirm:
-        st.error("パスワード確認が一致しません")
+    # -----------------------------------------------------
+    # 入力チェック
+    # -----------------------------------------------------
+    if not login_id_clean:
 
-    elif len(clean_password) < 4:
-        st.warning("パスワードは4文字以上にしてください")
+        error_message = (
+            "ログインIDを入力してください。"
+        )
 
+    elif " " in login_id_clean:
+
+        error_message = (
+            "ログインIDに空白は使用できません。"
+        )
+
+    elif len(login_id_clean) < 3:
+
+        error_message = (
+            "ログインIDは3文字以上で入力してください。"
+        )
+
+    elif not nickname_clean:
+
+        error_message = (
+            "ニックネームを入力してください。"
+        )
+
+    elif len(password_clean) < 4:
+
+        error_message = (
+            "パスワードは4文字以上で入力してください。"
+        )
+
+    elif (
+        password_clean
+        != password_confirm_clean
+    ):
+
+        error_message = (
+            "確認用パスワードが一致しません。"
+        )
+
+    elif not agree:
+
+        error_message = (
+            "内容を確認して同意欄にチェックしてください。"
+        )
+
+
+    # -----------------------------------------------------
+    # エラー
+    # -----------------------------------------------------
+    if error_message:
+
+        st.warning(
+            error_message
+        )
+
+
+    # -----------------------------------------------------
+    # 新規登録
+    # -----------------------------------------------------
     else:
-        try:
-            try:
-                birth_date = date(
-                    int(birth_year),
-                    int(birth_month),
-                    int(birth_day)
-                )
-            except ValueError:
-                st.error("生年月日が正しくありません")
-                st.stop()
 
-            user_record = create_user(
-                login_id=clean_login_id,
-                password=clean_password,
-                nickname=clean_nickname,
-                birth_date=birth_date,
+        try:
+
+            result = create_user(
+                login_id=login_id_clean,
+                password=password_clean,
+                nickname=nickname_clean,
+                birth_date=birth_date.strftime(
+                    "%Y-%m-%d"
+                ),
             )
 
-            if not user_record:
-                st.error("登録に失敗しました。ログインIDがすでに使われている可能性があります。")
-                st.stop()
 
-            login_user(user_record)
-
-            st.success("登録が完了しました")
-            st.switch_page("Home.py")
-
-        except Exception:
-            st.error("登録に失敗しました。入力内容を確認して、もう一度お試しください。")
+            # =================================================
+            # create_userの戻り値に対応
+            # =================================================
+            created_user_id = ""
 
 
-# -----------------
-# 下部ボタン
-# -----------------
-st.markdown("---")
+            if isinstance(
+                result,
+                str,
+            ):
 
-if st.button("ログイン画面へ", use_container_width=True):
-    st.switch_page("pages/0_ログイン.py")
+                created_user_id = (
+                    clean_text(result)
+                )
+
+
+            elif isinstance(
+                result,
+                dict,
+            ):
+
+                created_user_id = (
+                    clean_text(
+                        result.get(
+                            "user_id"
+                        )
+                    )
+                )
+
+
+            elif result is True:
+
+                # ---------------------------------------------
+                # create_userがTrueのみ返す場合は
+                # 登録直後に認証してuser_id取得
+                # ---------------------------------------------
+                auth_result = authenticate_user(
+                    login_id_clean,
+                    password_clean,
+                )
+
+                if isinstance(
+                    auth_result,
+                    str,
+                ):
+
+                    created_user_id = (
+                        clean_text(
+                            auth_result
+                        )
+                    )
+
+                elif isinstance(
+                    auth_result,
+                    dict,
+                ):
+
+                    created_user_id = (
+                        clean_text(
+                            auth_result.get(
+                                "user_id"
+                            )
+                        )
+                    )
+
+
+            # =================================================
+            # create_userまたはauthenticate_user側で
+            # session_state設定済みの場合
+            # =================================================
+            if not created_user_id:
+
+                created_user_id = (
+                    clean_text(
+                        get_user_id()
+                    )
+                )
+
+
+            # =================================================
+            # セッション設定
+            # =================================================
+            if created_user_id:
+
+                st.session_state[
+                    "user_id"
+                ] = created_user_id
+
+                st.session_state[
+                    "user_id_cookie"
+                ] = created_user_id
+
+
+                # ---------------------------------------------
+                # ログインIDも保持
+                # ---------------------------------------------
+                st.session_state[
+                    "login_id"
+                ] = login_id_clean
+
+
+                # ---------------------------------------------
+                # 初期設定も作成
+                # ---------------------------------------------
+                try:
+
+                    initial_settings = {
+                        "nickname":
+                            nickname_clean,
+
+                        "height":
+                            "",
+
+                        "current_weight":
+                            "",
+
+                        "target_weight":
+                            "",
+
+                        "current_body_fat":
+                            "",
+
+                        "target_body_fat":
+                            "",
+
+                        "user_type":
+                            "健康維持",
+
+                        "activity_level":
+                            "普通",
+
+                        "food_style":
+                            "特に決めていない",
+
+                        "constitution_traits":
+                            [],
+
+                        "advice_tone":
+                            "やさしく",
+
+                        "workout_today":
+                            "",
+
+                        "fridge_items":
+                            "",
+
+                        "avoid_foods":
+                            "",
+
+                        "favorite_meals":
+                            "",
+                    }
+
+                    save_user_settings(
+                        created_user_id,
+                        initial_settings,
+                    )
+
+                except Exception:
+                    # 初期設定保存に失敗しても
+                    # アカウント作成自体は有効
+                    pass
+
+
+                # ---------------------------------------------
+                # 完了状態
+                # ---------------------------------------------
+                st.session_state[
+                    "registration_complete"
+                ] = True
+
+                st.session_state[
+                    "registration_nickname"
+                ] = nickname_clean
+
+                st.rerun()
+
+
+            else:
+
+                st.error(
+                    "登録は行われましたが、"
+                    "ログイン情報を取得できませんでした。"
+                )
+
+                st.info(
+                    "ログインページから、"
+                    "登録したIDとパスワードで"
+                    "ログインしてください。"
+                )
+
+
+        except Exception as e:
+
+            error_text = str(e)
+
+            # ---------------------------------------------
+            # 重複IDなど
+            # ---------------------------------------------
+            if (
+                "duplicate" in error_text.lower()
+                or
+                "already" in error_text.lower()
+                or
+                "存在" in error_text
+            ):
+
+                st.error(
+                    "このログインIDはすでに使用されています。"
+                )
+
+                st.info(
+                    "別のログインIDを入力してください。"
+                )
+
+            else:
+
+                st.error(
+                    "新規登録中にエラーが発生しました。"
+                )
+
+                st.caption(
+                    error_text
+                )
+
+
+# =========================================================
+# 登録完了
+# =========================================================
+if st.session_state.get(
+    "registration_complete",
+    False,
+):
+
+    nickname_saved = clean_text(
+        st.session_state.get(
+            "registration_nickname",
+            "",
+        )
+    )
+
+    success_html = (
+        '<div class="register-success">'
+        '<div class="register-success-title">'
+        '登録できました ✨'
+        '</div>'
+        'ShufuMateを使い始められます。'
+        '<br>'
+        '次に「設定」で、目標や食事・運動の'
+        'スタイルを登録すると、'
+        'あなたに合った提案がしやすくなります。'
+        '</div>'
+    )
+
+    st.markdown(
+        success_html,
+        unsafe_allow_html=True,
+    )
+
+
+    if st.button(
+        "Homeへ",
+        key="register_complete_home",
+        use_container_width=True,
+    ):
+
+        st.session_state[
+            "registration_complete"
+        ] = False
+
+        st.switch_page(
+            "Home.py"
+        )
+
+
+# =========================================================
+# すでにアカウントがある方
+# =========================================================
+render_divider()
+
+
+existing_html = (
+    '<div class="register-note">'
+    '<strong>すでに登録済みの方</strong>'
+    '<br>'
+    '新しく登録せず、'
+    'ログインページから続けられます。'
+    '</div>'
+)
+
+st.markdown(
+    existing_html,
+    unsafe_allow_html=True,
+)
+
+
+if st.button(
+    "ログインへ",
+    key="register_go_login",
+    use_container_width=True,
+):
+
+    st.switch_page(
+        "pages/0_ログイン.py"
+    )
