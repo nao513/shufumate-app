@@ -8,7 +8,7 @@ from pathlib import Path
 from app_core import (
     require_login,
     get_user_id,
-    load_diet_logs,
+    c,
     jst_today,
 )
 
@@ -271,31 +271,57 @@ st.markdown(
 
 
 # =========================================================
-# DietLogs取得
+# DietLogs 取得
 # =========================================================
-logs = load_diet_logs(
-    user_id
-)
+def load_diet_logs(
+    user_id=None
+):
 
-df = pd.DataFrame()
+    if user_id is None:
+        user_id = get_user_id()
 
-
-if logs:
-
-    df = pd.DataFrame(
-        logs
+    user_id = clean_text(
+        user_id
     )
 
-    df.columns = [
-        str(col).strip()
-        for col in df.columns
+    if not user_id:
+        return []
+
+    sheet = get_sheet(
+        "DietLogs"
+    )
+
+    # 文字列のまま取得
+    values = sheet.get_all_values()
+
+    if not values:
+        return []
+
+    if len(values) < 2:
+        return []
+
+
+    # =====================================================
+    # ヘッダー
+    # =====================================================
+    raw_headers = [
+        clean_text(value)
+        for value in values[0]
     ]
 
 
-    # -----------------------------------------------------
+    # =====================================================
     # 列名の揺れを吸収
-    # -----------------------------------------------------
+    # =====================================================
     aliases = {
+
+        "user_id": [
+            "user_id",
+            "userid",
+            "user id",
+            "ユーザーid",
+            "ユーザーID",
+        ],
 
         "log_date": [
             "log_date",
@@ -327,83 +353,160 @@ if logs:
             "筋肉量(kg)",
             "筋肉量（kg）",
         ],
+
+        "meal_memo": [
+            "meal_memo",
+            "memo",
+            "食事メモ",
+            "食事・メモ",
+        ],
     }
 
 
-    for standard_name, candidates in aliases.items():
+    # =====================================================
+    # ヘッダーを標準名に変換
+    # =====================================================
+    headers = []
 
-        if standard_name not in df.columns:
-
-            for candidate in candidates:
-
-                if candidate in df.columns:
-
-                    df = df.rename(
-                        columns={
-                            candidate:
-                            standard_name
-                        }
-                    )
-
-                    break
-
-
-    # -----------------------------------------------------
-    # 旧DietLogs対応
-    # A=user_id
-    # B=log_date
-    # C=weight
-    # D=body_fat
-    # E=muscle_mass
-    # -----------------------------------------------------
-    if (
-        "muscle_mass" not in df.columns
-        and len(df.columns) >= 5
+    for index, header in enumerate(
+        raw_headers
     ):
 
-        df = df.rename(
-            columns={
-                df.columns[4]:
-                "muscle_mass"
+        normalized = header
+
+        for standard_name, candidates in aliases.items():
+
+            if header in candidates:
+
+                normalized = standard_name
+                break
+
+        headers.append(
+            normalized
+        )
+
+
+    # =====================================================
+    # 旧DietLogs対応
+    #
+    # A user_id
+    # B log_date
+    # C weight
+    # D body_fat
+    # E muscle_mass
+    # F meal_memo
+    # =====================================================
+    if len(headers) >= 1:
+        headers[0] = "user_id"
+
+    if len(headers) >= 2:
+        headers[1] = "log_date"
+
+    if len(headers) >= 3:
+        headers[2] = "weight"
+
+    if len(headers) >= 4:
+        headers[3] = "body_fat"
+
+    if len(headers) >= 5:
+        headers[4] = "muscle_mass"
+
+    if len(headers) >= 6:
+        headers[5] = "meal_memo"
+
+
+    # =====================================================
+    # データ取得
+    # =====================================================
+    logs = []
+
+
+    for values_row in values[1:]:
+
+        padded_row = (
+            values_row
+            + [""] * (
+                len(headers)
+                - len(values_row)
+            )
+        )
+
+
+        row = {}
+
+        for i, header in enumerate(
+            headers
+        ):
+
+            if not header:
+                continue
+
+            row[header] = clean_text(
+                padded_row[i]
+            )
+
+
+        # =================================================
+        # ユーザー判定
+        # =================================================
+        row_user_id = clean_text(
+            row.get(
+                "user_id",
+                ""
+            )
+        )
+
+
+        if row_user_id != user_id:
+            continue
+
+
+        # =================================================
+        # 標準形式で返す
+        # =================================================
+        logs.append(
+            {
+                "user_id": row_user_id,
+
+                "log_date": clean_text(
+                    row.get(
+                        "log_date",
+                        ""
+                    )
+                ),
+
+                "weight": clean_text(
+                    row.get(
+                        "weight",
+                        ""
+                    )
+                ),
+
+                "body_fat": clean_text(
+                    row.get(
+                        "body_fat",
+                        ""
+                    )
+                ),
+
+                "muscle_mass": clean_text(
+                    row.get(
+                        "muscle_mass",
+                        ""
+                    )
+                ),
+
+                "meal_memo": clean_text(
+                    row.get(
+                        "meal_memo",
+                        ""
+                    )
+                ),
             }
         )
 
 
-    # -----------------------------------------------------
-    # 日付
-    # -----------------------------------------------------
-    if "log_date" in df.columns:
-
-        df["log_date"] = pd.to_datetime(
-            df["log_date"],
-            errors="coerce",
-        )
-
-        df = df.dropna(
-            subset=["log_date"]
-        )
-
-        df = df.sort_values(
-            "log_date"
-        )
-
-
-    # -----------------------------------------------------
-    # 数値
-    # -----------------------------------------------------
-    for col in [
-        "weight",
-        "body_fat",
-        "muscle_mass",
-    ]:
-
-        if col in df.columns:
-
-            df[col] = pd.to_numeric(
-                df[col],
-                errors="coerce",
-            )
-
+    return logs
 
 # =========================================================
 # 最新有効値
