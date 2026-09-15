@@ -1,17 +1,17 @@
 # =========================================================
 # ShufuMate
-# 1_設定.py
-# 完全版
+# pages/1_設定.py
+# 完全置換版
 # =========================================================
 
 import streamlit as st
-from datetime import datetime, date
+from datetime import date, datetime
+
 from app_core import *
 
 
 # =========================================================
 # ページ設定
-# ※ 必ず最初のStreamlit命令
 # =========================================================
 st.set_page_config(
     page_title="設定｜ShufuMate",
@@ -22,291 +22,359 @@ st.set_page_config(
     layout="centered",
 )
 
-
-# =========================================================
-# 共通デザイン
-# =========================================================
 inject_shufumate_css()
 
-
-# =========================================================
-# ログイン
-# =========================================================
 require_login()
 
 user_id = get_user_id()
 
 
 # =========================================================
-# このページ専用CSS
+# ページ専用CSS
 # =========================================================
 st.markdown(
     """
-    <style>
+<style>
 
-    /* -----------------------------------------
-       設定グループ説明
-    ----------------------------------------- */
+.settings-intro {
+    background: rgba(255,250,244,.94);
+    border: 1px solid rgba(139,100,72,.12);
+    border-radius: 20px;
+    padding: 17px 19px;
+    color: #70594d;
+    line-height: 1.85;
+    margin-bottom: 20px;
+}
 
-    .setting-help {
-        color: #897469;
-        font-size: 0.88rem;
-        line-height: 1.75;
-        margin-top: -4px;
-        margin-bottom: 14px;
-    }
+.settings-age-card {
+    background: rgba(255,250,244,.90);
+    border: 1px solid rgba(139,100,72,.13);
+    border-radius: 18px;
+    padding: 15px 18px;
+    color: #705346;
+    font-size: 1rem;
+    margin-top: 8px;
+    margin-bottom: 15px;
+}
 
+.settings-section-title {
+    color: #5e4336;
+    font-size: 1.38rem;
+    font-weight: 900;
+    margin-top: 28px;
+    margin-bottom: 14px;
+}
 
-    /* -----------------------------------------
-       年齢表示
-    ----------------------------------------- */
+.settings-description {
+    color: #806a5d;
+    line-height: 1.8;
+    margin-bottom: 15px;
+}
 
-    .age-card {
-        background: #fff8ef;
-        border: 1px solid rgba(139,100,72,.12);
-        border-radius: 16px;
-        padding: 13px 15px;
-        margin-top: 5px;
-        margin-bottom: 12px;
-        color: #765747;
-    }
+.account-card {
+    background: rgba(255,255,255,.78);
+    border: 1px solid rgba(139,100,72,.13);
+    border-radius: 20px;
+    padding: 18px 20px;
+    margin-top: 8px;
+    margin-bottom: 16px;
+}
 
-    .age-card strong {
-        color: #5c4033;
-        font-size: 1.05rem;
-    }
+.account-label {
+    color: #947d70;
+    font-size: .84rem;
+    margin-bottom: 4px;
+}
 
+.account-value {
+    color: #5e463a;
+    font-weight: 800;
+    font-size: 1.05rem;
+}
 
-    /* -----------------------------------------
-       アカウント情報
-    ----------------------------------------- */
+.settings-small {
+    color: #927c70;
+    font-size: .84rem;
+    line-height: 1.7;
+}
 
-    .account-card {
-        background: rgba(255,255,255,.90);
-        border: 1px solid rgba(139,100,72,.12);
-        border-radius: 18px;
-        padding: 16px 18px;
-        color: #665044;
-        line-height: 1.8;
-        margin-bottom: 15px;
-    }
+div[data-baseweb="input"] > div {
+    border-radius: 14px !important;
+}
 
-    .account-label {
-        color: #947b6d;
-        font-size: .82rem;
-    }
+div[data-baseweb="select"] > div {
+    border-radius: 14px !important;
+}
 
-    .account-value {
-        color: #5c4033;
-        font-weight: 800;
-    }
+div[data-testid="stTextArea"] textarea {
+    border-radius: 14px !important;
+}
 
+div[data-testid="stNumberInput"] > div {
+    border-radius: 14px !important;
+}
 
-    /* -----------------------------------------
-       expander
-    ----------------------------------------- */
+div[data-testid="stExpander"] {
+    background: rgba(255,255,255,.68);
+    border: 1px solid rgba(139,100,72,.12);
+    border-radius: 18px;
+}
 
-    div[data-testid="stExpander"] {
-        background: rgba(255,255,255,.60);
-        border: 1px solid rgba(139,100,72,.12);
-        border-radius: 17px;
-        overflow: hidden;
-    }
-
-
-    /* -----------------------------------------
-       スマホ
-    ----------------------------------------- */
-
-    @media (max-width: 640px) {
-
-        .age-card {
-            padding: 11px 13px;
-        }
-
-    }
-
-    </style>
+</style>
     """,
     unsafe_allow_html=True,
 )
 
 
 # =========================================================
-# ローカル補助関数
+# 補助関数
 # =========================================================
-def local_text(value):
-
-    return clean_text(value)
-
-
-def local_float(
-    value,
-    default=0.0,
-):
-
+def to_float(value, default=0.0):
     try:
+        value = clean_text(value)
 
-        if value is None:
+        if value == "":
             return float(default)
 
-        text = clean_text(value)
-
-        if not text:
-            return float(default)
-
-        return float(text)
+        return float(value)
 
     except Exception:
-
         return float(default)
 
 
-def option_index(
-    options,
-    current_value,
-    default_index=0,
-):
-
-    current_value = clean_text(
-        current_value
-    )
-
-    if current_value in options:
-
-        return options.index(
-            current_value
-        )
-
-    return default_index
-
-
-def calculate_age(
-    birth_value
-):
-
-    birth_text = clean_text(
-        birth_value
-    )
-
-    if not birth_text:
+def calculate_age(birth_date_value):
+    if not birth_date_value:
         return None
 
     try:
+        if isinstance(birth_date_value, str):
+            birth = datetime.strptime(
+                birth_date_value[:10],
+                "%Y-%m-%d",
+            ).date()
 
-        birth = datetime.strptime(
-            birth_text,
+        elif isinstance(birth_date_value, datetime):
+            birth = birth_date_value.date()
+
+        else:
+            birth = birth_date_value
+
+        today = date.today()
+
+        return (
+            today.year
+            - birth.year
+            - (
+                (today.month, today.day)
+                <
+                (birth.month, birth.day)
+            )
+        )
+
+    except Exception:
+        return None
+
+
+def parse_birth_date(value):
+    if not value:
+        return date(1980, 1, 1)
+
+    try:
+        if isinstance(value, date):
+            return value
+
+        text = clean_text(value)
+
+        return datetime.strptime(
+            text[:10],
             "%Y-%m-%d",
         ).date()
 
     except Exception:
-
-        return None
-
-    today = jst_today().date()
-
-    age = (
-        today.year
-        - birth.year
-        - (
-            (today.month, today.day)
-            <
-            (birth.month, birth.day)
-        )
-    )
-
-    return age
+        return date(1980, 1, 1)
 
 
 # =========================================================
 # 設定読み込み
 # =========================================================
 try:
+    settings = load_user_settings(user_id) or {}
 
-    settings = (
-        load_user_settings(
-            user_id
-        )
-        or {}
-    )
-
-except Exception as e:
-
-    st.error(
-        "設定データを読み込めませんでした。"
-    )
-
-    st.caption(
-        str(e)
-    )
-
+except Exception:
     settings = {}
 
 
 # =========================================================
-# Usersプロフィール
+# 現在値
 # =========================================================
-try:
-
-    profile = (
-        load_current_user_profile(
-            user_id
-        )
-        or {}
-    )
-
-except Exception:
-
-    profile = {}
-
-
-# =========================================================
-# 初期値
-# =========================================================
-nickname_default = (
-    local_text(
-        profile.get("nickname")
-    )
-    or
-    local_text(
-        settings.get("nickname")
-    )
+nickname_default = clean_text(
+    settings.get("nickname", "")
 )
 
-
-birth_date_text = local_text(
-    profile.get("birth_date")
+birth_default = parse_birth_date(
+    settings.get("birth_date", "")
 )
 
-age = calculate_age(
-    birth_date_text
-)
-
-
-height_default = local_float(
-    settings.get("height"),
+height_default = to_float(
+    settings.get("height", ""),
     155.0,
 )
 
-current_weight_default = local_float(
-    settings.get("current_weight"),
-    50.0,
+current_weight_default = to_float(
+    settings.get("current_weight", ""),
+    0.0,
 )
 
-target_weight_default = local_float(
-    settings.get("target_weight"),
-    50.0,
+target_weight_default = to_float(
+    settings.get("target_weight", ""),
+    0.0,
 )
 
-current_fat_default = local_float(
-    settings.get("current_body_fat"),
-    20.0,
+current_body_fat_default = to_float(
+    settings.get("current_body_fat", ""),
+    0.0,
 )
 
-target_fat_default = local_float(
-    settings.get("target_body_fat"),
-    20.0,
+target_body_fat_default = to_float(
+    settings.get("target_body_fat", ""),
+    0.0,
 )
+
+user_type_default = clean_text(
+    settings.get(
+        "user_type",
+        "健康維持",
+    )
+)
+
+activity_default = clean_text(
+    settings.get(
+        "activity_level",
+        "普通",
+    )
+)
+
+food_style_default = clean_text(
+    settings.get(
+        "food_style",
+        "特に決めていない",
+    )
+)
+
+advice_tone_default = clean_text(
+    settings.get(
+        "advice_tone",
+        "やさしく",
+    )
+)
+
+workout_default = clean_text(
+    settings.get(
+        "workout_today",
+        "",
+    )
+)
+
+fridge_default = clean_text(
+    settings.get(
+        "fridge_items",
+        "",
+    )
+)
+
+avoid_default = clean_text(
+    settings.get(
+        "avoid_foods",
+        "",
+    )
+)
+
+favorite_default = clean_text(
+    settings.get(
+        "favorite_meals",
+        "",
+    )
+)
+
+
+# =========================================================
+# からだで気になること
+# =========================================================
+saved_traits = settings.get(
+    "constitution_traits",
+    [],
+)
+
+if isinstance(saved_traits, str):
+    saved_traits = [
+        item.strip()
+        for item in saved_traits.split(",")
+        if item.strip()
+    ]
+
+if not isinstance(saved_traits, list):
+    saved_traits = []
+
+
+# =========================================================
+# 選択肢
+# =========================================================
+goal_options = [
+    "健康維持",
+    "体重を減らしたい",
+    "体脂肪を減らしたい",
+    "筋肉をつけたい",
+    "体力をつけたい",
+    "食生活を整えたい",
+]
+
+activity_options = [
+    "少ない",
+    "普通",
+    "多い",
+]
+
+food_style_options = [
+    "特に決めていない",
+    "バランス重視",
+    "たんぱく質を意識",
+    "野菜を多めにしたい",
+    "糖質を少し控えたい",
+    "脂質を少し控えたい",
+]
+
+trait_options = [
+    "冷え",
+    "むくみ",
+    "疲れやすい",
+    "肩・首こり",
+    "腰の疲れ",
+    "便通",
+    "睡眠",
+    "食欲の波",
+]
+
+tone_options = [
+    "やさしく",
+    "シンプルに",
+    "しっかり",
+]
+
+
+# =========================================================
+# 不正な保存値への対応
+# =========================================================
+if user_type_default not in goal_options:
+    user_type_default = "健康維持"
+
+if activity_default not in activity_options:
+    activity_default = "普通"
+
+if food_style_default not in food_style_options:
+    food_style_default = "特に決めていない"
+
+if advice_tone_default not in tone_options:
+    advice_tone_default = "やさしく"
 
 
 # =========================================================
@@ -318,28 +386,31 @@ render_page_header(
         "あなたに合った提案ができるように、"
         "からだ・食事・運動の情報を設定します。"
     ),
-    icon_file=(
-        "ShufuMate_home_icons_8/settings.png"
-    ),
+    icon_file="ShufuMate_home_icons_8/settings.png",
     emoji="⚙️",
 )
 
 
 # =========================================================
 # 基本設定
+# アイコンはあえて付けない
 # =========================================================
-render_section_header(
-    title="基本設定",
-    icon_file=(
-        "ShufuMate_home_icons_8/settings.png"
-    ),
-    emoji="⚙️",
+st.markdown(
+    '<div class="settings-section-title">基本設定</div>',
+    unsafe_allow_html=True,
 )
 
-render_note(
-    "ここで設定した内容は、"
-    "ShufuMateの相談やおすすめを"
-    "あなた向けに調整するために使います。"
+intro_html = (
+    '<div class="settings-intro">'
+    'ここで設定した内容は、'
+    'ShufuMateの相談やおすすめを'
+    'あなた向けに調整するために使います。'
+    '</div>'
+)
+
+st.markdown(
+    intro_html,
+    unsafe_allow_html=True,
 )
 
 
@@ -349,56 +420,38 @@ render_note(
 nickname = st.text_input(
     "ニックネーム",
     value=nickname_default,
-    placeholder="例：nao",
+    placeholder="表示する名前",
+    key="settings_nickname",
 )
 
 
 # =========================================================
 # 生年月日
 # =========================================================
-if birth_date_text:
+birth_date_value = st.date_input(
+    "生年月日",
+    value=birth_default,
+    min_value=date(1920, 1, 1),
+    max_value=date.today(),
+    format="YYYY/MM/DD",
+    key="settings_birth_date",
+)
 
-    try:
 
-        birth_date_value = (
-            datetime.strptime(
-                birth_date_text,
-                "%Y-%m-%d",
-            ).date()
-        )
-
-        st.date_input(
-            "生年月日",
-            value=birth_date_value,
-            disabled=True,
-        )
-
-    except Exception:
-
-        st.text_input(
-            "生年月日",
-            value=birth_date_text,
-            disabled=True,
-        )
-
-else:
-
-    st.text_input(
-        "生年月日",
-        value="未設定",
-        disabled=True,
-    )
-
+age = calculate_age(
+    birth_date_value
+)
 
 if age is not None:
+    age_html = (
+        '<div class="settings-age-card">'
+        '現在の年齢：'
+        f'<strong>{age}歳</strong>'
+        '</div>'
+    )
 
     st.markdown(
-        f"""
-        <div class="age-card">
-            現在の年齢：
-            <strong>{age}歳</strong>
-        </div>
-        """,
+        age_html,
         unsafe_allow_html=True,
     )
 
@@ -410,313 +463,228 @@ height = st.number_input(
     "身長（cm）",
     min_value=100.0,
     max_value=220.0,
-    value=float(height_default),
+    value=max(
+        100.0,
+        min(
+            220.0,
+            height_default,
+        ),
+    ),
     step=0.1,
     format="%.1f",
+    key="settings_height",
 )
 
 
 # =========================================================
 # 体重
 # =========================================================
-weight_col1, weight_col2 = (
-    st.columns(2)
-)
+col1, col2 = st.columns(2)
 
-with weight_col1:
-
+with col1:
     current_weight = st.number_input(
         "現在の体重（kg）",
-        min_value=30.0,
-        max_value=200.0,
-        value=float(
-            current_weight_default
-        ),
+        min_value=0.0,
+        max_value=250.0,
+        value=current_weight_default,
         step=0.1,
         format="%.1f",
+        key="settings_current_weight",
     )
 
-with weight_col2:
-
+with col2:
     target_weight = st.number_input(
         "目標体重（kg）",
-        min_value=30.0,
-        max_value=200.0,
-        value=float(
-            target_weight_default
-        ),
+        min_value=0.0,
+        max_value=250.0,
+        value=target_weight_default,
         step=0.1,
         format="%.1f",
+        key="settings_target_weight",
     )
 
 
 # =========================================================
-# 体脂肪率
+# 体脂肪
 # =========================================================
-fat_col1, fat_col2 = (
-    st.columns(2)
-)
+col1, col2 = st.columns(2)
 
-with fat_col1:
-
-    current_body_fat = (
-        st.number_input(
-            "現在の体脂肪率（%）",
-            min_value=5.0,
-            max_value=60.0,
-            value=float(
-                current_fat_default
-            ),
-            step=0.1,
-            format="%.1f",
-        )
+with col1:
+    current_body_fat = st.number_input(
+        "現在の体脂肪率（%）",
+        min_value=0.0,
+        max_value=70.0,
+        value=current_body_fat_default,
+        step=0.1,
+        format="%.1f",
+        key="settings_current_body_fat",
     )
 
-with fat_col2:
-
-    target_body_fat = (
-        st.number_input(
-            "目標体脂肪率（%）",
-            min_value=5.0,
-            max_value=60.0,
-            value=float(
-                target_fat_default
-            ),
-            step=0.1,
-            format="%.1f",
-        )
+with col2:
+    target_body_fat = st.number_input(
+        "目標体脂肪率（%）",
+        min_value=0.0,
+        max_value=70.0,
+        value=target_body_fat_default,
+        step=0.1,
+        format="%.1f",
+        key="settings_target_body_fat",
     )
 
 
 # =========================================================
-# 相談・提案設定
+# 相談・提案
 # =========================================================
 render_section_header(
     title="相談・提案",
-    icon_file=(
-        "ShufuMate_home_icons_8/advice.png"
-    ),
-    emoji="💡",
+    icon_file="ShufuMate_home_icons_8/advice.png",
+    emoji="🌿",
+)
+
+description_html = (
+    '<div class="settings-description">'
+    '今の目的や生活スタイルを設定すると、'
+    '食事・運動の提案を調整しやすくなります。'
+    '</div>'
 )
 
 st.markdown(
-    """
-    <div class="setting-help">
-        今の目的や生活スタイルを設定すると、
-        食事・運動の提案を調整しやすくなります。
-    </div>
-    """,
+    description_html,
     unsafe_allow_html=True,
 )
 
 
-# =========================================================
-# 目的
-# =========================================================
-goal_options = [
-    "健康維持",
-    "体脂肪を減らしたい",
-    "筋肉を増やしたい",
-    "体重を減らしたい",
-    "体力をつけたい",
-    "生活習慣を整えたい",
-]
-
 user_type = st.selectbox(
     "今の目的",
     goal_options,
-    index=option_index(
-        goal_options,
-        settings.get("user_type"),
-        0,
+    index=goal_options.index(
+        user_type_default
     ),
+    key="settings_user_type",
 )
 
-
-# =========================================================
-# 活動量
-# =========================================================
-activity_options = [
-    "少なめ",
-    "普通",
-    "やや多め",
-    "多め",
-]
 
 activity_level = st.selectbox(
     "普段の活動量",
     activity_options,
-    index=option_index(
-        activity_options,
-        settings.get(
-            "activity_level"
-        ),
-        1,
+    index=activity_options.index(
+        activity_default
     ),
+    key="settings_activity_level",
 )
 
-
-# =========================================================
-# 食事スタイル
-# =========================================================
-food_style_options = [
-    "特に決めていない",
-    "和食中心",
-    "たんぱく質を意識",
-    "野菜を多めに意識",
-    "糖質を控えめに意識",
-    "バランス重視",
-]
 
 food_style = st.selectbox(
     "食事スタイル",
     food_style_options,
-    index=option_index(
-        food_style_options,
-        settings.get("food_style"),
-        0,
+    index=food_style_options.index(
+        food_style_default
     ),
+    key="settings_food_style",
 )
 
 
-# =========================================================
-# 気になること
-# =========================================================
-constitution_options = [
-    "疲れやすい",
-    "冷えが気になる",
-    "むくみが気になる",
-    "便通を整えたい",
-    "肩・首がこりやすい",
-    "腰が気になる",
-    "睡眠を整えたい",
-    "筋力低下が気になる",
-    "特になし",
-]
-
-saved_constitution = (
-    settings_text_to_list(
-        settings.get(
-            "constitution_traits"
-        )
-    )
+constitution_traits = st.multiselect(
+    "からだで気になること",
+    trait_options,
+    default=[
+        item
+        for item in saved_traits
+        if item in trait_options
+    ],
+    placeholder="選択してください",
+    key="settings_constitution_traits",
 )
 
-saved_constitution = [
-    item
-    for item in saved_constitution
-    if item in constitution_options
-]
-
-constitution_traits = (
-    st.multiselect(
-        "からだで気になること",
-        constitution_options,
-        default=saved_constitution,
-    )
-)
-
-
-# =========================================================
-# アドバイスの雰囲気
-# =========================================================
-tone_options = [
-    "やさしく",
-    "簡潔に",
-    "しっかり詳しく",
-    "励ましながら",
-]
 
 advice_tone = st.selectbox(
     "アドバイスの雰囲気",
     tone_options,
-    index=option_index(
-        tone_options,
-        settings.get("advice_tone"),
-        0,
+    index=tone_options.index(
+        advice_tone_default
     ),
+    key="settings_advice_tone",
 )
 
 
 # =========================================================
 # 運動
+# 新アイコン
 # =========================================================
 render_section_header(
     title="運動",
-    icon_file="exercise.png",
+    icon_file="ShufuMate_home_icons_8/exercise.png",
     emoji="🧘",
 )
 
+exercise_description = (
+    '<div class="settings-description">'
+    '普段よく行う運動を入力してください。'
+    '複数ある場合は「、」で区切って入力できます。'
+    '</div>'
+)
+
 st.markdown(
-    """
-    <div class="setting-help">
-        普段よく行う運動を入力してください。
-        複数ある場合は「、」で区切って入力できます。
-    </div>
-    """,
+    exercise_description,
     unsafe_allow_html=True,
 )
 
 
 workout_today = st.text_area(
     "よく行う運動",
-    value=local_text(
-        settings.get("workout_today")
-    ),
+    value=workout_default,
     placeholder=(
         "例：ヨガ、筋トレ、"
         "ウォーキング、ランニング"
     ),
-    height=85,
+    height=90,
+    key="settings_workout",
 )
 
 
 # =========================================================
 # 食材・冷蔵庫
+# 新アイコン
 # =========================================================
 render_section_header(
     title="食材・冷蔵庫",
-    icon_file="food.png",
+    icon_file="ShufuMate_home_icons_8/fridge.png",
     emoji="🥕",
 )
 
 
 fridge_items = st.text_area(
     "よく家にある食材",
-    value=local_text(
-        settings.get("fridge_items")
-    ),
+    value=fridge_default,
     placeholder=(
-        "例：卵、納豆、豆腐、鶏肉、"
-        "しめじ、青菜"
+        "例：卵、納豆、豆腐、"
+        "鶏肉、しめじ、青菜"
     ),
     height=90,
+    key="settings_fridge_items",
 )
 
 
 avoid_foods = st.text_area(
     "避けたい食品・苦手なもの",
-    value=local_text(
-        settings.get("avoid_foods")
-    ),
+    value=avoid_default,
     placeholder=(
-        "例：辛すぎるもの、"
-        "脂っこいもの"
+        "例：辛すぎるもの、脂っこいもの"
     ),
     height=80,
+    key="settings_avoid_foods",
 )
 
 
 favorite_meals = st.text_area(
     "好きなメニュー・定番メニュー",
-    value=local_text(
-        settings.get("favorite_meals")
-    ),
+    value=favorite_default,
     placeholder=(
         "例：味噌汁、おにぎり、"
-        "豚しゃぶ、豆乳うどん"
+        "豚しゃぶ、納豆うどん"
     ),
     height=90,
+    key="settings_favorite_meals",
 )
 
 
@@ -728,44 +696,33 @@ render_divider()
 
 if st.button(
     "設定を保存する",
-    key="save_settings",
+    key="settings_save_button",
     use_container_width=True,
 ):
 
     settings_data = {
-
         "nickname":
-            nickname,
+            clean_text(nickname),
+
+        "birth_date":
+            birth_date_value.strftime(
+                "%Y-%m-%d"
+            ),
 
         "height":
-            round(
-                float(height),
-                1,
-            ),
+            height,
 
         "current_weight":
-            round(
-                float(current_weight),
-                1,
-            ),
+            current_weight,
 
         "target_weight":
-            round(
-                float(target_weight),
-                1,
-            ),
+            target_weight,
 
         "current_body_fat":
-            round(
-                float(current_body_fat),
-                1,
-            ),
+            current_body_fat,
 
         "target_body_fat":
-            round(
-                float(target_body_fat),
-                1,
-            ),
+            target_body_fat,
 
         "user_type":
             user_type,
@@ -783,38 +740,37 @@ if st.button(
             advice_tone,
 
         "workout_today":
-            workout_today,
+            clean_text(
+                workout_today
+            ),
 
         "fridge_items":
-            fridge_items,
+            clean_text(
+                fridge_items
+            ),
 
         "avoid_foods":
-            avoid_foods,
+            clean_text(
+                avoid_foods
+            ),
 
         "favorite_meals":
-            favorite_meals,
+            clean_text(
+                favorite_meals
+            ),
     }
 
     try:
-
         save_user_settings(
             user_id,
             settings_data,
-        )
-
-        update_current_user_profile(
-            user_id,
-            nickname=nickname,
         )
 
         st.success(
             "設定を保存しました ✨"
         )
 
-        st.rerun()
-
     except Exception as e:
-
         st.error(
             "設定の保存中にエラーが発生しました。"
         )
@@ -822,21 +778,57 @@ if st.button(
         st.caption(
             str(e)
         )
+
+
 # =========================================================
 # アカウント
+# アイコンなし
 # =========================================================
-render_section_header(
-    title="アカウント",
-    icon_file="ShufuMate_home_icons_8/settings.png",
-    emoji="👤",
+render_divider()
+
+st.markdown(
+    '<div class="settings-section-title">アカウント</div>',
+    unsafe_allow_html=True,
 )
 
-login_id = get_login_id()
+
+# =========================================================
+# ログインID表示
+# =========================================================
+login_id_display = clean_text(
+    st.session_state.get(
+        "login_id",
+        "",
+    )
+)
+
+
+# session_stateに無い場合
+if not login_id_display:
+
+    try:
+        login_id_display = clean_text(
+            get_login_id_by_user_id(
+                user_id
+            )
+        )
+
+    except Exception:
+        login_id_display = ""
+
+
+if not login_id_display:
+    login_id_display = user_id
+
 
 account_html = (
     '<div class="account-card">'
-    '<div class="account-label">ログインID</div>'
-    f'<div class="account-value">{safe_text(login_id or "—")}</div>'
+    '<div class="account-label">'
+    'ログインID'
+    '</div>'
+    '<div class="account-value">'
+    f'{safe_text(login_id_display)}'
+    '</div>'
     '</div>'
 )
 
@@ -872,21 +864,24 @@ with st.expander(
         use_container_width=True,
     ):
 
-        new_password = clean_text(
+        new_password_clean = clean_text(
             new_password
         )
 
-        new_password_confirm = clean_text(
+        confirm_clean = clean_text(
             new_password_confirm
         )
 
-        if len(new_password) < 4:
+        if len(new_password_clean) < 4:
 
             st.warning(
                 "パスワードは4文字以上で入力してください。"
             )
 
-        elif new_password != new_password_confirm:
+        elif (
+            new_password_clean
+            != confirm_clean
+        ):
 
             st.warning(
                 "確認用パスワードが一致しません。"
@@ -895,28 +890,19 @@ with st.expander(
         else:
 
             try:
-
-                success = reset_password(
-                    login_id,
-                    new_password,
+                reset_password(
+                    login_id_display,
+                    new_password_clean,
                 )
 
-                if success:
-
-                    st.success(
-                        "パスワードを変更しました。"
-                    )
-
-                else:
-
-                    st.error(
-                        "パスワードを変更できませんでした。"
-                    )
+                st.success(
+                    "パスワードを変更しました。"
+                )
 
             except Exception as e:
 
                 st.error(
-                    "パスワード変更中にエラーが発生しました。"
+                    "パスワードを変更できませんでした。"
                 )
 
                 st.caption(
@@ -929,15 +915,25 @@ with st.expander(
 # =========================================================
 render_divider()
 
+
 if st.button(
     "ログアウト",
     key="settings_logout_button",
     use_container_width=True,
 ):
 
-    logout()
+    for key in [
+        "user_id",
+        "user_id_cookie",
+        "login_id",
+        "registration_complete",
+        "registration_nickname",
+    ]:
+        st.session_state.pop(
+            key,
+            None,
+        )
 
     st.switch_page(
         "pages/0_ログイン.py"
     )
-
