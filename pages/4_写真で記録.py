@@ -7,10 +7,11 @@ import base64
 import html
 import requests
 import io
+import textwrap
 
 
 # =========================================================
-# パス・アイコン
+# パス設定
 # =========================================================
 THIS_FILE = Path(__file__).resolve()
 
@@ -22,6 +23,9 @@ else:
 ICON_DIR = APP_ROOT / "assets" / "icons"
 
 
+# =========================================================
+# アイコン関数
+# =========================================================
 def get_page_icon(filename, fallback="📷"):
     path = ICON_DIR / filename
 
@@ -57,9 +61,6 @@ def file_to_base64(path):
 
 
 def load_icon(filename):
-    if not filename:
-        return None
-
     path = ICON_DIR / filename
 
     if path.exists():
@@ -98,48 +99,53 @@ st.markdown(
     """
 <style>
 
-/* =========================
+/* -----------------------------------------
    全体
-========================= */
+----------------------------------------- */
 
 .stApp {
     background:
         linear-gradient(
             180deg,
             #fffaf4 0%,
-            #fff4e8 45%,
+            #fff5e9 48%,
             #fffaf4 100%
         );
 }
 
 .block-container {
     max-width: 820px;
-    padding-top: 3.8rem;
+    padding-top: 2.2rem;
     padding-bottom: 3rem;
 }
 
 
-/* =========================
-   ページTOP
-========================= */
+/* -----------------------------------------
+   ページヘッダー
+----------------------------------------- */
 
 .top-card {
     background: #ffffff;
+
     border-radius: 26px;
-    padding: 22px 20px;
-    box-shadow:
-        0 8px 24px
-        rgba(96, 65, 45, 0.10);
+
+    padding: 22px 22px;
+
+    margin-bottom: 18px;
+
     border:
         1px solid
         rgba(139, 100, 72, 0.12);
-    margin-bottom: 20px;
+
+    box-shadow:
+        0 8px 24px
+        rgba(96, 65, 45, 0.09);
 }
 
 .page-head {
     display: flex;
     align-items: center;
-    gap: 16px;
+    gap: 17px;
 }
 
 .page-head-icon {
@@ -147,7 +153,13 @@ st.markdown(
     min-width: 78px;
     height: 78px;
 
-    border-radius: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    overflow: hidden;
+
+    border-radius: 21px;
 
     background: #fff8ef;
 
@@ -157,43 +169,71 @@ st.markdown(
 
     box-shadow:
         0 4px 12px
-        rgba(96, 65, 45, 0.09);
-
-    display: flex;
-    align-items: center;
-    justify-content: center;
-
-    overflow: hidden;
+        rgba(96, 65, 45, 0.08);
 }
 
 .page-head-icon img {
-    width: 66px;
-    height: 66px;
-    object-fit: contain;
+    width: 72px;
+    height: 72px;
+    object-fit: cover;
+    border-radius: 18px;
 }
 
 .page-title {
+    color: #5c4033;
+
     font-size: 1.75rem;
     font-weight: 900;
-    color: #5c4033;
+
+    line-height: 1.3;
+
     margin-bottom: 5px;
 }
 
 .page-subtitle {
-    font-size: 0.95rem;
     color: #7b6658;
-    line-height: 1.7;
+
+    font-size: 0.95rem;
     font-weight: 600;
+
+    line-height: 1.7;
 }
 
 
-/* =========================
-   セクション
-========================= */
+/* -----------------------------------------
+   案内カード
+----------------------------------------- */
+
+.soft-card {
+    background: #fffdf8;
+
+    border:
+        1px solid
+        rgba(139, 100, 72, 0.14);
+
+    border-radius: 18px;
+
+    padding: 14px 17px;
+
+    margin:
+        0 0 22px 0;
+
+    color: #755544;
+
+    font-size: 0.92rem;
+
+    line-height: 1.75;
+}
+
+
+/* -----------------------------------------
+   セクション見出し
+----------------------------------------- */
 
 .section-head {
     display: flex;
     align-items: center;
+
     gap: 12px;
 
     margin:
@@ -201,155 +241,185 @@ st.markdown(
 }
 
 .section-head-icon {
-    width: 52px;
-    min-width: 52px;
-    height: 52px;
-
-    border-radius: 17px;
-
-    background: #ffffff;
-
-    border:
-        1px solid
-        rgba(139, 100, 72, 0.12);
-
-    box-shadow:
-        0 4px 12px
-        rgba(96, 65, 45, 0.09);
+    width: 50px;
+    min-width: 50px;
+    height: 50px;
 
     display: flex;
     align-items: center;
     justify-content: center;
 
     overflow: hidden;
-}
 
-.section-head-icon img {
-    width: 43px;
-    height: 43px;
-    object-fit: contain;
-}
+    border-radius: 15px;
 
-.section-head-title {
-    font-size: 1.2rem;
-    font-weight: 900;
-    color: #5c4033;
-}
-
-
-/* =========================
-   カード
-========================= */
-
-.soft-card {
-    background: #fffdf8;
-
-    border-radius: 20px;
-
-    padding: 16px 18px;
-
-    border:
-        1px solid
-        rgba(139, 100, 72, 0.12);
-
-    color: #6b4c3b;
-
-    font-size: 0.94rem;
-    line-height: 1.75;
-
-    margin-bottom: 16px;
-}
-
-
-.ai-card {
-    background: #f2f8ef;
-
-    border-radius: 22px;
-
-    padding: 18px;
-
-    border:
-        1px solid
-        rgba(78, 140, 82, 0.16);
-
-    color: #426047;
-
-    line-height: 1.8;
-
-    margin:
-        10px 0 20px 0;
-}
-
-
-.latest-card {
     background: #ffffff;
-
-    border-radius: 22px;
-
-    padding: 18px;
 
     border:
         1px solid
         rgba(139, 100, 72, 0.12);
 
     box-shadow:
-        0 5px 16px
-        rgba(96, 65, 45, 0.07);
+        0 3px 10px
+        rgba(96, 65, 45, 0.08);
+}
+
+.section-head-icon img {
+    width: 46px;
+    height: 46px;
+
+    object-fit: cover;
+
+    border-radius: 13px;
+}
+
+.section-head-title {
+    color: #5c4033;
+
+    font-size: 1.22rem;
+    font-weight: 900;
+}
+
+
+/* -----------------------------------------
+   AI結果
+----------------------------------------- */
+
+.ai-card {
+    background: #f2f8ef;
+
+    border:
+        1px solid
+        rgba(79, 133, 81, 0.18);
+
+    border-radius: 20px;
+
+    padding: 18px;
+
+    margin:
+        8px 0 18px 0;
+
+    color: #466148;
+
+    font-size: 0.94rem;
+
+    line-height: 1.85;
+}
+
+
+/* -----------------------------------------
+   最新記録
+----------------------------------------- */
+
+.latest-card {
+    background: #ffffff;
+
+    border:
+        1px solid
+        rgba(139, 100, 72, 0.12);
+
+    border-radius: 20px;
+
+    padding: 18px;
+
+    margin-bottom: 15px;
 
     color: #5c4033;
 
+    font-size: 0.94rem;
+
     line-height: 1.8;
+
+    box-shadow:
+        0 4px 14px
+        rgba(96, 65, 45, 0.06);
+}
+
+.latest-label {
+    color: #9a786b;
+
+    font-size: 0.78rem;
+    font-weight: 800;
+
+    margin-bottom: 2px;
+}
+
+.latest-value {
+    color: #4e3a31;
+
+    font-size: 0.96rem;
 
     margin-bottom: 14px;
 }
 
 
+/* -----------------------------------------
+   最後のメッセージ
+----------------------------------------- */
+
 .message-card {
     background: #fff8ef;
 
-    border-radius: 20px;
+    border:
+        1px solid
+        rgba(139, 100, 72, 0.11);
 
-    padding: 17px;
+    border-radius: 18px;
+
+    padding: 16px 18px;
+
+    margin-top: 30px;
 
     color: #7b6658;
 
-    font-size: 0.92rem;
+    font-size: 0.9rem;
+
     line-height: 1.8;
-
-    border:
-        1px solid
-        rgba(139, 100, 72, 0.10);
-
-    margin-top: 28px;
 }
 
 
-/* =========================
-   Streamlit入力
-========================= */
+/* -----------------------------------------
+   入力
+----------------------------------------- */
 
 div[data-testid="stRadio"] label,
 div[data-testid="stTextArea"] label,
-div[data-testid="stFileUploader"] label {
+div[data-testid="stFileUploader"] label,
+div[data-testid="stCameraInput"] label {
+
     color: #5c4033;
+
     font-weight: 700;
 }
 
 
-/* =========================
+/* -----------------------------------------
+   テキストエリア
+----------------------------------------- */
+
+textarea {
+    border-radius: 14px !important;
+}
+
+
+/* -----------------------------------------
    ボタン
-========================= */
+----------------------------------------- */
 
 .stButton > button {
+
     background-color: #9a786b;
+
     color: #ffffff;
 
     border: none;
+
     border-radius: 14px;
 
     min-height: 48px;
 
-    font-size: 1rem;
+    font-size: 0.96rem;
+
     font-weight: 800;
 
     box-shadow:
@@ -358,69 +428,117 @@ div[data-testid="stFileUploader"] label {
 }
 
 .stButton > button:hover {
+
     background-color: #806055;
+
     color: #ffffff;
+
     border: none;
 }
 
 
-/* =========================
-   画像
-========================= */
+/* -----------------------------------------
+   写真
+----------------------------------------- */
 
 div[data-testid="stImage"] img {
-    border-radius: 20px;
+    border-radius: 18px;
 }
 
 
-/* =========================
+/* -----------------------------------------
+   アップローダー
+----------------------------------------- */
+
+div[data-testid="stFileUploader"] section {
+
+    border-radius: 16px;
+
+    background: #f7f8fb;
+}
+
+
+/* -----------------------------------------
+   区切り
+----------------------------------------- */
+
+.page-divider {
+
+    height: 1px;
+
+    background:
+        rgba(139, 100, 72, 0.18);
+
+    margin:
+        30px 0 8px 0;
+}
+
+
+/* -----------------------------------------
    スマホ
-========================= */
+----------------------------------------- */
 
 @media (max-width: 640px) {
 
     .block-container {
+
+        padding-top: 1.3rem;
+
         padding-left: 1rem;
         padding-right: 1rem;
-        padding-top: 1.4rem;
     }
 
     .top-card {
-        padding: 17px 15px;
+
+        padding: 16px;
+        border-radius: 22px;
+    }
+
+    .page-head {
+
+        gap: 12px;
     }
 
     .page-head-icon {
+
         width: 64px;
         min-width: 64px;
         height: 64px;
-        border-radius: 19px;
+
+        border-radius: 18px;
     }
 
     .page-head-icon img {
-        width: 54px;
-        height: 54px;
+
+        width: 58px;
+        height: 58px;
     }
 
     .page-title {
-        font-size: 1.45rem;
+
+        font-size: 1.42rem;
     }
 
     .page-subtitle {
-        font-size: 0.87rem;
+
+        font-size: 0.84rem;
     }
 
     .section-head-icon {
-        width: 46px;
-        min-width: 46px;
-        height: 46px;
+
+        width: 45px;
+        min-width: 45px;
+        height: 45px;
     }
 
     .section-head-icon img {
-        width: 38px;
-        height: 38px;
+
+        width: 41px;
+        height: 41px;
     }
 
     .section-head-title {
+
         font-size: 1.08rem;
     }
 }
@@ -439,40 +557,39 @@ def render_page_header(
     subtitle,
     icon_file
 ):
+
     icon_src = load_icon(
         icon_file
     )
 
     if icon_src:
+
         icon_html = (
             f'<img src="{icon_src}" '
             f'alt="{safe_text(title)}">'
         )
+
     else:
+
         icon_html = "📷"
 
-    st.markdown(
-        f"""
+
+    html_code = f"""
 <div class="top-card">
-    <div class="page-head">
-
-        <div class="page-head-icon">
-            {icon_html}
-        </div>
-
-        <div>
-            <div class="page-title">
-                {safe_text(title)}
-            </div>
-
-            <div class="page-subtitle">
-                {safe_html_with_br(subtitle)}
-            </div>
-        </div>
-
-    </div>
+<div class="page-head">
+<div class="page-head-icon">{icon_html}</div>
+<div>
+<div class="page-title">{safe_text(title)}</div>
+<div class="page-subtitle">{safe_html_with_br(subtitle)}</div>
 </div>
-""",
+</div>
+</div>
+"""
+
+    st.markdown(
+        textwrap.dedent(
+            html_code
+        ).strip(),
         unsafe_allow_html=True,
     )
 
@@ -481,54 +598,66 @@ def render_section_header(
     title,
     icon_file
 ):
+
     icon_src = load_icon(
         icon_file
     )
 
     if icon_src:
+
         icon_html = (
             f'<img src="{icon_src}" '
             f'alt="{safe_text(title)}">'
         )
+
     else:
+
         icon_html = ""
 
-    st.markdown(
-        f"""
+
+    html_code = f"""
 <div class="section-head">
-
-    <div class="section-head-icon">
-        {icon_html}
-    </div>
-
-    <div class="section-head-title">
-        {safe_text(title)}
-    </div>
-
+<div class="section-head-icon">{icon_html}</div>
+<div class="section-head-title">{safe_text(title)}</div>
 </div>
-""",
+"""
+
+    st.markdown(
+        textwrap.dedent(
+            html_code
+        ).strip(),
         unsafe_allow_html=True,
     )
 
 
-def render_soft_card(text):
+def render_soft_card(
+    text
+):
+
+    html_code = f"""
+<div class="soft-card">{safe_html_with_br(text)}</div>
+"""
+
     st.markdown(
-        f"""
-<div class="soft-card">
-    {safe_html_with_br(text)}
-</div>
-""",
+        textwrap.dedent(
+            html_code
+        ).strip(),
         unsafe_allow_html=True,
     )
 
 
-def render_ai_card(text):
+def render_ai_card(
+    text
+):
+
+    html_code = f"""
+<div class="ai-card">{safe_html_with_br(text)}</div>
+"""
+
     st.markdown(
-        f"""
-<div class="ai-card">
-    {safe_html_with_br(text)}
-</div>
-""",
+        textwrap.dedent(
+            html_code
+        ).strip(),
         unsafe_allow_html=True,
     )
 
@@ -547,8 +676,7 @@ user_id = get_user_id()
 render_page_header(
     title="写真で記録",
     subtitle=(
-        "食事の写真を撮るだけ。"
-        "AIが内容を確認して、"
+        "食事の写真から、"
         "かんたんに記録できます。"
     ),
     icon_file="camera.png",
@@ -556,9 +684,9 @@ render_page_header(
 
 
 render_soft_card(
-    "きれいに撮らなくても大丈夫です。"
     "食事全体が写るように撮影すると、"
     "内容を確認しやすくなります。"
+    "きれいに撮れなくても大丈夫です。"
 )
 
 
@@ -566,8 +694,8 @@ render_soft_card(
 # 写真を選ぶ
 # =========================================================
 render_section_header(
-    "写真を選ぶ",
-    "camera.png",
+    title="写真を選ぶ",
+    icon_file="camera.png",
 )
 
 
@@ -600,12 +728,15 @@ if input_mode == "アップロード":
 else:
 
     img = st.camera_input(
-        "撮影する",
+        "写真を撮る",
         key="meal_photo_camera",
     )
 
 
-if img:
+# =========================================================
+# 写真表示
+# =========================================================
+if img is not None:
 
     st.image(
         img,
@@ -615,15 +746,19 @@ if img:
 
 
 # =========================================================
-# AI用画像変換
+# AI画像変換
 # =========================================================
 def encode_image(file):
 
-    image = Image.open(file)
+    image = Image.open(
+        file
+    )
 
-    # PNGなどのRGBA対策
     if image.mode != "RGB":
-        image = image.convert("RGB")
+
+        image = image.convert(
+            "RGB"
+        )
 
     buf = io.BytesIO()
 
@@ -641,12 +776,13 @@ def encode_image(file):
 # =========================================================
 # AI解析
 # =========================================================
-if img:
+if img is not None:
 
     render_section_header(
-        "食事をチェック",
-        "advice.png",
+        title="食事をチェック",
+        icon_file="advice.png",
     )
+
 
     if st.button(
         "AIで食事をチェック",
@@ -664,36 +800,60 @@ if img:
                     img
                 )
 
+
                 headers = {
+
                     "Authorization":
                         f"Bearer {st.secrets['OPENAI_API_KEY']}",
+
                     "Content-Type":
                         "application/json",
                 }
 
+
                 payload = {
-                    "model": "gpt-4o-mini",
+
+                    "model":
+                        "gpt-4o-mini",
+
                     "messages": [
+
                         {
-                            "role": "user",
+
+                            "role":
+                                "user",
+
                             "content": [
+
                                 {
-                                    "type": "text",
-                                    "text": (
-                                        "この食事写真を確認して、"
-                                        "次の4項目を日本語で"
-                                        "簡潔に答えてください。\n\n"
-                                        "1. 写っている食事\n"
-                                        "2. 食事バランス\n"
-                                        "3. 良いところと整えたいところ\n"
-                                        "4. 100点満点での目安\n\n"
-                                        "写真だけでは判断できない"
-                                        "内容は断定しないでください。"
-                                    ),
+
+                                    "type":
+                                        "text",
+
+                                    "text":
+                                        (
+                                            "この食事写真を確認してください。\n\n"
+
+                                            "次の4項目を、"
+                                            "日本語で簡潔に答えてください。\n\n"
+
+                                            "1. 写っている食事\n"
+                                            "2. 食事バランス\n"
+                                            "3. 良いところと整えたいところ\n"
+                                            "4. 100点満点での目安\n\n"
+
+                                            "写真から分からないことは"
+                                            "断定しないでください。"
+                                        ),
                                 },
+
                                 {
-                                    "type": "image_url",
+
+                                    "type":
+                                        "image_url",
+
                                     "image_url": {
+
                                         "url":
                                             "data:image/jpeg;base64,"
                                             + base64_image
@@ -704,12 +864,18 @@ if img:
                     ],
                 }
 
+
                 res = requests.post(
+
                     "https://api.openai.com/v1/chat/completions",
+
                     headers=headers,
+
                     json=payload,
+
                     timeout=60,
                 )
+
 
                 if res.status_code == 200:
 
@@ -719,41 +885,44 @@ if img:
                         ["message"]["content"]
                     )
 
+
                     st.session_state[
                         "photo_ai_result"
                     ] = ai_result
+
 
                     st.session_state[
                         "auto_food"
                     ] = ai_result
 
+
                 else:
 
                     st.error(
                         "AI分析に失敗しました。"
-                        "時間をおいてもう一度"
-                        "お試しください。"
+                        "時間をおいて、もう一度お試しください。"
                     )
+
 
             except Exception:
 
                 st.error(
-                    "AI分析中にエラーが"
-                    "発生しました。"
+                    "AI分析中にエラーが発生しました。"
                 )
 
 
 # =========================================================
-# AI結果
+# AI結果表示
 # =========================================================
 if st.session_state.get(
     "photo_ai_result"
 ):
 
     render_section_header(
-        "AIからの食事チェック",
-        "advice.png",
+        title="食事チェック",
+        icon_file="advice.png",
     )
+
 
     render_ai_card(
         st.session_state[
@@ -766,14 +935,15 @@ if st.session_state.get(
 # 食事内容
 # =========================================================
 render_section_header(
-    "食事内容",
-    "record.png",
+    title="食事内容",
+    icon_file="record.png",
 )
 
 
 auto_meal = detect_meal_type_by_time(
     jst_now()
 )
+
 
 meal_options = [
     "朝",
@@ -783,14 +953,21 @@ meal_options = [
 ]
 
 
+if auto_meal in meal_options:
+
+    meal_index = meal_options.index(
+        auto_meal
+    )
+
+else:
+
+    meal_index = 0
+
+
 meal_type = st.radio(
     "食事区分",
     meal_options,
-    index=(
-        meal_options.index(auto_meal)
-        if auto_meal in meal_options
-        else 0
-    ),
+    index=meal_index,
     horizontal=True,
     key="photo_meal_type",
 )
@@ -840,9 +1017,15 @@ if st.button(
                 image_file=img,
             )
 
+
             st.success(
                 "食事を記録しました。"
             )
+
+
+            # 保存後にAI結果を残す
+            # 写真を変えたときに再チェックできます
+
 
         except Exception:
 
@@ -852,11 +1035,20 @@ if st.button(
 
 
 # =========================================================
-# 最新記録
+# 区切り
+# =========================================================
+st.markdown(
+    '<div class="page-divider"></div>',
+    unsafe_allow_html=True,
+)
+
+
+# =========================================================
+# 最新の写真記録
 # =========================================================
 render_section_header(
-    "最新の写真記録",
-    "latest.png",
+    title="最新の写真記録",
+    icon_file="latest.png",
 )
 
 
@@ -875,15 +1067,18 @@ if logs:
 
     latest = logs[-1]
 
+
     log_date = latest.get(
         "log_date",
         ""
     )
 
+
     latest_meal_type = latest.get(
         "meal_type",
         ""
     )
+
 
     latest_food = latest.get(
         "food_text",
@@ -891,25 +1086,41 @@ if logs:
     )
 
 
-    st.markdown(
-        f"""
+    latest_html = f"""
 <div class="latest-card">
 
-<strong>記録日</strong><br>
+<div class="latest-label">
+記録日
+</div>
+
+<div class="latest-value">
 {safe_text(log_date)}
+</div>
 
-<br><br>
+<div class="latest-label">
+食事区分
+</div>
 
-<strong>食事区分</strong><br>
+<div class="latest-value">
 {safe_text(latest_meal_type)}
+</div>
 
-<br><br>
+<div class="latest-label">
+食事内容
+</div>
 
-<strong>食事内容</strong><br>
+<div class="latest-value">
 {safe_html_with_br(latest_food)}
+</div>
 
 </div>
-""",
+"""
+
+
+    st.markdown(
+        textwrap.dedent(
+            latest_html
+        ).strip(),
         unsafe_allow_html=True,
     )
 
@@ -919,28 +1130,36 @@ if logs:
     ):
 
         st.image(
-            latest["image_bytes"],
+            latest[
+                "image_bytes"
+            ],
             use_container_width=True,
         )
+
 
 else:
 
     render_soft_card(
         "写真の記録はまだありません。"
-        "最初の1枚を記録してみましょう。"
+        "最初の食事を記録してみましょう。"
     )
 
 
 # =========================================================
-# メッセージ
+# 最後のメッセージ
 # =========================================================
-st.markdown(
-    """
+message_html = """
 <div class="message-card">
-    食事は完璧じゃなくて大丈夫。<br>
-    写真を残すだけでも、
-    毎日の変化を振り返る大切な記録になります。
+食事は完璧じゃなくて大丈夫です。<br>
+写真を残すだけでも、
+毎日の食事を振り返る記録になります。
 </div>
-""",
+"""
+
+
+st.markdown(
+    textwrap.dedent(
+        message_html
+    ).strip(),
     unsafe_allow_html=True,
 )
