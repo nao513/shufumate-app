@@ -6,7 +6,6 @@
 
 import streamlit as st
 from datetime import datetime, date
-
 from app_core import *
 
 
@@ -830,32 +829,107 @@ if st.button(
 # =========================================================
 render_section_header(
     title="アカウント",
-    icon_file=(
-        "ShufuMate_home_icons_8/settings.png"
-    ),
+    icon_file="ShufuMate_home_icons_8/settings.png",
     emoji="👤",
 )
 
-
 login_id = get_login_id()
 
+account_html = (
+    '<div class="account-card">'
+    '<div class="account-label">ログインID</div>'
+    f'<div class="account-value">{safe_text(login_id or "—")}</div>'
+    '</div>'
+)
+
 st.markdown(
-    f"""
-    <div class="account-card">
-
-        <div class="account-label">
-            ログインID
-        </div>
-
-        <div class="account-value">
-            {safe_text(login_id or "—")}
-        </div>
-
-    </div>
-    """,
+    account_html,
     unsafe_allow_html=True,
 )
 
+
+# =========================================================
+# パスワード変更
+# =========================================================
+with st.expander("パスワードを変更する"):
+
+    st.caption(
+        "新しいパスワードを2回入力してください。"
+    )
+
+    new_password = st.text_input(
+        "新しいパスワード",
+        type="password",
+        key="settings_new_password",
+    )
+
+    new_password_confirm = st.text_input(
+        "新しいパスワード（確認）",
+        type="password",
+        key="settings_new_password_confirm",
+    )
+
+    if st.button(
+        "パスワードを変更",
+        key="change_password_button",
+        use_container_width=True,
+    ):
+
+        if len(clean_text(new_password)) < 4:
+
+            st.warning(
+                "パスワードは4文字以上で入力してください。"
+            )
+
+        elif new_password != new_password_confirm:
+
+            st.warning(
+                "確認用パスワードが一致しません。"
+            )
+
+        else:
+
+            try:
+
+                success = reset_password(
+                    login_id,
+                    new_password,
+                )
+
+                if success:
+                    st.success(
+                        "パスワードを変更しました。"
+                    )
+                else:
+                    st.error(
+                        "パスワードを変更できませんでした。"
+                    )
+
+            except Exception as e:
+
+                st.error(
+                    "パスワード変更中にエラーが発生しました。"
+                )
+
+                st.caption(str(e))
+
+
+# =========================================================
+# ログアウト
+# =========================================================
+render_divider()
+
+if st.button(
+    "ログアウト",
+    key="settings_logout",
+    use_container_width=True,
+):
+
+    logout()
+
+    st.switch_page(
+        "pages/0_ログイン.py"
+    )
 
 # =========================================================
 # パスワード変更
