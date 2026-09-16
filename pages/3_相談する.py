@@ -1,13 +1,24 @@
 # =========================================================
 # ShufuMate
-# 3_相談する.py
-# 完全版
+# pages/3_相談する.py
+# 最終完全版
 # =========================================================
 
 import streamlit as st
 import pandas as pd
+import html
 
-from app_core import *
+from app_core import (
+    require_login,
+    get_user_id,
+    get_page_icon,
+    inject_shufumate_css,
+    render_page_header,
+    render_section_header,
+    load_user_settings,
+    load_diet_dataframe,
+    clean_text,
+)
 
 
 # =========================================================
@@ -42,84 +53,133 @@ user_id = get_user_id()
 # =========================================================
 st.markdown(
     """
-    <style>
+<style>
 
-    .consult-intro {
-        background: rgba(255,250,244,.92);
-        border: 1px solid rgba(139,100,72,.12);
-        border-radius: 20px;
-        padding: 17px 19px;
-        color: #6f584b;
-        line-height: 1.85;
-        margin-bottom: 18px;
-    }
+/* -----------------------------------------
+   説明カード
+----------------------------------------- */
+.consult-intro {
+    background: rgba(255,250,244,.92);
+    border: 1px solid rgba(139,100,72,.12);
+    border-radius: 20px;
+    padding: 17px 19px;
+    color: #6f584b;
+    line-height: 1.85;
+    margin-bottom: 22px;
+}
 
-    .consult-theme {
-        background: rgba(255,255,255,.80);
-        border: 1px solid rgba(139,100,72,.12);
-        border-radius: 18px;
-        padding: 14px 16px;
-        color: #654b3d;
-        line-height: 1.7;
-        margin-bottom: 10px;
-    }
 
-    .consult-theme-title {
-        font-weight: 900;
-        color: #5c4033;
-        margin-bottom: 4px;
-    }
+/* -----------------------------------------
+   テーマ説明
+----------------------------------------- */
+.consult-theme {
+    background: rgba(255,255,255,.80);
+    border: 1px solid rgba(139,100,72,.12);
+    border-radius: 18px;
+    padding: 14px 16px;
+    color: #654b3d;
+    line-height: 1.75;
+    margin-top: 8px;
+    margin-bottom: 18px;
+}
 
-    .consult-context {
-        background: #fff8ef;
-        border-radius: 18px;
-        padding: 15px 17px;
-        color: #765f52;
-        line-height: 1.8;
-        margin-top: 8px;
-        margin-bottom: 16px;
-    }
 
-    .consult-answer {
-        background: linear-gradient(
+/* -----------------------------------------
+   回答
+----------------------------------------- */
+.consult-answer {
+    background:
+        linear-gradient(
             135deg,
             rgba(255,250,242,.98),
             rgba(249,239,227,.98)
         );
-        border: 1px solid rgba(139,100,72,.14);
-        border-radius: 22px;
-        padding: 20px 21px;
-        color: #5d473b;
-        line-height: 1.95;
-        box-shadow: 0 5px 18px rgba(91,64,49,.05);
-        margin-top: 10px;
-        margin-bottom: 16px;
+    border: 1px solid rgba(139,100,72,.14);
+    border-radius: 22px;
+    padding: 20px 21px;
+    color: #5d473b;
+    line-height: 1.95;
+    box-shadow:
+        0 5px 18px rgba(91,64,49,.05);
+    margin-top: 10px;
+    margin-bottom: 18px;
+}
+
+.consult-answer-title {
+    font-weight: 900;
+    color: #5c4033;
+    font-size: 1.08rem;
+    margin-bottom: 10px;
+}
+
+
+/* -----------------------------------------
+   質問表示
+----------------------------------------- */
+.consult-question {
+    background: rgba(255,255,255,.72);
+    border-left: 4px solid #c7a891;
+    border-radius: 14px;
+    padding: 13px 15px;
+    color: #70584b;
+    line-height: 1.75;
+    margin-bottom: 14px;
+}
+
+.consult-question-label {
+    font-size: .82rem;
+    font-weight: 800;
+    color: #9a8173;
+    margin-bottom: 3px;
+}
+
+
+/* -----------------------------------------
+   注意書き
+----------------------------------------- */
+.consult-small {
+    font-size: .84rem;
+    color: #927c70;
+    line-height: 1.75;
+    margin-top: 18px;
+    margin-bottom: 18px;
+}
+
+
+/* -----------------------------------------
+   入力欄
+----------------------------------------- */
+div[data-testid="stTextArea"] textarea {
+    border-radius: 16px !important;
+}
+
+
+/* -----------------------------------------
+   Expander
+----------------------------------------- */
+div[data-testid="stExpander"] {
+    background: rgba(255,255,255,.60);
+    border: 1px solid rgba(139,100,72,.10);
+    border-radius: 17px;
+}
+
+
+/* -----------------------------------------
+   モバイル
+----------------------------------------- */
+@media (max-width: 640px) {
+
+    .consult-intro {
+        padding: 15px 16px;
     }
 
-    .consult-answer-title {
-        font-weight: 900;
-        color: #5c4033;
-        font-size: 1.05rem;
-        margin-bottom: 10px;
+    .consult-answer {
+        padding: 17px 18px;
     }
 
-    .consult-small {
-        font-size: .85rem;
-        color: #927c70;
-        line-height: 1.7;
-    }
+}
 
-    div[data-testid="stTextArea"] textarea {
-        border-radius: 16px !important;
-    }
-
-    div[data-testid="stExpander"] {
-        background: rgba(255,255,255,.60);
-        border: 1px solid rgba(139,100,72,.10);
-        border-radius: 17px;
-    }
-
-    </style>
+</style>
     """,
     unsafe_allow_html=True,
 )
@@ -129,26 +189,27 @@ st.markdown(
 # 補助関数
 # =========================================================
 def text_value(value):
+    """文字列を安全に整える"""
     return clean_text(value)
 
 
-def numeric_value(value):
-    try:
-        if pd.isna(value):
-            return None
+def safe_html(value):
+    """HTML特殊文字をエスケープ"""
+    return html.escape(
+        str(value or "")
+    )
 
-        number = float(value)
 
-        if number <= 0:
-            return None
-
-        return number
-
-    except Exception:
-        return None
+def safe_html_with_br(value):
+    """改行を <br> に変換"""
+    return safe_html(value).replace(
+        "\n",
+        "<br>"
+    )
 
 
 def latest_numeric(df, column):
+    """指定列の最新の有効数値"""
 
     if (
         df is None
@@ -175,6 +236,7 @@ def latest_numeric(df, column):
 
 
 def previous_numeric(df, column):
+    """指定列の1つ前の有効数値"""
 
     if (
         df is None
@@ -205,6 +267,7 @@ def change_text(
     previous,
     unit,
 ):
+    """前回との差を表示"""
 
     if (
         latest is None
@@ -218,9 +281,13 @@ def change_text(
         return "前回とほぼ同じ"
 
     if diff > 0:
-        return f"前回より +{diff:.1f}{unit}"
+        return (
+            f"前回より +{diff:.1f}{unit}"
+        )
 
-    return f"前回より {diff:.1f}{unit}"
+    return (
+        f"前回より {diff:.1f}{unit}"
+    )
 
 
 # =========================================================
@@ -264,9 +331,12 @@ except Exception:
 
 
 if not df.empty:
+
     df = df.sort_values(
         "log_date"
-    ).reset_index(drop=True)
+    ).reset_index(
+        drop=True
+    )
 
 
 # =========================================================
@@ -287,6 +357,10 @@ latest_muscle = latest_numeric(
     "muscle_mass",
 )
 
+
+# =========================================================
+# 前回データ
+# =========================================================
 previous_weight = previous_numeric(
     df,
     "weight",
@@ -320,12 +394,21 @@ if (
         )
     )
 
-    # 古い列ずれデータ対策
-    try:
-        float(latest_meal)
-        latest_meal = ""
-    except Exception:
-        pass
+    # -----------------------------------------
+    # 旧データの列ずれ対策
+    # 数字だけなら食事メモとして使わない
+    # -----------------------------------------
+    if latest_meal:
+
+        try:
+
+            float(latest_meal)
+
+            latest_meal = ""
+
+        except Exception:
+
+            pass
 
 
 # =========================================================
@@ -398,15 +481,17 @@ render_page_header(
 # =========================================================
 # 説明
 # =========================================================
+intro_html = (
+    '<div class="consult-intro">'
+    '「今日何を食べたらいい？」'
+    '「運動した方がいい？」'
+    '「最近の数字はどう？」など、'
+    '気になっていることをそのまま入力してください。'
+    '</div>'
+)
+
 st.markdown(
-    """
-    <div class="consult-intro">
-        「今日何を食べたらいい？」
-        「運動した方がいい？」
-        「最近の数字はどう？」
-        など、気になっていることをそのまま入力してください。
-    </div>
-    """,
+    intro_html,
     unsafe_allow_html=True,
 )
 
@@ -423,6 +508,7 @@ render_section_header(
 
 col1, col2, col3 = st.columns(3)
 
+
 with col1:
 
     st.metric(
@@ -434,6 +520,7 @@ with col1:
         ),
     )
 
+
 with col2:
 
     st.metric(
@@ -444,6 +531,7 @@ with col2:
             else "—"
         ),
     )
+
 
 with col3:
 
@@ -482,37 +570,45 @@ theme = st.radio(
 
 
 # =========================================================
-# テーマ別ヒント
+# テーマ説明
 # =========================================================
 theme_help = {
 
-    "食事":
+    "食事": (
         "今日の献立、食べる順番、間食、"
-        "たんぱく質などを相談できます。",
+        "たんぱく質などを相談できます。"
+    ),
 
-    "運動":
+    "運動": (
         "筋トレ、ヨガ、ウォーキング、"
-        "ランニング、休養などを相談できます。",
+        "ランニング、休養などを相談できます。"
+    ),
 
-    "からだの変化":
+    "からだの変化": (
         "体重・体脂肪率・筋肉量の"
-        "変化について確認できます。",
+        "変化について確認できます。"
+    ),
 
-    "体調・生活":
+    "体調・生活": (
         "疲れ、睡眠、むくみ、"
-        "生活リズムなどを相談できます。",
+        "生活リズムなどを相談できます。"
+    ),
 
-    "なんでも相談":
+    "なんでも相談": (
         "気になっていることを"
-        "自由に入力してください。",
+        "自由に入力してください。"
+    ),
 }
 
+
+theme_html = (
+    '<div class="consult-theme">'
+    f'{safe_html(theme_help[theme])}'
+    '</div>'
+)
+
 st.markdown(
-    (
-        '<div class="consult-theme">'
-        f'{safe_text(theme_help[theme])}'
-        '</div>'
-    ),
+    theme_html,
     unsafe_allow_html=True,
 )
 
@@ -527,6 +623,7 @@ question = st.text_area(
         "夜ごはんは何を食べるのがいい？"
     ),
     height=125,
+    key="consult_question_input",
 )
 
 
@@ -538,20 +635,20 @@ def build_answer(
     question_text,
 ):
 
-    question_text = (
-        clean_text(question_text)
+    question_text = clean_text(
+        question_text
     )
 
     answer_parts = []
 
 
-    # -----------------------------------------------------
-    # 最初の一言
-    # -----------------------------------------------------
+    # =====================================================
+    # 導入
+    # =====================================================
     if question_text:
 
         answer_parts.append(
-            "今の記録と設定をもとに考えると、"
+            "今の記録と設定、相談内容を合わせて考えると、"
             "次のように整えるのがおすすめです。"
         )
 
@@ -562,36 +659,29 @@ def build_answer(
         )
 
 
-    # -----------------------------------------------------
+    # =====================================================
     # 食事
-    # -----------------------------------------------------
+    # =====================================================
     if selected_theme == "食事":
-
-        if latest_muscle is not None:
-
-            answer_parts.append(
-                "筋肉量も記録しているので、"
-                "食事を減らすことより、"
-                "たんぱく質を毎食確保することを優先しましょう。"
-            )
 
         if food_style:
 
             answer_parts.append(
-                f"設定している食事スタイルは"
-                f"「{food_style}」です。"
-                "これを基本に、主食・たんぱく質・野菜を"
-                "極端に抜かない組み合わせが向いています。"
+                f"食事スタイルは「{food_style}」で設定されています。"
+                "このスタイルを基本にしながら、"
+                "主食・たんぱく質・野菜を"
+                "極端に抜かないようにしましょう。"
             )
+
 
         if fridge_items:
 
             answer_parts.append(
-                f"家にある食材として"
-                f"「{fridge_items}」が登録されています。"
-                "まずこの中からたんぱく質源と野菜を選ぶと、"
-                "献立を決めやすくなります。"
+                f"家にある食材は「{fridge_items}」。"
+                "この中から、まずたんぱく質になるものを1品、"
+                "次に野菜や汁物を選ぶと献立を決めやすくなります。"
             )
+
 
         if avoid_foods:
 
@@ -599,18 +689,39 @@ def build_answer(
                 f"「{avoid_foods}」は避ける条件として考えます。"
             )
 
+
+        if favorite_meals:
+
+            answer_parts.append(
+                f"好きなメニューとして"
+                f"「{favorite_meals}」が登録されています。"
+                "無理に特別な食事へ変えるより、"
+                "好きなメニューを整えて続ける方法もおすすめです。"
+            )
+
+
+        if latest_meal:
+
+            answer_parts.append(
+                "最新の食事記録もあるので、"
+                "同じ食品に偏りすぎていないか、"
+                "たんぱく質や野菜が不足していないかを"
+                "確認しながら次の食事を決めましょう。"
+            )
+
+
         answer_parts.append(
             "迷った日は、"
             "①たんぱく質を1品、"
             "②野菜または汁物、"
-            "③活動量に合わせた主食、"
+            "③その日の活動量に合わせた主食、"
             "の3つをそろえるだけでも十分です。"
         )
 
 
-    # -----------------------------------------------------
+    # =====================================================
     # 運動
-    # -----------------------------------------------------
+    # =====================================================
     elif selected_theme == "運動":
 
         if activity:
@@ -619,14 +730,16 @@ def build_answer(
                 f"普段の活動量は「{activity}」で設定されています。"
             )
 
+
         if workout:
 
             answer_parts.append(
                 f"普段の運動は「{workout}」。"
-                "同じ部位に強い負荷が続かないよう、"
+                "同じ部位へ強い負荷が続かないように、"
                 "筋トレ・有酸素運動・柔軟性・休養を"
                 "組み合わせるのがおすすめです。"
             )
+
 
         if (
             latest_muscle is not None
@@ -642,8 +755,8 @@ def build_answer(
 
                 answer_parts.append(
                     "筋肉量は前回より少し下がっています。"
-                    "今日は運動量を増やしすぎるより、"
-                    "食事と回復までセットで考えましょう。"
+                    "今日は運動量だけを増やすより、"
+                    "食事・睡眠・回復までセットで考えましょう。"
                 )
 
             elif diff > 0.1:
@@ -654,17 +767,30 @@ def build_answer(
                     "継続を優先するのがよさそうです。"
                 )
 
+            else:
+
+                answer_parts.append(
+                    "筋肉量は前回と大きく変わっていません。"
+                    "急に負荷を増やすより、"
+                    "今の習慣を安定して続ける方がよさそうです。"
+                )
+
+
         answer_parts.append(
-            "疲労が強い日は、完全に何もしないか"
-            "強い運動をするかの二択にせず、"
-            "軽いストレッチやヨガ、散歩に切り替えてもOKです。"
+            "疲労が強い日は、"
+            "強い運動か完全休養かの二択にせず、"
+            "軽いストレッチ・ヨガ・散歩へ"
+            "切り替える方法もあります。"
         )
 
 
-    # -----------------------------------------------------
+    # =====================================================
     # からだの変化
-    # -----------------------------------------------------
+    # =====================================================
     elif selected_theme == "からだの変化":
+
+        body_messages = []
+
 
         if latest_weight is not None:
 
@@ -676,9 +802,10 @@ def build_answer(
 
             if text:
 
-                answer_parts.append(
+                body_messages.append(
                     f"体重は {latest_weight:.1f}kgで、{text}です。"
                 )
+
 
         if latest_fat is not None:
 
@@ -690,9 +817,10 @@ def build_answer(
 
             if text:
 
-                answer_parts.append(
+                body_messages.append(
                     f"体脂肪率は {latest_fat:.1f}%で、{text}です。"
                 )
+
 
         if latest_muscle is not None:
 
@@ -704,55 +832,74 @@ def build_answer(
 
             if text:
 
-                answer_parts.append(
+                body_messages.append(
                     f"筋肉量は {latest_muscle:.1f}kgで、{text}です。"
                 )
+
+
+        if body_messages:
+
+            answer_parts.extend(
+                body_messages
+            )
+
+        else:
+
+            answer_parts.append(
+                "比較できる記録がまだ十分にありません。"
+                "記録が増えると、前回との変化を確認できます。"
+            )
+
 
         answer_parts.append(
             "1回の測定値だけで判断せず、"
             "数週間単位の傾向を見るのがおすすめです。"
-            "特に体重だけではなく、体脂肪率と筋肉量を"
+            "体重だけでなく、体脂肪率と筋肉量を"
             "一緒に見ると変化が分かりやすくなります。"
         )
 
 
-    # -----------------------------------------------------
+    # =====================================================
     # 体調・生活
-    # -----------------------------------------------------
+    # =====================================================
     elif selected_theme == "体調・生活":
 
         answer_parts.append(
-            "体調は運動だけでなく、睡眠・食事・疲労・"
-            "水分などの影響も受けます。"
+            "体調は運動だけでなく、"
+            "睡眠・食事・疲労・水分・生活リズムなどの"
+            "影響も受けます。"
         )
 
+
         answer_parts.append(
-            "今日は『頑張れるか』より、"
+            "今日は「頑張れるか」だけで決めず、"
             "睡眠・疲れ・食欲・からだの重さを確認して、"
-            "負荷を決めるのがおすすめです。"
+            "その日の負荷を決めるのがおすすめです。"
         )
+
 
         if activity:
 
             answer_parts.append(
-                f"普段の活動量は「{activity}」なので、"
-                "日常ですでによく動いた日は、"
-                "追加の運動を軽めにしても十分です。"
+                f"普段の活動量は「{activity}」。"
+                "日常生活ですでによく動いた日は、"
+                "追加の運動を軽めにしても構いません。"
             )
 
 
-    # -----------------------------------------------------
+    # =====================================================
     # なんでも相談
-    # -----------------------------------------------------
+    # =====================================================
     else:
 
         if goal:
 
             answer_parts.append(
                 f"現在の目的は「{goal}」。"
-                "この目的から外れない範囲で、"
+                "この目的から大きく外れない範囲で、"
                 "無理なく続けられる方法を優先しましょう。"
             )
+
 
         if latest_muscle is not None:
 
@@ -763,26 +910,29 @@ def build_answer(
             )
 
 
-    # -----------------------------------------------------
-    # 質問文から簡単な補足
-    # -----------------------------------------------------
-    q = question_text.lower()
+    # =====================================================
+    # 質問内容から追加アドバイス
+    # =====================================================
 
+    # 夜ごはん
     if (
         "夜" in question_text
-        and
-        (
+        and (
             "食" in question_text
             or "ごはん" in question_text
+            or "夕食" in question_text
         )
     ):
 
         answer_parts.append(
-            "夜は、たんぱく質＋野菜・汁物を先に決め、"
+            "夜ごはんについては、"
+            "たんぱく質＋野菜・汁物を先に決め、"
             "主食はその日の運動量と空腹感に合わせると"
-            "調整しやすいです。"
+            "調整しやすくなります。"
         )
 
+
+    # 間食
     if (
         "間食" in question_text
         or "おやつ" in question_text
@@ -790,10 +940,13 @@ def build_answer(
 
         answer_parts.append(
             "間食は我慢だけで調整せず、"
-            "ヨーグルト・果物など、"
-            "次の食事に響きにくいものを少量選ぶ方法があります。"
+            "ヨーグルトや果物など、"
+            "次の食事に響きにくいものを"
+            "少量選ぶ方法があります。"
         )
 
+
+    # 疲労
     if (
         "疲" in question_text
         or "だる" in question_text
@@ -801,7 +954,45 @@ def build_answer(
 
         answer_parts.append(
             "疲れやだるさが強い日は、"
-            "強度を落として回復を優先してください。"
+            "運動強度を落として回復を優先してください。"
+        )
+
+
+    # 筋トレ
+    if (
+        "筋トレ" in question_text
+        or "トレーニング" in question_text
+    ):
+
+        answer_parts.append(
+            "筋トレをした日は、"
+            "運動だけで終わらせず、"
+            "食事・水分・睡眠まで含めて"
+            "回復を考えるのがおすすめです。"
+        )
+
+
+    # ヨガ
+    if "ヨガ" in question_text:
+
+        answer_parts.append(
+            "ヨガをする日は、"
+            "柔軟性だけを追わず、"
+            "呼吸や疲労感を確認しながら"
+            "無理のない範囲で動きましょう。"
+        )
+
+
+    # ランニング
+    if (
+        "ランニング" in question_text
+        or "走" in question_text
+    ):
+
+        answer_parts.append(
+            "走った日は脚への負荷も考えて、"
+            "追加の下半身トレーニングを"
+            "やりすぎないように調整するとよいでしょう。"
         )
 
 
@@ -830,7 +1021,9 @@ if st.button(
 
     st.session_state[
         "shufumate_consult_question"
-    ] = question
+    ] = clean_text(
+        question
+    )
 
     st.session_state[
         "shufumate_consult_theme"
@@ -838,11 +1031,20 @@ if st.button(
 
 
 # =========================================================
-# 回答
+# 回答表示
 # =========================================================
-if st.session_state.get(
-    "shufumate_consult_answer"
-):
+answer = st.session_state.get(
+    "shufumate_consult_answer",
+    "",
+)
+
+saved_question = st.session_state.get(
+    "shufumate_consult_question",
+    "",
+)
+
+
+if answer:
 
     render_section_header(
         title="ShufuMateから",
@@ -850,29 +1052,47 @@ if st.session_state.get(
         emoji="🌿",
     )
 
-    answer = st.session_state[
-        "shufumate_consult_answer"
-    ]
 
-    answer_html = safe_html_with_br(
-        answer
+    # -----------------------------------------
+    # 質問内容
+    # -----------------------------------------
+    if saved_question:
+
+        question_html = (
+            '<div class="consult-question">'
+            '<div class="consult-question-label">'
+            '相談したこと'
+            '</div>'
+            f'{safe_html_with_br(saved_question)}'
+            '</div>'
+        )
+
+        st.markdown(
+            question_html,
+            unsafe_allow_html=True,
+        )
+
+
+    # -----------------------------------------
+    # 回答
+    # -----------------------------------------
+    answer_html = (
+        '<div class="consult-answer">'
+        '<div class="consult-answer-title">'
+        '今日のアドバイス'
+        '</div>'
+        f'{safe_html_with_br(answer)}'
+        '</div>'
     )
 
     st.markdown(
-        (
-            '<div class="consult-answer">'
-            '<div class="consult-answer-title">'
-            '今日のアドバイス'
-            '</div>'
-            f'{answer_html}'
-            '</div>'
-        ),
+        answer_html,
         unsafe_allow_html=True,
     )
 
 
 # =========================================================
-# 記録を確認
+# 参考情報
 # =========================================================
 with st.expander(
     "今回の相談で参考にしている情報"
@@ -886,11 +1106,27 @@ with st.expander(
         f"活動量：{activity or '未設定'}"
     )
 
+
+    if food_style:
+
+        st.write(
+            f"食事スタイル：{food_style}"
+        )
+
+
+    if workout:
+
+        st.write(
+            f"普段の運動：{workout}"
+        )
+
+
     if latest_weight is not None:
 
         st.write(
             f"最新体重：{latest_weight:.1f} kg"
         )
+
 
     if latest_fat is not None:
 
@@ -898,11 +1134,27 @@ with st.expander(
             f"最新体脂肪率：{latest_fat:.1f} %"
         )
 
+
     if latest_muscle is not None:
 
         st.write(
             f"最新筋肉量：{latest_muscle:.1f} kg"
         )
+
+
+    if fridge_items:
+
+        st.write(
+            f"家にある食材：{fridge_items}"
+        )
+
+
+    if avoid_foods:
+
+        st.write(
+            f"避けたい食品：{avoid_foods}"
+        )
+
 
     if latest_meal:
 
@@ -918,13 +1170,15 @@ with st.expander(
 # =========================================================
 # 注意
 # =========================================================
+notice_html = (
+    '<div class="consult-small">'
+    'ShufuMateの提案は、毎日の生活を整えるための参考情報です。'
+    '強い痛みや体調不良がある場合は、運動を無理に続けず、'
+    '必要に応じて医療機関へ相談してください。'
+    '</div>'
+)
+
 st.markdown(
-    """
-    <div class="consult-small">
-        ShufuMateの提案は、毎日の生活を整えるための参考情報です。
-        強い痛みや体調不良がある場合は、運動を無理に続けず、
-        必要に応じて医療機関へ相談してください。
-    </div>
-    """,
+    notice_html,
     unsafe_allow_html=True,
 )
