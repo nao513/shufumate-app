@@ -23,7 +23,6 @@ st.set_page_config(
 )
 
 inject_shufumate_css()
-
 require_login()
 
 user_id = get_user_id()
@@ -71,6 +70,17 @@ st.markdown(
     margin-bottom: 15px;
 }
 
+.settings-current-note {
+    background: rgba(244,248,239,.92);
+    border: 1px solid rgba(92,130,83,.14);
+    border-radius: 16px;
+    padding: 12px 15px;
+    color: #5f7059;
+    font-size: .88rem;
+    line-height: 1.7;
+    margin: 8px 0 16px;
+}
+
 .account-card {
     background: rgba(255,255,255,.78);
     border: 1px solid rgba(139,100,72,.13);
@@ -90,12 +100,6 @@ st.markdown(
     color: #5e463a;
     font-weight: 800;
     font-size: 1.05rem;
-}
-
-.settings-small {
-    color: #927c70;
-    font-size: .84rem;
-    line-height: 1.7;
 }
 
 div[data-baseweb="input"] > div {
@@ -130,6 +134,7 @@ div[data-testid="stExpander"] {
 # 補助関数
 # =========================================================
 def to_float(value, default=0.0):
+
     try:
         value = clean_text(value)
 
@@ -143,20 +148,25 @@ def to_float(value, default=0.0):
 
 
 def calculate_age(birth_date_value):
+
     if not birth_date_value:
         return None
 
     try:
+
         if isinstance(birth_date_value, str):
+
             birth = datetime.strptime(
                 birth_date_value[:10],
                 "%Y-%m-%d",
             ).date()
 
         elif isinstance(birth_date_value, datetime):
+
             birth = birth_date_value.date()
 
         else:
+
             birth = birth_date_value
 
         today = date.today()
@@ -176,10 +186,15 @@ def calculate_age(birth_date_value):
 
 
 def parse_birth_date(value):
+
     if not value:
         return date(1980, 1, 1)
 
     try:
+
+        if isinstance(value, datetime):
+            return value.date()
+
         if isinstance(value, date):
             return value
 
@@ -194,51 +209,184 @@ def parse_birth_date(value):
         return date(1980, 1, 1)
 
 
+def get_latest_numeric(df, column):
+
+    if (
+        df is None
+        or df.empty
+        or column not in df.columns
+    ):
+        return None
+
+    temp = df[
+        ["log_date", column]
+    ].copy()
+
+    temp[column] = pd.to_numeric(
+        temp[column],
+        errors="coerce",
+    )
+
+    temp = temp.dropna(
+        subset=[column]
+    )
+
+    temp = temp[
+        temp[column] > 0
+    ]
+
+    if temp.empty:
+        return None
+
+    if "log_date" in temp.columns:
+
+        temp = temp.sort_values(
+            "log_date"
+        )
+
+    return float(
+        temp.iloc[-1][column]
+    )
+
+
 # =========================================================
 # 設定読み込み
 # =========================================================
 try:
-    settings = load_user_settings(user_id) or {}
+
+    settings = (
+        load_user_settings(user_id)
+        or {}
+    )
 
 except Exception:
+
     settings = {}
 
 
 # =========================================================
-# 現在値
+# DietLogs読み込み
+# 現在値は「記録する」の最新データを使う
+# =========================================================
+try:
+
+    diet_df = load_diet_dataframe(
+        user_id
+    )
+
+except Exception:
+
+    diet_df = pd.DataFrame()
+
+
+latest_weight = get_latest_numeric(
+    diet_df,
+    "weight",
+)
+
+latest_body_fat = get_latest_numeric(
+    diet_df,
+    "body_fat",
+)
+
+latest_muscle_mass = get_latest_numeric(
+    diet_df,
+    "muscle_mass",
+)
+
+
+# =========================================================
+# 初期値
 # =========================================================
 nickname_default = clean_text(
-    settings.get("nickname", "")
+    settings.get(
+        "nickname",
+        "",
+    )
 )
+
+
+# UserSettingsに無い場合はUsersのプロフィールも確認
+profile = {}
+
+try:
+    profile = (
+        load_current_user_profile(
+            user_id
+        )
+        or {}
+    )
+except Exception:
+    profile = {}
+
+
+if not nickname_default:
+
+    nickname_default = clean_text(
+        profile.get(
+            "nickname",
+            "",
+        )
+    )
+
+
+birth_source = clean_text(
+    settings.get(
+        "birth_date",
+        "",
+    )
+)
+
+if not birth_source:
+
+    birth_source = clean_text(
+        profile.get(
+            "birth_date",
+            "",
+        )
+    )
+
 
 birth_default = parse_birth_date(
-    settings.get("birth_date", "")
+    birth_source
 )
 
+
 height_default = to_float(
-    settings.get("height", ""),
+    settings.get(
+        "height",
+        "",
+    ),
     155.0,
 )
 
-current_weight_default = to_float(
-    settings.get("current_weight", ""),
-    0.0,
-)
 
 target_weight_default = to_float(
-    settings.get("target_weight", ""),
+    settings.get(
+        "target_weight",
+        "",
+    ),
     0.0,
 )
 
-current_body_fat_default = to_float(
-    settings.get("current_body_fat", ""),
-    0.0,
-)
 
 target_body_fat_default = to_float(
-    settings.get("target_body_fat", ""),
+    settings.get(
+        "target_body_fat",
+        "",
+    ),
     0.0,
 )
+
+
+target_muscle_mass_default = to_float(
+    settings.get(
+        "target_muscle_mass",
+        "",
+    ),
+    0.0,
+)
+
 
 user_type_default = clean_text(
     settings.get(
@@ -247,12 +395,14 @@ user_type_default = clean_text(
     )
 )
 
+
 activity_default = clean_text(
     settings.get(
         "activity_level",
         "普通",
     )
 )
+
 
 food_style_default = clean_text(
     settings.get(
@@ -261,12 +411,14 @@ food_style_default = clean_text(
     )
 )
 
+
 advice_tone_default = clean_text(
     settings.get(
         "advice_tone",
         "やさしく",
     )
 )
+
 
 workout_default = clean_text(
     settings.get(
@@ -275,6 +427,7 @@ workout_default = clean_text(
     )
 )
 
+
 fridge_default = clean_text(
     settings.get(
         "fridge_items",
@@ -282,12 +435,14 @@ fridge_default = clean_text(
     )
 )
 
+
 avoid_default = clean_text(
     settings.get(
         "avoid_foods",
         "",
     )
 )
+
 
 favorite_default = clean_text(
     settings.get(
@@ -305,14 +460,26 @@ saved_traits = settings.get(
     [],
 )
 
+
 if isinstance(saved_traits, str):
+
+    saved_traits = (
+        saved_traits
+        .replace(",", "、")
+        .split("、")
+    )
+
     saved_traits = [
         item.strip()
-        for item in saved_traits.split(",")
+        for item in saved_traits
         if item.strip()
     ]
 
-if not isinstance(saved_traits, list):
+
+if not isinstance(
+    saved_traits,
+    list,
+):
     saved_traits = []
 
 
@@ -328,11 +495,13 @@ goal_options = [
     "食生活を整えたい",
 ]
 
+
 activity_options = [
     "少ない",
     "普通",
     "多い",
 ]
+
 
 food_style_options = [
     "特に決めていない",
@@ -342,6 +511,7 @@ food_style_options = [
     "糖質を少し控えたい",
     "脂質を少し控えたい",
 ]
+
 
 trait_options = [
     "冷え",
@@ -353,6 +523,7 @@ trait_options = [
     "睡眠",
     "食欲の波",
 ]
+
 
 tone_options = [
     "やさしく",
@@ -367,11 +538,16 @@ tone_options = [
 if user_type_default not in goal_options:
     user_type_default = "健康維持"
 
+
 if activity_default not in activity_options:
     activity_default = "普通"
 
+
 if food_style_default not in food_style_options:
-    food_style_default = "特に決めていない"
+    food_style_default = (
+        "特に決めていない"
+    )
+
 
 if advice_tone_default not in tone_options:
     advice_tone_default = "やさしく"
@@ -386,19 +562,24 @@ render_page_header(
         "あなたに合った提案ができるように、"
         "からだ・食事・運動の情報を設定します。"
     ),
-    icon_file="ShufuMate_home_icons_8/settings.png",
+    icon_file=(
+        "ShufuMate_home_icons_8/"
+        "settings.png"
+    ),
     emoji="⚙️",
 )
 
 
 # =========================================================
 # 基本設定
-# アイコンはあえて付けない
 # =========================================================
 st.markdown(
-    '<div class="settings-section-title">基本設定</div>',
+    '<div class="settings-section-title">'
+    '基本設定'
+    '</div>',
     unsafe_allow_html=True,
 )
+
 
 intro_html = (
     '<div class="settings-intro">'
@@ -407,6 +588,7 @@ intro_html = (
     'あなた向けに調整するために使います。'
     '</div>'
 )
+
 
 st.markdown(
     intro_html,
@@ -442,7 +624,9 @@ age = calculate_age(
     birth_date_value
 )
 
+
 if age is not None:
+
     age_html = (
         '<div class="settings-age-card">'
         '現在の年齢：'
@@ -477,22 +661,56 @@ height = st.number_input(
 
 
 # =========================================================
+# 体組成
+# =========================================================
+st.markdown(
+    '<div class="settings-section-title">'
+    '体組成'
+    '</div>',
+    unsafe_allow_html=True,
+)
+
+
+current_note = (
+    '<div class="settings-current-note">'
+    '現在値は「記録する」の最新記録から'
+    '自動で反映されます。'
+    '</div>'
+)
+
+
+st.markdown(
+    current_note,
+    unsafe_allow_html=True,
+)
+
+
+# =========================================================
 # 体重
 # =========================================================
 col1, col2 = st.columns(2)
 
+
 with col1:
-    current_weight = st.number_input(
+
+    st.number_input(
         "現在の体重（kg）",
         min_value=0.0,
         max_value=250.0,
-        value=current_weight_default,
+        value=(
+            float(latest_weight)
+            if latest_weight is not None
+            else 0.0
+        ),
         step=0.1,
         format="%.1f",
+        disabled=True,
         key="settings_current_weight",
     )
 
+
 with col2:
+
     target_weight = st.number_input(
         "目標体重（kg）",
         min_value=0.0,
@@ -505,22 +723,31 @@ with col2:
 
 
 # =========================================================
-# 体脂肪
+# 体脂肪率
 # =========================================================
 col1, col2 = st.columns(2)
 
+
 with col1:
-    current_body_fat = st.number_input(
+
+    st.number_input(
         "現在の体脂肪率（%）",
         min_value=0.0,
         max_value=70.0,
-        value=current_body_fat_default,
+        value=(
+            float(latest_body_fat)
+            if latest_body_fat is not None
+            else 0.0
+        ),
         step=0.1,
         format="%.1f",
+        disabled=True,
         key="settings_current_body_fat",
     )
 
+
 with col2:
+
     target_body_fat = st.number_input(
         "目標体脂肪率（%）",
         min_value=0.0,
@@ -533,13 +760,54 @@ with col2:
 
 
 # =========================================================
+# 筋肉量
+# =========================================================
+col1, col2 = st.columns(2)
+
+
+with col1:
+
+    st.number_input(
+        "現在の筋肉量（kg）",
+        min_value=0.0,
+        max_value=100.0,
+        value=(
+            float(latest_muscle_mass)
+            if latest_muscle_mass is not None
+            else 0.0
+        ),
+        step=0.1,
+        format="%.1f",
+        disabled=True,
+        key="settings_current_muscle_mass",
+    )
+
+
+with col2:
+
+    target_muscle_mass = st.number_input(
+        "目標筋肉量（kg）",
+        min_value=0.0,
+        max_value=100.0,
+        value=target_muscle_mass_default,
+        step=0.1,
+        format="%.1f",
+        key="settings_target_muscle_mass",
+    )
+
+
+# =========================================================
 # 相談・提案
 # =========================================================
 render_section_header(
     title="相談・提案",
-    icon_file="ShufuMate_home_icons_8/advice.png",
+    icon_file=(
+        "ShufuMate_home_icons_8/"
+        "advice.png"
+    ),
     emoji="🌿",
 )
+
 
 description_html = (
     '<div class="settings-description">'
@@ -547,6 +815,7 @@ description_html = (
     '食事・運動の提案を調整しやすくなります。'
     '</div>'
 )
+
 
 st.markdown(
     description_html,
@@ -609,13 +878,16 @@ advice_tone = st.selectbox(
 
 # =========================================================
 # 運動
-# 新アイコン
 # =========================================================
 render_section_header(
     title="運動",
-    icon_file="ShufuMate_home_icons_8/exercise.png",
+    icon_file=(
+        "ShufuMate_home_icons_8/"
+        "exercise.png"
+    ),
     emoji="🧘",
 )
+
 
 exercise_description = (
     '<div class="settings-description">'
@@ -623,6 +895,7 @@ exercise_description = (
     '複数ある場合は「、」で区切って入力できます。'
     '</div>'
 )
+
 
 st.markdown(
     exercise_description,
@@ -644,11 +917,13 @@ workout_today = st.text_area(
 
 # =========================================================
 # 食材・冷蔵庫
-# 新アイコン
 # =========================================================
 render_section_header(
     title="食材・冷蔵庫",
-    icon_file="ShufuMate_home_icons_8/fridge.png",
+    icon_file=(
+        "ShufuMate_home_icons_8/"
+        "fridge.png"
+    ),
     emoji="🥕",
 )
 
@@ -701,6 +976,7 @@ if st.button(
 ):
 
     settings_data = {
+
         "nickname":
             clean_text(nickname),
 
@@ -712,17 +988,37 @@ if st.button(
         "height":
             height,
 
+        # 現在値も最新DietLogs値を保存しておく
+        # 他ページとの互換用
         "current_weight":
-            current_weight,
+            (
+                latest_weight
+                if latest_weight is not None
+                else ""
+            ),
 
         "target_weight":
             target_weight,
 
         "current_body_fat":
-            current_body_fat,
+            (
+                latest_body_fat
+                if latest_body_fat is not None
+                else ""
+            ),
 
         "target_body_fat":
             target_body_fat,
+
+        "current_muscle_mass":
+            (
+                latest_muscle_mass
+                if latest_muscle_mass is not None
+                else ""
+            ),
+
+        "target_muscle_mass":
+            target_muscle_mass,
 
         "user_type":
             user_type,
@@ -760,10 +1056,18 @@ if st.button(
             ),
     }
 
+
     try:
+
         save_user_settings(
             user_id,
             settings_data,
+        )
+
+        # Usersシート側のニックネームも同期
+        update_current_user_profile(
+            user_id,
+            nickname=nickname,
         )
 
         st.success(
@@ -771,6 +1075,7 @@ if st.button(
         )
 
     except Exception as e:
+
         st.error(
             "設定の保存中にエラーが発生しました。"
         )
@@ -782,39 +1087,34 @@ if st.button(
 
 # =========================================================
 # アカウント
-# アイコンなし
 # =========================================================
 render_divider()
 
+
 st.markdown(
-    '<div class="settings-section-title">アカウント</div>',
+    '<div class="settings-section-title">'
+    'アカウント'
+    '</div>',
     unsafe_allow_html=True,
 )
 
 
 # =========================================================
-# ログインID表示
+# ログインID
 # =========================================================
 login_id_display = clean_text(
-    st.session_state.get(
-        "login_id",
-        "",
-    )
+    get_login_id()
 )
 
 
-# session_stateに無い場合
 if not login_id_display:
 
-    try:
-        login_id_display = clean_text(
-            get_login_id_by_user_id(
-                user_id
-            )
+    login_id_display = clean_text(
+        profile.get(
+            "login_id",
+            "",
         )
-
-    except Exception:
-        login_id_display = ""
+    )
 
 
 if not login_id_display:
@@ -831,6 +1131,7 @@ account_html = (
     '</div>'
     '</div>'
 )
+
 
 st.markdown(
     account_html,
@@ -852,15 +1153,19 @@ with st.expander(
         key="settings_password_new",
     )
 
+
     new_password_confirm = st.text_input(
         "新しいパスワード（確認）",
         type="password",
         key="settings_password_confirm",
     )
 
+
     if st.button(
         "パスワードを変更",
-        key="settings_password_change_button",
+        key=(
+            "settings_password_change_button"
+        ),
         use_container_width=True,
     ):
 
@@ -872,11 +1177,16 @@ with st.expander(
             new_password_confirm
         )
 
-        if len(new_password_clean) < 4:
+
+        if len(
+            new_password_clean
+        ) < 4:
 
             st.warning(
-                "パスワードは4文字以上で入力してください。"
+                "パスワードは4文字以上で"
+                "入力してください。"
             )
+
 
         elif (
             new_password_clean
@@ -884,20 +1194,31 @@ with st.expander(
         ):
 
             st.warning(
-                "確認用パスワードが一致しません。"
+                "確認用パスワードが"
+                "一致しません。"
             )
+
 
         else:
 
             try:
-                reset_password(
+
+                changed = reset_password(
                     login_id_display,
                     new_password_clean,
                 )
 
-                st.success(
-                    "パスワードを変更しました。"
-                )
+                if changed:
+
+                    st.success(
+                        "パスワードを変更しました。"
+                    )
+
+                else:
+
+                    st.error(
+                        "パスワードを変更できませんでした。"
+                    )
 
             except Exception as e:
 
@@ -922,17 +1243,7 @@ if st.button(
     use_container_width=True,
 ):
 
-    for key in [
-        "user_id",
-        "user_id_cookie",
-        "login_id",
-        "registration_complete",
-        "registration_nickname",
-    ]:
-        st.session_state.pop(
-            key,
-            None,
-        )
+    logout()
 
     st.switch_page(
         "pages/0_ログイン.py"
