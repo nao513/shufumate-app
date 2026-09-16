@@ -1,7 +1,7 @@
 # =========================================================
 # ShufuMate
 # pages/0_ログイン.py
-# 完全版
+# 最終完全版
 # =========================================================
 
 import streamlit as st
@@ -10,12 +10,10 @@ from app_core import (
     login,
     is_logged_in,
     logout,
-    get_user_id,
     get_login_id,
     get_nickname,
     inject_shufumate_css,
     render_page_header,
-    render_note,
     get_page_icon,
 )
 
@@ -44,93 +42,104 @@ inject_shufumate_css()
 # =========================================================
 st.markdown(
     """
-    <style>
+<style>
 
-    /* -----------------------------------------
-       ログイン案内
-    ----------------------------------------- */
+/* -----------------------------------------
+   ログイン案内
+----------------------------------------- */
+.login-welcome-card {
+    background: #fff8ef;
+    border: 1px solid rgba(139,100,72,.12);
+    border-radius: 20px;
+    padding: 20px 22px;
+    color: #705649;
+    line-height: 1.8;
+    margin: 14px 0 28px;
+}
+
+.login-welcome-title {
+    color: #5c4033;
+    font-size: 1.05rem;
+    font-weight: 800;
+    margin-bottom: 4px;
+}
+
+
+/* -----------------------------------------
+   フォーム
+----------------------------------------- */
+div[data-testid="stForm"] {
+    background: rgba(255,255,255,.76);
+    border: 1px solid rgba(139,100,72,.12);
+    border-radius: 22px;
+    padding: 22px 24px;
+}
+
+div[data-testid="stTextInput"] input {
+    border-radius: 14px !important;
+}
+
+div[data-testid="stTextInput"] input:focus {
+    border-color: #a98a79 !important;
+    box-shadow:
+        0 0 0 1px rgba(141,110,99,.18)
+        !important;
+}
+
+
+/* -----------------------------------------
+   下部案内
+----------------------------------------- */
+.login-help {
+    text-align: center;
+    color: #8a7466;
+    font-size: .90rem;
+    line-height: 1.8;
+    margin-top: 24px;
+    margin-bottom: 10px;
+}
+
+
+/* -----------------------------------------
+   ログイン済み
+----------------------------------------- */
+.logged-in-card {
+    background: #f4f8ef;
+    border: 1px solid rgba(92,130,83,.16);
+    border-radius: 20px;
+    padding: 18px 20px;
+    color: #50644c;
+    line-height: 1.8;
+    margin: 15px 0 20px;
+}
+
+.logged-in-name {
+    font-weight: 800;
+    font-size: 1.05rem;
+    color: #4e6349;
+    margin-bottom: 3px;
+}
+
+
+/* -----------------------------------------
+   モバイル
+----------------------------------------- */
+@media (max-width: 640px) {
+
     .login-welcome-card {
-        background: #fff8ef;
-        border: 1px solid rgba(139,100,72,.12);
-        border-radius: 20px;
-        padding: 20px 22px;
-        color: #705649;
-        line-height: 1.8;
-        margin: 14px 0 28px;
+        padding: 17px 18px;
     }
 
-    .login-welcome-title {
-        color: #5c4033;
-        font-size: 1.05rem;
-        font-weight: 800;
-        margin-bottom: 4px;
-    }
-
-
-    /* -----------------------------------------
-       フォーム周辺
-    ----------------------------------------- */
-    div[data-testid="stTextInput"] input {
-        border-radius: 14px !important;
-    }
-
-    div[data-testid="stTextInput"] input:focus {
-        border-color: #a98a79 !important;
-        box-shadow:
-            0 0 0 1px rgba(141,110,99,.18)
-            !important;
-    }
-
-
-    /* -----------------------------------------
-       下部案内
-    ----------------------------------------- */
-    .login-help {
-        text-align: center;
-        color: #8a7466;
-        font-size: .9rem;
-        line-height: 1.8;
-        margin-top: 22px;
-        margin-bottom: 8px;
-    }
-
-
-    /* -----------------------------------------
-       ログイン済みカード
-    ----------------------------------------- */
     .logged-in-card {
-        background: #f4f8ef;
-        border: 1px solid rgba(92,130,83,.16);
-        border-radius: 20px;
-        padding: 18px 20px;
-        color: #50644c;
-        line-height: 1.8;
-        margin: 15px 0 20px;
+        padding: 16px 18px;
     }
 
-    .logged-in-name {
-        font-weight: 800;
-        font-size: 1.05rem;
-        color: #4e6349;
+    div[data-testid="stForm"] {
+        padding: 18px;
     }
+}
 
-
-    /* -----------------------------------------
-       モバイル
-    ----------------------------------------- */
-    @media (max-width: 640px) {
-
-        .login-welcome-card {
-            padding: 17px 18px;
-        }
-
-        .logged-in-card {
-            padding: 16px 18px;
-        }
-
-    }
-
-    </style>
+</style>
     """,
     unsafe_allow_html=True,
 )
@@ -143,9 +152,7 @@ if is_logged_in():
 
     render_page_header(
         title="ログイン",
-        subtitle=(
-            "ShufuMateにログインしています。"
-        ),
+        subtitle="ShufuMateにログインしています。",
         icon_file="ShufuMate_home_icons_8/state.png",
         emoji="🏠",
     )
@@ -156,17 +163,23 @@ if is_logged_in():
         or "ユーザー"
     )
 
+    # -----------------------------------------
+    # 表示用HTMLは連結方式
+    # -----------------------------------------
+    logged_in_html = (
+        '<div class="logged-in-card">'
+        '<div class="logged-in-name">'
+        f'{nickname} さん'
+        '</div>'
+        '現在ログインしています。'
+        '</div>'
+    )
+
     st.markdown(
-        f"""
-        <div class="logged-in-card">
-            <div class="logged-in-name">
-                {nickname} さん
-            </div>
-            現在ログインしています。
-        </div>
-        """,
+        logged_in_html,
         unsafe_allow_html=True,
     )
+
 
     # -----------------------------------------
     # Homeへ
@@ -180,6 +193,7 @@ if is_logged_in():
         st.switch_page(
             "Home.py"
         )
+
 
     # -----------------------------------------
     # ログアウト
@@ -197,6 +211,7 @@ if is_logged_in():
         )
 
         st.rerun()
+
 
     st.stop()
 
@@ -216,7 +231,7 @@ render_page_header(
 
 
 # =========================================================
-# 案内
+# おかえりなさい
 # =========================================================
 welcome_html = (
     '<div class="login-welcome-card">'
@@ -231,6 +246,7 @@ st.markdown(
     welcome_html,
     unsafe_allow_html=True,
 )
+
 
 # =========================================================
 # ログインフォーム
@@ -272,8 +288,9 @@ if submitted:
         password or ""
     ).strip()
 
+
     # -----------------------------------------
-    # 未入力チェック
+    # ログインID未入力
     # -----------------------------------------
     if not login_id_clean:
 
@@ -281,12 +298,20 @@ if submitted:
             "ログインIDを入力してください。"
         )
 
+
+    # -----------------------------------------
+    # パスワード未入力
+    # -----------------------------------------
     elif not password_clean:
 
         st.warning(
             "パスワードを入力してください。"
         )
 
+
+    # -----------------------------------------
+    # 認証
+    # -----------------------------------------
     else:
 
         try:
@@ -299,8 +324,9 @@ if submitted:
                 password_clean,
             )
 
+
             # =====================================
-            # 成功
+            # ログイン成功
             # =====================================
             if success:
 
@@ -312,8 +338,9 @@ if submitted:
                     "Home.py"
                 )
 
+
             # =====================================
-            # ID・パスワード不一致
+            # IDまたはパスワード不一致
             # =====================================
             else:
 
@@ -322,6 +349,7 @@ if submitted:
                     "パスワードが違います。"
                 )
 
+
         except Exception as e:
 
             st.error(
@@ -329,7 +357,7 @@ if submitted:
                 "エラーが発生しました。"
             )
 
-            # 開発中だけ原因確認できるよう表示
+            # 開発中は原因確認用に表示
             st.caption(
                 f"エラー内容：{e}"
             )
@@ -338,13 +366,15 @@ if submitted:
 # =========================================================
 # 新規登録案内
 # =========================================================
+help_html = (
+    '<div class="login-help">'
+    'はじめてShufuMateを使う場合は、<br>'
+    '「新規登録」からアカウントを作成してください。'
+    '</div>'
+)
+
 st.markdown(
-    """
-    <div class="login-help">
-        はじめてShufuMateを使う場合は、<br>
-        「新規登録」からアカウントを作成してください。
-    </div>
-    """,
+    help_html,
     unsafe_allow_html=True,
 )
 
