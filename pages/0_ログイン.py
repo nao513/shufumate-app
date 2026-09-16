@@ -218,22 +218,19 @@ render_page_header(
 # =========================================================
 # 案内
 # =========================================================
-st.markdown(
-    """
-    <div class="login-welcome-card">
-
-        <div class="login-welcome-title">
-            おかえりなさい。
-        </div>
-
-        登録したログインIDと
-        パスワードを入力してください。
-
-    </div>
-    """,
-    unsafe_allow_html=True,
+welcome_html = (
+    '<div class="login-welcome-card">'
+    '<div class="login-welcome-title">'
+    'おかえりなさい。'
+    '</div>'
+    '登録したログインIDとパスワードを入力してください。'
+    '</div>'
 )
 
+st.markdown(
+    welcome_html,
+    unsafe_allow_html=True,
+)
 
 # =========================================================
 # ログインフォーム
