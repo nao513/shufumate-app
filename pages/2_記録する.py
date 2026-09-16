@@ -1,19 +1,32 @@
 # =========================================================
 # ShufuMate
-# 2_記録する.py
-# 完全版
+# pages/2_記録する.py
+# 最終完全版
 # =========================================================
 
-import streamlit as st
-import pandas as pd
-import altair as alt
+import html
+import math
 
-from app_core import *
+import altair as alt
+import pandas as pd
+import streamlit as st
+
+from app_core import (
+    require_login,
+    get_user_id,
+    get_page_icon,
+    inject_shufumate_css,
+    render_page_header,
+    render_section_header,
+    save_diet_log,
+    load_diet_dataframe,
+    clean_text,
+    jst_today_str,
+)
 
 
 # =========================================================
 # ページ設定
-# ※ 最初のStreamlit命令
 # =========================================================
 st.set_page_config(
     page_title="記録する｜ShufuMate",
@@ -30,108 +43,101 @@ st.set_page_config(
 # =========================================================
 inject_shufumate_css()
 
-
-# =========================================================
-# ログイン確認
-# =========================================================
 require_login()
 
 user_id = get_user_id()
 
 
 # =========================================================
-# このページ専用CSS
+# ページ専用CSS
 # =========================================================
 st.markdown(
     """
-    <style>
+<style>
 
-    /* 入力フォーム */
-    div[data-testid="stForm"] {
-        background: rgba(255,255,255,0.58);
-        border: 1px solid rgba(139,100,72,0.12);
-        border-radius: 22px;
-        padding: 20px;
+.record-sub-title {
+    color: #5c4033;
+    font-size: 1.45rem;
+    font-weight: 900;
+    margin-top: 30px;
+    margin-bottom: 4px;
+}
+
+.record-sub-desc {
+    color: #8a7468;
+    font-size: .90rem;
+    line-height: 1.7;
+    margin-bottom: 18px;
+}
+
+.record-date {
+    background: rgba(255,250,244,.92);
+    border: 1px solid rgba(139,100,72,.11);
+    border-radius: 16px;
+    padding: 12px 15px;
+    color: #765f52;
+    margin-bottom: 18px;
+}
+
+.record-group-title {
+    color: #5d4438;
+    font-size: 1.12rem;
+    font-weight: 900;
+    margin-top: 12px;
+    margin-bottom: 10px;
+}
+
+.record-latest-card {
+    background: rgba(255,250,244,.92);
+    border: 1px solid rgba(139,100,72,.12);
+    border-radius: 20px;
+    padding: 17px 19px;
+    color: #685145;
+    line-height: 1.85;
+    margin-top: 12px;
+    margin-bottom: 16px;
+}
+
+.record-meal-card {
+    background: rgba(255,255,255,.78);
+    border: 1px solid rgba(139,100,72,.11);
+    border-radius: 18px;
+    padding: 16px 18px;
+    color: #665044;
+    line-height: 1.85;
+    margin-top: 10px;
+}
+
+.soft-divider {
+    height: 1px;
+    background: rgba(139,100,72,.16);
+    margin: 30px 0;
+}
+
+div[data-testid="stTextArea"] textarea {
+    border-radius: 15px !important;
+}
+
+div[data-testid="stNumberInput"] input {
+    border-radius: 14px !important;
+}
+
+div[data-testid="stMetric"] {
+    background: rgba(255,255,255,.80);
+    border: 1px solid rgba(139,100,72,.11);
+    border-radius: 18px;
+    padding: 13px 15px;
+}
+
+@media (max-width: 640px) {
+
+    .record-sub-title {
+        font-size: 1.30rem;
     }
 
-    /* 入力欄 */
-    div[data-baseweb="input"] > div,
-    div[data-baseweb="textarea"] > div {
-        border-radius: 13px !important;
-    }
+}
 
-    /* ラジオボタン */
-    div[role="radiogroup"] {
-        gap: 1rem;
-    }
-
-    /* グラフ見出し */
-    .record-chart-title {
-        color: #5c4033;
-        font-size: 1.35rem;
-        font-weight: 900;
-        margin-top: 22px;
-        margin-bottom: 5px;
-    }
-
-    .record-chart-caption {
-        color: #8a7568;
-        font-size: 0.88rem;
-        margin-bottom: 10px;
-    }
-
-    /* 最新記録 */
-    .latest-date-card {
-        background: rgba(255,250,244,0.95);
-        border: 1px solid rgba(139,100,72,0.12);
-        border-radius: 18px;
-        padding: 14px 17px;
-        color: #765747;
-        margin-bottom: 15px;
-    }
-
-    /* 食事メモ */
-    .meal-log-card {
-        background: rgba(255,255,255,0.92);
-        border: 1px solid rgba(139,100,72,0.12);
-        border-radius: 20px;
-        padding: 18px 20px;
-        color: #5c4033;
-        line-height: 1.9;
-        margin-top: 10px;
-    }
-
-    .meal-log-label {
-        color: #8a6b59;
-        font-weight: 800;
-    }
-
-    /* metric */
-    div[data-testid="stMetric"] {
-        min-height: 132px;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-    }
-
-    div[data-testid="stMetricValue"] {
-        color: #604436;
-    }
-
-    @media (max-width: 640px) {
-
-        div[data-testid="stMetric"] {
-            min-height: 105px;
-            padding: 11px !important;
-        }
-
-        div[data-testid="stMetricValue"] {
-            font-size: 1.55rem;
-        }
-
-    }
-
-    </style>
+</style>
     """,
     unsafe_allow_html=True,
 )
@@ -140,333 +146,44 @@ st.markdown(
 # =========================================================
 # 補助関数
 # =========================================================
-def numeric_or_none(value):
-
-    try:
-
-        if pd.isna(value):
-            return None
-
-        number = float(value)
-
-        if number <= 0:
-            return None
-
-        return number
-
-    except Exception:
-        return None
-
-
-def latest_value(df, column):
-
-    if (
-        df is None
-        or df.empty
-        or column not in df.columns
-        or "log_date" not in df.columns
-    ):
-        return None, None
-
-    temp = df[
-        ["log_date", column]
-    ].copy()
-
-    temp[column] = pd.to_numeric(
-        temp[column],
-        errors="coerce",
-    )
-
-    temp = temp.dropna(
-        subset=[
-            "log_date",
-            column,
-        ]
-    )
-
-    temp = temp[
-        temp[column] > 0
-    ]
-
-    if temp.empty:
-        return None, None
-
-    temp = temp.sort_values(
-        "log_date"
-    )
-
-    row = temp.iloc[-1]
-
-    return (
-        float(row[column]),
-        row["log_date"],
+def safe_html(value):
+    return html.escape(
+        str(value or "")
     )
 
 
-# =========================================================
-# 食事メモ分解
-# =========================================================
-def parse_meal_memo(value):
-
-    result = {
-        "朝": "",
-        "昼": "",
-        "夜": "",
-        "間食": "",
-        "メモ": "",
-    }
-
-    text = clean_text(value)
-
-    if not text:
-        return result
-
-    for line in text.splitlines():
-
-        line = line.strip()
-
-        if not line:
-            continue
-
-        matched = False
-
-        for key in result.keys():
-
-            prefixes = [
-                f"{key}:",
-                f"{key}：",
-            ]
-
-            for prefix in prefixes:
-
-                if line.startswith(prefix):
-
-                    result[key] = (
-                        line[len(prefix):]
-                        .strip()
-                    )
-
-                    matched = True
-                    break
-
-            if matched:
-                break
-
-    return result
+def safe_html_with_br(value):
+    return safe_html(value).replace(
+        "\n",
+        "<br>"
+    )
 
 
-# =========================================================
-# グラフ作成
-# =========================================================
-def make_body_chart(
-    df,
+def latest_valid_value(
+    dataframe,
     column,
-    label,
-    unit,
-    minimum_margin,
 ):
-
     if (
-        df is None
-        or df.empty
-        or column not in df.columns
-        or "log_date" not in df.columns
+        dataframe is None
+        or dataframe.empty
+        or column not in dataframe.columns
     ):
         return None
 
-    plot_df = df[
-        ["log_date", column]
-    ].copy()
-
-    plot_df[column] = pd.to_numeric(
-        plot_df[column],
+    values = pd.to_numeric(
+        dataframe[column],
         errors="coerce",
     )
 
-    plot_df = plot_df.dropna(
-        subset=[
-            "log_date",
-            column,
-        ]
-    )
+    values = values.dropna()
+    values = values[values > 0]
 
-    plot_df = plot_df[
-        plot_df[column] > 0
-    ]
-
-    if plot_df.empty:
+    if values.empty:
         return None
 
-    plot_df = plot_df.sort_values(
-        "log_date"
+    return float(
+        values.iloc[-1]
     )
-
-    minimum = float(
-        plot_df[column].min()
-    )
-
-    maximum = float(
-        plot_df[column].max()
-    )
-
-    difference = (
-        maximum - minimum
-    )
-
-    margin = max(
-        difference * 0.30,
-        minimum_margin,
-    )
-
-    y_min = max(
-        0,
-        minimum - margin,
-    )
-
-    y_max = (
-        maximum + margin
-    )
-
-    if maximum == minimum:
-
-        y_min = max(
-            0,
-            minimum - minimum_margin,
-        )
-
-        y_max = (
-            maximum + minimum_margin
-        )
-
-    line = (
-        alt.Chart(plot_df)
-        .mark_line(
-            point=alt.OverlayMarkDef(
-                size=55
-            ),
-            strokeWidth=3,
-        )
-        .encode(
-
-            x=alt.X(
-                "log_date:T",
-                title=None,
-                axis=alt.Axis(
-                    format="%m/%d",
-                    labelAngle=0,
-                    tickCount=6,
-                    grid=False,
-                ),
-            ),
-
-            y=alt.Y(
-                f"{column}:Q",
-                title=f"{label}（{unit}）",
-                scale=alt.Scale(
-                    domain=[
-                        y_min,
-                        y_max,
-                    ],
-                    zero=False,
-                ),
-                axis=alt.Axis(
-                    grid=True,
-                ),
-            ),
-
-            tooltip=[
-                alt.Tooltip(
-                    "log_date:T",
-                    title="日付",
-                    format="%Y/%m/%d",
-                ),
-
-                alt.Tooltip(
-                    f"{column}:Q",
-                    title=label,
-                    format=".1f",
-                ),
-            ],
-        )
-        .properties(
-            height=290
-        )
-    )
-
-    return line
-
-
-# =========================================================
-# DietLogs読み込み
-# app_core.pyの共通処理だけを使用
-# =========================================================
-try:
-
-    df = load_diet_dataframe(
-        user_id
-    )
-
-except Exception as e:
-
-    st.error(
-        "記録データを読み込めませんでした。"
-    )
-
-    st.caption(
-        str(e)
-    )
-
-    df = pd.DataFrame(
-        columns=[
-            "user_id",
-            "log_date",
-            "weight",
-            "body_fat",
-            "muscle_mass",
-            "meal_memo",
-        ]
-    )
-
-
-# =========================================================
-# 最新有効値
-# =========================================================
-latest_weight, _ = latest_value(
-    df,
-    "weight",
-)
-
-latest_body_fat, _ = latest_value(
-    df,
-    "body_fat",
-)
-
-latest_muscle, _ = latest_value(
-    df,
-    "muscle_mass",
-)
-
-
-# =========================================================
-# 入力初期値
-# =========================================================
-default_weight = (
-    latest_weight
-    if latest_weight is not None
-    else 50.0
-)
-
-default_body_fat = (
-    latest_body_fat
-    if latest_body_fat is not None
-    else 20.0
-)
-
-default_muscle = (
-    latest_muscle
-    if latest_muscle is not None
-    else 0.0
-)
 
 
 # =========================================================
@@ -475,8 +192,8 @@ default_muscle = (
 render_page_header(
     title="記録する",
     subtitle=(
-        "体重・体脂肪率・筋肉量・食事を記録して、"
-        "からだの変化を確認できます。"
+        "体組成と食事を記録して、"
+        "毎日の変化を確認できます。"
     ),
     icon_file="ShufuMate_home_icons_8/record.png",
     emoji="📝",
@@ -485,17 +202,35 @@ render_page_header(
 
 # =========================================================
 # 今日の記録
+# ★ アイコンなし
 # =========================================================
-render_section_header(
-    title="今日の記録",
-    icon_file="ShufuMate_home_icons_8/record.png",
-    emoji="📝",
+st.markdown(
+    '<div class="record-sub-title">'
+    '今日の記録'
+    '</div>',
+    unsafe_allow_html=True,
 )
+
+st.markdown(
+    '<div class="record-sub-desc">'
+    '今日の体組成と食事を入力します。'
+    '</div>',
+    unsafe_allow_html=True,
+)
+
 
 today = jst_today_str()
 
-render_note(
-    f"記録日：{today.replace('-', '/')}"
+
+date_html = (
+    '<div class="record-date">'
+    f'記録日：<strong>{safe_html(today.replace("-", "/"))}</strong>'
+    '</div>'
+)
+
+st.markdown(
+    date_html,
+    unsafe_allow_html=True,
 )
 
 
@@ -503,14 +238,23 @@ render_note(
 # 入力フォーム
 # =========================================================
 with st.form(
-    "shufumate_daily_record_form"
+    "daily_log_form",
+    clear_on_submit=False,
 ):
 
+    # =====================================================
+    # 体組成
+    # =====================================================
     st.markdown(
-        "### からだ"
+        '<div class="record-group-title">'
+        '体組成'
+        '</div>',
+        unsafe_allow_html=True,
     )
 
+
     col1, col2 = st.columns(2)
+
 
     with col1:
 
@@ -518,10 +262,12 @@ with st.form(
             "体重（kg）",
             min_value=0.0,
             max_value=200.0,
-            value=float(default_weight),
+            value=50.0,
             step=0.1,
             format="%.1f",
+            key="record_weight",
         )
+
 
     with col2:
 
@@ -529,86 +275,102 @@ with st.form(
             "体脂肪率（%）",
             min_value=0.0,
             max_value=60.0,
-            value=float(default_body_fat),
+            value=20.0,
             step=0.1,
             format="%.1f",
+            key="record_body_fat",
         )
+
 
     muscle_mass = st.number_input(
         "筋肉量（kg）",
         min_value=0.0,
         max_value=100.0,
-        value=float(default_muscle),
+        value=0.0,
         step=0.1,
         format="%.1f",
         help=(
-            "測定していない場合は0にすると、"
-            "未入力として保存します。"
+            "測っていない日は0のままでOKです。"
+            "0は未入力として保存します。"
         ),
+        key="record_muscle_mass",
     )
 
-    st.markdown("---")
 
     st.markdown(
-        "### 食事"
+        '<div class="soft-divider"></div>',
+        unsafe_allow_html=True,
     )
+
+
+    # =====================================================
+    # 食事
+    # =====================================================
+    st.markdown(
+        '<div class="record-group-title">'
+        '食事'
+        '</div>',
+        unsafe_allow_html=True,
+    )
+
 
     breakfast = st.text_area(
-        "朝",
+        "朝食",
         placeholder=(
-            "例：白湯、豆乳、アサイー、"
-            "キウイ、納豆"
+            "例：白湯、豆乳、"
+            "アサイー、キウイ"
         ),
-        height=75,
+        height=80,
+        key="record_breakfast",
     )
+
 
     lunch = st.text_area(
-        "昼",
+        "昼食",
         placeholder=(
-            "例：おにぎり、味噌汁、"
-            "鶏むね肉、卵"
+            "例：鮭枝豆おにぎり、"
+            "鶏むね肉、卵、味噌汁"
         ),
-        height=75,
+        height=80,
+        key="record_lunch",
     )
 
+
     dinner = st.text_area(
-        "夜",
+        "夕食",
         placeholder=(
-            "例：豚しゃぶ、野菜、"
-            "豆腐、ご飯"
+            "例：豚しゃぶ、"
+            "豆腐、野菜、ご飯"
         ),
-        height=75,
+        height=80,
+        key="record_dinner",
     )
+
 
     snack = st.text_area(
         "間食",
         placeholder=(
-            "例：ヨーグルト、"
-            "バナナ、プルーン"
+            "例：ヨーグルト、バナナ"
         ),
         height=70,
+        key="record_snack",
     )
 
-    st.markdown("---")
-
-    st.markdown(
-        "### 今日のメモ"
-    )
 
     memo = st.text_area(
-        "運動・体調・気づいたこと",
+        "運動・体調など",
         placeholder=(
             "例：筋トレ＋ラン20分。"
-            "脚が軽かった。"
+            "脚は軽い。睡眠7時間。"
         ),
         height=90,
+        key="record_memo",
     )
 
-    submitted = (
-        st.form_submit_button(
-            "今日の記録を保存する",
-            use_container_width=True,
-        )
+
+    submitted = st.form_submit_button(
+        "保存する",
+        use_container_width=True,
     )
 
 
@@ -616,6 +378,16 @@ with st.form(
 # 保存
 # =========================================================
 if submitted:
+
+    muscle_value = (
+        round(
+            float(muscle_mass),
+            1,
+        )
+        if muscle_mass > 0
+        else ""
+    )
+
 
     meal_memo = (
         f"朝: {clean_text(breakfast)}\n"
@@ -625,44 +397,21 @@ if submitted:
         f"メモ: {clean_text(memo)}"
     )
 
+
     log_data = {
-
-        "log_date":
-            today,
-
-        "weight":
-            (
-                round(
-                    float(weight),
-                    1,
-                )
-                if weight > 0
-                else ""
-            ),
-
-        "body_fat":
-            (
-                round(
-                    float(body_fat),
-                    1,
-                )
-                if body_fat > 0
-                else ""
-            ),
-
-        "muscle_mass":
-            (
-                round(
-                    float(muscle_mass),
-                    1,
-                )
-                if muscle_mass > 0
-                else ""
-            ),
-
-        "meal_memo":
-            meal_memo,
+        "log_date": today,
+        "weight": round(
+            float(weight),
+            1,
+        ),
+        "body_fat": round(
+            float(body_fat),
+            1,
+        ),
+        "muscle_mass": muscle_value,
+        "meal_memo": meal_memo,
     }
+
 
     try:
 
@@ -677,22 +426,88 @@ if submitted:
 
         st.rerun()
 
+
     except Exception as e:
 
         st.error(
-            "保存中にエラーが発生しました。"
+            "記録の保存中にエラーが発生しました。"
         )
 
         st.caption(
-            str(e)
+            f"エラー内容：{e}"
         )
 
 
 # =========================================================
-# からだの変化
+# 記録取得
+# =========================================================
+try:
+
+    df = load_diet_dataframe(
+        user_id
+    )
+
+except Exception as e:
+
+    df = pd.DataFrame()
+
+    st.warning(
+        "記録を読み込めませんでした。"
+    )
+
+    st.caption(
+        f"エラー内容：{e}"
+    )
+
+
+if not df.empty:
+
+    if "log_date" in df.columns:
+
+        df["log_date"] = pd.to_datetime(
+            df["log_date"],
+            errors="coerce",
+        )
+
+        df = df.dropna(
+            subset=["log_date"]
+        )
+
+        df = df.sort_values(
+            "log_date"
+        ).reset_index(
+            drop=True
+        )
+
+
+    for column in [
+        "weight",
+        "body_fat",
+        "muscle_mass",
+    ]:
+
+        if column in df.columns:
+
+            df[column] = pd.to_numeric(
+                df[column],
+                errors="coerce",
+            )
+
+
+# =========================================================
+# 区切り
+# =========================================================
+st.markdown(
+    '<div class="soft-divider"></div>',
+    unsafe_allow_html=True,
+)
+
+
+# =========================================================
+# 最近の変化
 # =========================================================
 render_section_header(
-    title="からだの変化",
+    title="最近の変化",
     icon_file="ShufuMate_home_icons_8/trend.png",
     emoji="📈",
 )
@@ -701,11 +516,15 @@ render_section_header(
 if df.empty:
 
     st.info(
-        "まだ記録がありません。"
+        "記録が増えると、ここに変化が表示されます。"
     )
+
 
 else:
 
+    # =====================================================
+    # 表示期間
+    # =====================================================
     period = st.radio(
         "表示期間",
         [
@@ -714,164 +533,336 @@ else:
             "すべて",
         ],
         horizontal=True,
-        key="record_period",
+        key="record_chart_period",
     )
+
 
     chart_df = df.copy()
 
-    if not chart_df.empty:
 
-        latest_date = (
-            chart_df[
-                "log_date"
-            ].max()
+    if period == "直近30日":
+
+        latest_date = chart_df[
+            "log_date"
+        ].max()
+
+        start_date = (
+            latest_date
+            - pd.Timedelta(
+                days=29
+            )
         )
+
+        chart_df = chart_df[
+            chart_df["log_date"]
+            >= start_date
+        ]
+
+
+    elif period == "直近90日":
+
+        latest_date = chart_df[
+            "log_date"
+        ].max()
+
+        start_date = (
+            latest_date
+            - pd.Timedelta(
+                days=89
+            )
+        )
+
+        chart_df = chart_df[
+            chart_df["log_date"]
+            >= start_date
+        ]
+
+
+    # =====================================================
+    # グラフ関数
+    # =====================================================
+    def render_chart(
+        dataframe,
+        value_col,
+        title,
+        unit,
+        minimum_span,
+    ):
+
+        if (
+            dataframe.empty
+            or value_col not in dataframe.columns
+        ):
+
+            st.info(
+                f"{title}の記録がありません。"
+            )
+
+            return
+
+
+        data = dataframe[
+            [
+                "log_date",
+                value_col,
+            ]
+        ].copy()
+
+
+        data[value_col] = pd.to_numeric(
+            data[value_col],
+            errors="coerce",
+        )
+
+
+        data = data.dropna(
+            subset=[
+                "log_date",
+                value_col,
+            ]
+        )
+
+
+        data = data[
+            data[value_col] > 0
+        ]
+
+
+        if data.empty:
+
+            st.info(
+                f"{title}の記録がありません。"
+            )
+
+            return
+
+
+        min_value = float(
+            data[value_col].min()
+        )
+
+        max_value = float(
+            data[value_col].max()
+        )
+
+
+        actual_span = (
+            max_value
+            - min_value
+        )
+
+
+        display_span = max(
+            actual_span * 1.4,
+            minimum_span,
+        )
+
+
+        center = (
+            max_value
+            + min_value
+        ) / 2
+
+
+        y_min = max(
+            0,
+            center
+            - display_span / 2,
+        )
+
+
+        y_max = (
+            center
+            + display_span / 2
+        )
+
+
+        y_min = (
+            math.floor(
+                y_min * 2
+            )
+            / 2
+        )
+
+
+        y_max = (
+            math.ceil(
+                y_max * 2
+            )
+            / 2
+        )
+
 
         if period == "直近30日":
 
-            start_date = (
-                latest_date
-                - pd.Timedelta(
-                    days=29
-                )
-            )
+            x_format = "%m/%d"
+            tick_count = 5
 
-            chart_df = chart_df[
-                chart_df["log_date"]
-                >= start_date
-            ]
 
         elif period == "直近90日":
 
-            start_date = (
-                latest_date
-                - pd.Timedelta(
-                    days=89
-                )
+            x_format = "%m/%d"
+            tick_count = 6
+
+
+        else:
+
+            x_format = "%Y/%m"
+
+            month_count = (
+                data["log_date"]
+                .dt.to_period("M")
+                .nunique()
             )
 
-            chart_df = chart_df[
-                chart_df["log_date"]
-                >= start_date
-            ]
+            tick_count = max(
+                3,
+                min(
+                    int(month_count),
+                    8,
+                ),
+            )
+
+
+        label_expr = (
+            "datum.label + ' %'"
+            if unit == "%"
+            else "datum.label + ' kg'"
+        )
+
+
+        chart = (
+            alt.Chart(
+                data
+            )
+            .mark_line(
+                point=True
+            )
+            .encode(
+
+                x=alt.X(
+                    "log_date:T",
+                    title=None,
+                    axis=alt.Axis(
+                        format=x_format,
+                        labelAngle=0,
+                        tickCount=tick_count,
+                    ),
+                ),
+
+                y=alt.Y(
+                    f"{value_col}:Q",
+                    title=None,
+                    scale=alt.Scale(
+                        domain=[
+                            y_min,
+                            y_max,
+                        ],
+                        zero=False,
+                    ),
+                    axis=alt.Axis(
+                        labelExpr=label_expr,
+                        labelPadding=8,
+                    ),
+                ),
+
+                tooltip=[
+                    alt.Tooltip(
+                        "log_date:T",
+                        title="日付",
+                        format="%Y/%m/%d",
+                    ),
+
+                    alt.Tooltip(
+                        f"{value_col}:Q",
+                        title=title,
+                        format=".1f",
+                    ),
+                ],
+            )
+            .properties(
+                height=240
+            )
+        )
+
+
+        st.altair_chart(
+            chart,
+            use_container_width=True,
+        )
 
 
     # =====================================================
     # 体脂肪率
     # =====================================================
     st.markdown(
-        """
-        <div class="record-chart-title">
-            体脂肪率
-        </div>
-        <div class="record-chart-caption">
-            体重だけでなく、からだの中身の変化を確認します。
-        </div>
-        """,
+        '<div class="record-group-title">'
+        '体脂肪率'
+        '</div>',
         unsafe_allow_html=True,
     )
 
-    fat_chart = make_body_chart(
+    render_chart(
         chart_df,
         "body_fat",
         "体脂肪率",
         "%",
-        1.5,
+        8.0,
     )
-
-    if fat_chart is None:
-
-        st.info(
-            "体脂肪率の記録がまだありません。"
-        )
-
-    else:
-
-        st.altair_chart(
-            fat_chart,
-            use_container_width=True,
-        )
 
 
     # =====================================================
     # 筋肉量
     # =====================================================
     st.markdown(
-        """
-        <div class="record-chart-title">
-            筋肉量
-        </div>
-        <div class="record-chart-caption">
-            筋肉を維持できているかを確認します。
-        </div>
-        """,
+        '<div class="record-group-title">'
+        '筋肉量'
+        '</div>',
         unsafe_allow_html=True,
     )
 
-    muscle_chart = make_body_chart(
+    render_chart(
         chart_df,
         "muscle_mass",
         "筋肉量",
         "kg",
-        1.0,
+        5.0,
     )
-
-    if muscle_chart is None:
-
-        st.info(
-            "筋肉量の記録がまだありません。"
-        )
-
-    else:
-
-        st.altair_chart(
-            muscle_chart,
-            use_container_width=True,
-        )
 
 
     # =====================================================
     # 体重
     # =====================================================
     st.markdown(
-        """
-        <div class="record-chart-title">
-            体重
-        </div>
-        <div class="record-chart-caption">
-            日々の数字より、長い目で変化を確認します。
-        </div>
-        """,
+        '<div class="record-group-title">'
+        '体重'
+        '</div>',
         unsafe_allow_html=True,
     )
 
-    weight_chart = make_body_chart(
+    render_chart(
         chart_df,
         "weight",
         "体重",
         "kg",
-        1.5,
+        10.0,
     )
 
-    if weight_chart is None:
 
-        st.info(
-            "体重の記録がまだありません。"
-        )
-
-    else:
-
-        st.altair_chart(
-            weight_chart,
-            use_container_width=True,
-        )
+# =========================================================
+# 区切り
+# =========================================================
+st.markdown(
+    '<div class="soft-divider"></div>',
+    unsafe_allow_html=True,
+)
 
 
 # =========================================================
-# 最新記録
+# 最新の記録
 # =========================================================
 render_section_header(
-    title="最新記録",
+    title="最新の記録",
     icon_file="ShufuMate_home_icons_8/latest.png",
     emoji="📋",
 )
@@ -883,221 +874,143 @@ if df.empty:
         "まだ記録がありません。"
     )
 
+
 else:
 
-    # -----------------------------------------------------
-    # 最新行
-    # -----------------------------------------------------
-    latest_row = (
-        df
-        .sort_values("log_date")
-        .iloc[-1]
-    )
+    latest = df.iloc[-1]
 
-    latest_date = latest_row.get(
+
+    latest_date = latest.get(
         "log_date"
     )
 
-    if pd.notna(latest_date):
 
-        date_text = (
-            latest_date.strftime(
-                "%Y/%m/%d"
-            )
+    if pd.notna(
+        latest_date
+    ):
+
+        latest_date_html = (
+            '<div class="record-latest-card">'
+            '最新記録：'
+            f'<strong>{latest_date.strftime("%Y/%m/%d")}</strong>'
+            '</div>'
         )
 
-    else:
-
-        date_text = "—"
-
-    st.markdown(
-        f"""
-        <div class="latest-date-card">
-            最新記録：{safe_text(date_text)}
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+        st.markdown(
+            latest_date_html,
+            unsafe_allow_html=True,
+        )
 
 
-    # -----------------------------------------------------
-    # 各項目は最新有効値
-    # -----------------------------------------------------
-    display_weight, _ = latest_value(
+    # =====================================================
+    # 最新値
+    # =====================================================
+    latest_weight = latest_valid_value(
         df,
         "weight",
     )
 
-    display_fat, _ = latest_value(
+    latest_fat = latest_valid_value(
         df,
         "body_fat",
     )
 
-    display_muscle, _ = latest_value(
+    latest_muscle = latest_valid_value(
         df,
         "muscle_mass",
     )
 
+
     col1, col2, col3 = st.columns(3)
+
 
     with col1:
 
         st.metric(
             "体重",
             (
-                f"{display_weight:.1f} kg"
-                if display_weight is not None
+                f"{latest_weight:.1f} kg"
+                if latest_weight is not None
                 else "—"
             ),
         )
+
 
     with col2:
 
         st.metric(
             "体脂肪率",
             (
-                f"{display_fat:.1f} %"
-                if display_fat is not None
+                f"{latest_fat:.1f} %"
+                if latest_fat is not None
                 else "—"
             ),
         )
+
 
     with col3:
 
         st.metric(
             "筋肉量",
             (
-                f"{display_muscle:.1f} kg"
-                if display_muscle is not None
+                f"{latest_muscle:.1f} kg"
+                if latest_muscle is not None
                 else "—"
             ),
         )
 
 
     # =====================================================
-    # 食事・メモ
-    #
-    # 重要：
-    # 必ず meal_memo 列だけを見る
-    # muscle_mass は一切参照しない
+    # 最新の食事・メモ
     # =====================================================
-    render_section_header(
-        title="食事・メモ",
-        icon_file="ShufuMate_home_icons_8/advice.png",
-        emoji="🍽️",
-    )
-
-    raw_meal_memo = ""
-
-    if "meal_memo" in df.columns:
-
-        raw_meal_memo = clean_text(
-            latest_row.get(
-                "meal_memo",
-                ""
-            )
+    meal_memo = clean_text(
+        latest.get(
+            "meal_memo",
+            ""
         )
-
-
-    # -----------------------------------------------------
-    # meal_memoが本当に食事メモか確認
-    #
-    # 旧データで「37」等が入ってしまった場合は
-    # 表示しない
-    # -----------------------------------------------------
-    parsed = parse_meal_memo(
-        raw_meal_memo
-    )
-
-    has_structured_meal = any(
-        clean_text(value)
-        for value in parsed.values()
     )
 
 
-    if has_structured_meal:
+    # 数字だけなら旧列ずれデータとして表示しない
+    if meal_memo:
 
-        meal_html_parts = []
-
-        for label in [
-            "朝",
-            "昼",
-            "夜",
-            "間食",
-            "メモ",
-        ]:
-
-            value = clean_text(
-                parsed.get(
-                    label,
-                    ""
-                )
-            )
-
-            if value:
-
-                meal_html_parts.append(
-                    f"""
-                    <div>
-                        <span class="meal-log-label">
-                            {safe_text(label)}：
-                        </span>
-                        {safe_text(value)}
-                    </div>
-                    """
-                )
-
-        meal_html = "\n".join(
-            meal_html_parts
-        )
-
-        st.markdown(
-            f"""
-            <div class="meal-log-card">
-                {meal_html}
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-    elif raw_meal_memo:
-
-        # -------------------------------------------------
-        # 古い形式の食事文章なら表示
-        # 数字だけなら筋肉量誤読の可能性があるので除外
-        # -------------------------------------------------
         try:
 
             float(
-                raw_meal_memo
+                meal_memo
             )
 
-            is_only_number = True
+            meal_memo = ""
 
         except Exception:
 
-            is_only_number = False
+            pass
 
 
-        if is_only_number:
+    if meal_memo:
 
-            st.info(
-                "この日の食事・メモはありません。"
-            )
+        st.markdown(
+            '<div class="record-group-title">'
+            '食事・メモ'
+            '</div>',
+            unsafe_allow_html=True,
+        )
 
-        else:
 
-            st.markdown(
-                f"""
-                <div class="meal-log-card">
-                    {safe_html_with_br(raw_meal_memo)}
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
+        meal_html = (
+            '<div class="record-meal-card">'
+            f'{safe_html_with_br(meal_memo)}'
+            '</div>'
+        )
+
+
+        st.markdown(
+            meal_html,
+            unsafe_allow_html=True,
+        )
 
     else:
 
-        st.info(
-            "この日の食事・メモはありません。"
+        st.caption(
+            "最新の食事・メモはありません。"
         )
