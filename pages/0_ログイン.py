@@ -1,12 +1,19 @@
 # =========================================================
 # ShufuMate
-# 0_ログイン.py
+# pages/0_ログイン.py
 # 完全置換版
 # =========================================================
 
 import streamlit as st
 
-from app_core import *
+from app_core import (
+    login,
+    is_logged_in,
+    inject_shufumate_css,
+    render_page_header,
+    render_note,
+    get_page_icon,
+)
 
 
 # =========================================================
@@ -14,7 +21,10 @@ from app_core import *
 # =========================================================
 st.set_page_config(
     page_title="ログイン｜ShufuMate",
-    page_icon="🌿",
+    page_icon=get_page_icon(
+        "ShufuMate_home_icons_8/state.png",
+        "🏠",
+    ),
     layout="centered",
 )
 
@@ -22,53 +32,42 @@ inject_shufumate_css()
 
 
 # =========================================================
-# ページ専用CSS
+# ログインページ専用CSS
 # =========================================================
 st.markdown(
     """
 <style>
-.login-wrap {
-    max-width: 560px;
-    margin: 0 auto;
-}
 
-.login-message {
-    background: rgba(255,250,244,.94);
-    border: 1px solid rgba(139,100,72,.12);
+.login-welcome {
+    background: #fff8ef;
+    border: 1px solid rgba(139,100,72,.10);
     border-radius: 20px;
-    padding: 17px 19px;
-    color: #6d5649;
-    line-height: 1.85;
-    margin-bottom: 18px;
-}
-
-.login-note {
-    color: #917b70;
-    font-size: .86rem;
-    line-height: 1.75;
-    margin-top: 15px;
-}
-
-.login-account {
-    background: rgba(255,255,255,.78);
-    border: 1px solid rgba(139,100,72,.11);
-    border-radius: 18px;
-    padding: 15px 17px;
-    color: #695247;
+    padding: 20px 22px;
+    color: #705649;
     line-height: 1.8;
-    margin-top: 16px;
+    margin: 14px 0 28px;
 }
 
-div[data-testid="stForm"] {
-    background: rgba(255,255,255,.70);
+.login-form-box {
+    background: rgba(255,255,255,.90);
     border: 1px solid rgba(139,100,72,.12);
-    border-radius: 22px;
-    padding: 22px;
+    border-radius: 24px;
+    padding: 26px 28px 22px;
+    margin-bottom: 20px;
 }
 
-div[data-baseweb="input"] > div {
+.login-bottom-text {
+    text-align: center;
+    color: #8b7568;
+    font-size: .9rem;
+    line-height: 1.8;
+    margin-top: 20px;
+}
+
+div[data-testid="stTextInput"] input {
     border-radius: 14px !important;
 }
+
 </style>
     """,
     unsafe_allow_html=True,
@@ -76,44 +75,31 @@ div[data-baseweb="input"] > div {
 
 
 # =========================================================
-# すでにログインしている場合
+# すでにログイン済みの場合
 # =========================================================
-if get_user_id():
+if is_logged_in():
 
     render_page_header(
         title="ログイン",
-        subtitle="ShufuMateへようこそ。",
+        subtitle="ShufuMateにログインしています。",
         icon_file="ShufuMate_home_icons_8/state.png",
-        emoji="🌿",
+        emoji="🏠",
     )
 
-    already_html = (
-        '<div class="login-message">'
-        'すでにログインしています。'
-        '<br>'
-        'そのままHomeへ進めます。'
-        '</div>'
-    )
-
-    st.markdown(
-        already_html,
-        unsafe_allow_html=True,
-    )
+    st.success("ログイン済みです。")
 
     if st.button(
         "Homeへ",
-        key="login_go_home",
+        key="login_already_home",
         use_container_width=True,
     ):
-        st.switch_page(
-            "Home.py"
-        )
+        st.switch_page("Home.py")
 
     st.stop()
 
 
 # =========================================================
-# ヘッダー
+# ページヘッダー
 # =========================================================
 render_page_header(
     title="ログイン",
@@ -122,21 +108,20 @@ render_page_header(
         "ShufuMateへログインします。"
     ),
     icon_file="ShufuMate_home_icons_8/state.png",
-    emoji="🌿",
+    emoji="🏠",
 )
 
 
-welcome_html = (
-    '<div class="login-message">'
-    'おかえりなさい。'
-    '<br>'
-    '登録したログインIDとパスワードを'
-    '入力してください。'
-    '</div>'
-)
-
+# =========================================================
+# 案内
+# =========================================================
 st.markdown(
-    welcome_html,
+    """
+<div class="login-welcome">
+    <strong>おかえりなさい。</strong><br>
+    登録したログインIDとパスワードを入力してください。
+</div>
+    """,
     unsafe_allow_html=True,
 )
 
@@ -145,20 +130,21 @@ st.markdown(
 # ログインフォーム
 # =========================================================
 with st.form(
-    "shufumate_login_form"
+    "shufumate_login_form",
+    clear_on_submit=False,
 ):
 
     login_id = st.text_input(
         "ログインID",
         placeholder="登録したログインID",
-        key="login_id_input",
+        key="login_page_login_id",
     )
 
     password = st.text_input(
         "パスワード",
         type="password",
         placeholder="パスワード",
-        key="login_password_input",
+        key="login_page_password",
     )
 
     submitted = st.form_submit_button(
@@ -172,13 +158,13 @@ with st.form(
 # =========================================================
 if submitted:
 
-    login_id_clean = clean_text(
-        login_id
-    )
+    login_id_clean = str(
+        login_id or ""
+    ).strip()
 
-    password_clean = clean_text(
-        password
-    )
+    password_clean = str(
+        password or ""
+    ).strip()
 
     if not login_id_clean:
 
@@ -196,77 +182,23 @@ if submitted:
 
         try:
 
-            result = authenticate_user(
+            # -----------------------------------------
+            # app_core.py の正式な認証関数
+            # -----------------------------------------
+            success = login(
                 login_id_clean,
                 password_clean,
             )
 
-            if result:
+            if success:
 
-                # -----------------------------------------
-                # app_coreのauthenticate_userが
-                # user_idを返す場合
-                # -----------------------------------------
-                if isinstance(
-                    result,
-                    str,
-                ):
+                st.success(
+                    "ログインしました。"
+                )
 
-                    st.session_state[
-                        "user_id"
-                    ] = result
-
-                    st.session_state[
-                        "user_id_cookie"
-                    ] = result
-
-
-                # -----------------------------------------
-                # dictを返す場合にも対応
-                # -----------------------------------------
-                elif isinstance(
-                    result,
-                    dict,
-                ):
-
-                    authenticated_user_id = (
-                        clean_text(
-                            result.get(
-                                "user_id"
-                            )
-                        )
-                    )
-
-                    if authenticated_user_id:
-
-                        st.session_state[
-                            "user_id"
-                        ] = authenticated_user_id
-
-                        st.session_state[
-                            "user_id_cookie"
-                        ] = authenticated_user_id
-
-
-                # -----------------------------------------
-                # authenticate_user側ですでに
-                # session_stateを設定する場合も対応
-                # -----------------------------------------
-                if get_user_id():
-
-                    st.success(
-                        "ログインしました ✨"
-                    )
-
-                    st.switch_page(
-                        "Home.py"
-                    )
-
-                else:
-
-                    st.error(
-                        "ログイン情報を確認できませんでした。"
-                    )
+                st.switch_page(
+                    "Home.py"
+                )
 
             else:
 
@@ -288,46 +220,12 @@ if submitted:
 # =========================================================
 # 新規登録への案内
 # =========================================================
-render_divider()
-
-
-register_html = (
-    '<div class="login-account">'
-    '<strong>はじめて使う方</strong>'
-    '<br>'
-    '最初に新規登録をすると、'
-    '自分専用の記録を保存できるようになります。'
-    '</div>'
-)
-
 st.markdown(
-    register_html,
-    unsafe_allow_html=True,
-)
-
-
-if st.button(
-    "新規登録へ",
-    key="login_go_register",
-    use_container_width=True,
-):
-
-    st.switch_page(
-        "pages/0_新規登録.py"
-    )
-
-
-# =========================================================
-# パスワードについて
-# =========================================================
-note_html = (
-    '<div class="login-note">'
-    'パスワードは他のサービスと同じものを'
-    '使い回さないことをおすすめします。'
-    '</div>'
-)
-
-st.markdown(
-    note_html,
+    """
+<div class="login-bottom-text">
+    はじめてShufuMateを使う場合は、<br>
+    左メニューの「新規登録」から登録してください。
+</div>
+    """,
     unsafe_allow_html=True,
 )
