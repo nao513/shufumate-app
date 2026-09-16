@@ -1002,6 +1002,7 @@ save_user_record = save_diet_log
 USER_SETTINGS_HEADERS = [
     "user_id",
     "nickname",
+    "birth_date",
     "height",
 
     "current_weight",
