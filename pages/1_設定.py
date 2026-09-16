@@ -613,7 +613,7 @@ advice_tone = st.selectbox(
 # =========================================================
 render_section_header(
     title="運動",
-    icon_file="ShufuMate_home_icons_8/exercise.png",
+    icon_file="ShufuMate_home_icons/exercise.png",
     emoji="🧘",
 )
 
@@ -648,7 +648,7 @@ workout_today = st.text_area(
 # =========================================================
 render_section_header(
     title="食材・冷蔵庫",
-    icon_file="ShufuMate_home_icons_8/fridge.png",
+    icon_file="ShufuMate_home_icons/fridge.png",
     emoji="🥕",
 )
 
