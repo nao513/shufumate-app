@@ -1389,14 +1389,22 @@ st.markdown(
 
 # =========================================================
 # メニュー
+# アイコンなし
 # =========================================================
-render_home_section(
-    title="メニュー",
-    description=(
-        "使いたい機能を選んでください。"
-    ),
-    filename="latest.png",
-    fallback="📋",
+menu_header_html = (
+    '<div style="margin-top:30px; margin-bottom:22px;">'
+    '<div class="sm-home-section-title">'
+    'メニュー'
+    '</div>'
+    '<div class="sm-home-section-desc">'
+    '使いたい機能を選んでください。'
+    '</div>'
+    '</div>'
+)
+
+st.markdown(
+    menu_header_html,
+    unsafe_allow_html=True,
 )
 
 
