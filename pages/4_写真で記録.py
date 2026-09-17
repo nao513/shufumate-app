@@ -17,7 +17,7 @@ from app_core import (
     render_page_header,
     render_section_header,
     load_diet_dataframe,
-    save_photo_meal_log,
+    save_diet_log,
     clean_text,
     jst_today_str,
 )
