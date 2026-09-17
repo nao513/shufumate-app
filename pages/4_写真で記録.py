@@ -343,8 +343,6 @@ st.markdown(
 # =========================================================
 render_section_header(
     title="食事の写真",
-    icon_file="ShufuMate_home_icons_8/camera.png",
-    emoji="📷",
 )
 
 
