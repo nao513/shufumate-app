@@ -1468,6 +1468,167 @@ load_settings = load_user_settings
 save_settings = save_user_settings
 load_profile_settings = load_user_settings
 save_profile_settings = save_user_settings
+
+
+# =========================================================
+# ユーザープロフィール
+# 設定ページ互換用
+# =========================================================
+def load_current_user_profile(user_id=None):
+
+    if user_id is None:
+        user_id = get_user_id()
+
+    user_id = clean_text(user_id)
+
+    if not user_id:
+        return {}
+
+    user = find_user_by_user_id(
+        user_id
+    )
+
+    if not user:
+        return {}
+
+    return user
+
+
+def update_current_user_profile(
+    user_id=None,
+    nickname=None,
+    birth_date=None,
+):
+
+    if user_id is None:
+        user_id = get_user_id()
+
+    user_id = clean_text(user_id)
+
+    if not user_id:
+        return False
+
+    sheet = get_sheet("Users")
+    values = sheet.get_all_values()
+
+    if not values:
+        return False
+
+    headers = [
+        clean_text(value)
+        for value in values[0]
+    ]
+
+    if "user_id" not in headers:
+        return False
+
+    user_id_col = headers.index(
+        "user_id"
+    )
+
+    target_row = None
+
+    for row_number, row in enumerate(
+        values[1:],
+        start=2,
+    ):
+
+        current_user_id = ""
+
+        if len(row) > user_id_col:
+            current_user_id = clean_text(
+                row[user_id_col]
+            )
+
+        if current_user_id == user_id:
+            target_row = row_number
+            break
+
+    if target_row is None:
+        return False
+
+    # -----------------------------------------
+    # ニックネーム更新
+    # -----------------------------------------
+    if (
+        nickname is not None
+        and "nickname" in headers
+    ):
+
+        nickname_col = (
+            headers.index("nickname") + 1
+        )
+
+        nickname_clean = clean_text(
+            nickname
+        )
+
+        sheet.update_cell(
+            target_row,
+            nickname_col,
+            nickname_clean,
+        )
+
+        # 現在ログイン中のユーザーなら
+        # session_stateも同期
+        if user_id == get_user_id():
+
+            st.session_state[
+                "nickname"
+            ] = nickname_clean
+
+    # -----------------------------------------
+    # 生年月日更新
+    # -----------------------------------------
+    if (
+        birth_date is not None
+        and "birth_date" in headers
+    ):
+
+        if isinstance(
+            birth_date,
+            (date, datetime),
+        ):
+
+            birth_text = (
+                birth_date.strftime(
+                    "%Y-%m-%d"
+                )
+            )
+
+        else:
+
+            birth_text = clean_text(
+                birth_date
+            )
+
+        birth_col = (
+            headers.index("birth_date") + 1
+        )
+
+        sheet.update_cell(
+            target_row,
+            birth_col,
+            birth_text,
+        )
+
+    # -----------------------------------------
+    # updated_at更新
+    # -----------------------------------------
+    if "updated_at" in headers:
+
+        updated_col = (
+            headers.index("updated_at") + 1
+        )
+
+        sheet.update_cell(
+            target_row,
+            updated_col,
+            jst_datetime_str(),
+        )
+
+    return True
+
 # =========================================================
 # 写真記録
 # =========================================================
