@@ -341,8 +341,12 @@ st.markdown(
 # STEP 1
 # 写真
 # =========================================================
-render_section_header(
-    title="食事の写真",
+st.markdown(
+    '<div style="color:#5c4033; font-size:1.35rem; '
+    'font-weight:900; margin:28px 0 14px;">'
+    '食事の写真'
+    '</div>',
+    unsafe_allow_html=True,
 )
 
 
@@ -410,12 +414,13 @@ if uploaded_photo is not None:
 # STEP 2
 # 食事内容
 # =========================================================
-render_section_header(
-    title="食事の内容",
-    icon_file="ShufuMate_home_icons_8/record.png",
-    emoji="🍽️",
+st.markdown(
+    '<div style="color:#5c4033; font-size:1.35rem; '
+    'font-weight:900; margin:28px 0 14px;">'
+    '食事の内容'
+    '</div>',
+    unsafe_allow_html=True,
 )
-
 
 step2_html = (
     '<div class="photo-step">'
@@ -471,10 +476,12 @@ note_text = st.text_area(
 # STEP 3
 # 保存
 # =========================================================
-render_section_header(
-    title="記録する",
-    icon_file="ShufuMate_home_icons_8/latest.png",
-    emoji="✓",
+st.markdown(
+    '<div style="color:#5c4033; font-size:1.35rem; '
+    'font-weight:900; margin:28px 0 14px;">'
+    '記録する'
+    '</div>',
+    unsafe_allow_html=True,
 )
 
 
