@@ -1,13 +1,18 @@
 # =========================================================
 # ShufuMate
 # pages/4_写真で記録.py
-# 最終完全版
+# AI写真解析・DietLogs保存 完全版
 # =========================================================
 
+import base64
+import hashlib
 import html
+import json
+import re
 
 import pandas as pd
 import streamlit as st
+from openai import OpenAI
 
 from app_core import (
     require_login,
@@ -37,21 +42,16 @@ st.set_page_config(
 
 
 # =========================================================
-# 共通デザイン
+# 共通
 # =========================================================
 inject_shufumate_css()
-
-
-# =========================================================
-# ログイン確認
-# =========================================================
 require_login()
 
 user_id = get_user_id()
 
 
 # =========================================================
-# ページ専用CSS
+# CSS
 # =========================================================
 st.markdown(
     """
@@ -67,31 +67,15 @@ st.markdown(
     margin-bottom: 18px;
 }
 
-
 .photo-step {
     background: rgba(255,255,255,.82);
     border: 1px solid rgba(139,100,72,.11);
     border-radius: 18px;
     padding: 15px 17px;
-    margin: 8px 0 15px 0;
+    margin: 8px 0 15px;
     color: #665044;
     line-height: 1.75;
 }
-
-
-.photo-step-number {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 28px;
-    height: 28px;
-    border-radius: 50%;
-    background: #9b7a69;
-    color: white;
-    font-weight: 800;
-    margin-right: 7px;
-}
-
 
 .photo-result-card {
     background:
@@ -109,7 +93,6 @@ st.markdown(
     margin-bottom: 14px;
 }
 
-
 .photo-result-title {
     color: #5c4033;
     font-weight: 900;
@@ -117,18 +100,19 @@ st.markdown(
     margin-bottom: 7px;
 }
 
-
-.photo-body-note {
-    background: rgba(247,250,243,.88);
-    border: 1px solid rgba(92,130,83,.12);
-    border-radius: 16px;
-    padding: 13px 15px;
-    color: #61705d;
-    font-size: .88rem;
-    line-height: 1.7;
-    margin-top: 10px;
+.photo-score {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 82px;
+    height: 82px;
+    border-radius: 50%;
+    background: #9b7a69;
+    color: white;
+    font-size: 1.35rem;
+    font-weight: 900;
+    margin: 5px 0 12px;
 }
-
 
 .photo-small {
     color: #917b70;
@@ -138,29 +122,18 @@ st.markdown(
     margin-bottom: 18px;
 }
 
-
 div[data-testid="stFileUploader"] {
     background: rgba(255,255,255,.60);
     border-radius: 18px;
 }
 
-
 div[data-testid="stTextArea"] textarea {
     border-radius: 15px !important;
 }
 
-
 div[data-testid="stImage"] img {
     border-radius: 17px;
 }
-
-
-div[data-testid="stExpander"] {
-    background: rgba(255,255,255,.60);
-    border: 1px solid rgba(139,100,72,.10);
-    border-radius: 17px;
-}
-
 
 @media (max-width: 640px) {
 
@@ -175,7 +148,6 @@ div[data-testid="stExpander"] {
     .photo-result-card {
         padding: 17px 18px;
     }
-
 }
 
 </style>
@@ -188,49 +160,258 @@ div[data-testid="stExpander"] {
 # 補助関数
 # =========================================================
 def safe_html(value):
-    """
-    HTML表示用。
-    ユーザー入力を安全に表示する。
-    """
+
     return html.escape(
         str(value or "")
     )
 
 
 def safe_html_with_br(value):
-    """
-    改行を保持して安全にHTML表示する。
-    """
+
     return safe_html(value).replace(
         "\n",
         "<br>"
     )
 
 
-def latest_body_values():
-    """
-    DietLogsから最新の有効な
-    体重・体脂肪率・筋肉量を取得する。
+def uploaded_file_bytes(uploaded_file):
 
-    ※表示専用。
-    写真保存時にはDietLogsへ再保存しない。
-    """
+    if uploaded_file is None:
+        return None
+
+    return uploaded_file.getvalue()
+
+
+def image_hash(image_bytes):
+
+    if not image_bytes:
+        return ""
+
+    return hashlib.sha256(
+        image_bytes
+    ).hexdigest()
+
+
+def image_to_data_url(
+    image_bytes,
+    mime_type,
+):
+
+    encoded = base64.b64encode(
+        image_bytes
+    ).decode("utf-8")
+
+    mime_type = (
+        mime_type
+        or "image/jpeg"
+    )
+
+    return (
+        f"data:{mime_type};"
+        f"base64,{encoded}"
+    )
+
+
+def extract_json(text):
+
+    text = clean_text(text)
+
+    if not text:
+        raise ValueError(
+            "AIから解析結果を取得できませんでした。"
+        )
+
+    # ```json ... ``` 対応
+    text = re.sub(
+        r"^```json\s*",
+        "",
+        text,
+        flags=re.IGNORECASE,
+    )
+
+    text = re.sub(
+        r"\s*```$",
+        "",
+        text,
+    )
 
     try:
+        return json.loads(text)
+
+    except Exception:
+        pass
+
+    # 前後に文章が付いた場合
+    match = re.search(
+        r"\{.*\}",
+        text,
+        flags=re.DOTALL,
+    )
+
+    if not match:
+        raise ValueError(
+            "AI解析結果の形式を読み取れませんでした。"
+        )
+
+    return json.loads(
+        match.group(0)
+    )
+
+
+# =========================================================
+# AI画像解析
+# =========================================================
+def analyze_meal_photo(
+    image_bytes,
+    mime_type,
+):
+
+    api_key = clean_text(
+        st.secrets.get(
+            "OPENAI_API_KEY",
+            ""
+        )
+    )
+
+    if not api_key:
+
+        raise ValueError(
+            "OPENAI_API_KEY が設定されていません。"
+        )
+
+    client = OpenAI(
+        api_key=api_key
+    )
+
+    data_url = image_to_data_url(
+        image_bytes,
+        mime_type,
+    )
+
+    prompt = """
+あなたは食事記録アプリ ShufuMate の食事写真解析AIです。
+
+写真に実際に写っているものを中心に、日本語で食事内容を分析してください。
+
+推測できない食材は断定しないでください。
+量やカロリーを写真だけから無理に断定しないでください。
+
+必ず次のJSONだけを返してください。
+Markdownや説明文は付けないでください。
+
+{
+  "foods": "写真から確認できる料理・食品。修正しやすいよう簡潔に列挙",
+  "balance": "主食・たんぱく質・野菜などのバランスについて短く評価",
+  "improvement": "次の食事やこの食事に足すとよいものを具体的に短く提案",
+  "score": 80
+}
+
+scoreは0～100の整数です。
+写真だけで判断できない部分については控えめに評価してください。
+"""
+
+    response = client.responses.create(
+        model="gpt-4o-mini",
+        input=[
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "input_text",
+                        "text": prompt,
+                    },
+                    {
+                        "type": "input_image",
+                        "image_url": data_url,
+                        "detail": "auto",
+                    },
+                ],
+            }
+        ],
+    )
+
+    result = extract_json(
+        response.output_text
+    )
+
+    foods = clean_text(
+        result.get(
+            "foods",
+            ""
+        )
+    )
+
+    balance = clean_text(
+        result.get(
+            "balance",
+            ""
+        )
+    )
+
+    improvement = clean_text(
+        result.get(
+            "improvement",
+            ""
+        )
+    )
+
+    try:
+
+        score = int(
+            result.get(
+                "score",
+                0
+            )
+        )
+
+    except Exception:
+
+        score = 0
+
+    score = max(
+        0,
+        min(
+            100,
+            score,
+        )
+    )
+
+    if not foods:
+
+        foods = (
+            "写真だけでは食事内容を"
+            "十分に判定できませんでした。"
+        )
+
+    return {
+        "foods": foods,
+        "balance": balance,
+        "improvement": improvement,
+        "score": score,
+    }
+
+
+# =========================================================
+# 最新体組成
+# =========================================================
+def latest_body_values():
+
+    try:
+
         df = load_diet_dataframe(
             user_id
         )
 
     except Exception:
-        return None, None, None
 
+        return None, None, None
 
     if (
         df is None
         or df.empty
     ):
-        return None, None, None
 
+        return None, None, None
 
     if "log_date" in df.columns:
 
@@ -239,7 +420,6 @@ def latest_body_values():
         ).reset_index(
             drop=True
         )
-
 
     def get_latest(column):
 
@@ -264,7 +444,6 @@ def latest_body_values():
             values.iloc[-1]
         )
 
-
     return (
         get_latest("weight"),
         get_latest("body_fat"),
@@ -273,36 +452,27 @@ def latest_body_values():
 
 
 # =========================================================
-# セッション初期化
+# Session State
 # =========================================================
-if "photo_record_saved" not in st.session_state:
-    st.session_state[
-        "photo_record_saved"
-    ] = False
+defaults = {
+    "photo_analysis_hash": "",
+    "photo_analysis_foods": "",
+    "photo_analysis_balance": "",
+    "photo_analysis_improvement": "",
+    "photo_analysis_score": 0,
+    "photo_record_saved": False,
+    "photo_record_meal": "",
+    "photo_record_food": "",
+    "photo_record_note": "",
+    "photo_record_date": "",
+}
 
 
-if "photo_record_meal" not in st.session_state:
-    st.session_state[
-        "photo_record_meal"
-    ] = ""
+for key, value in defaults.items():
 
+    if key not in st.session_state:
 
-if "photo_record_food" not in st.session_state:
-    st.session_state[
-        "photo_record_food"
-    ] = ""
-
-
-if "photo_record_note" not in st.session_state:
-    st.session_state[
-        "photo_record_note"
-    ] = ""
-
-
-if "photo_record_date" not in st.session_state:
-    st.session_state[
-        "photo_record_date"
-    ] = ""
+        st.session_state[key] = value
 
 
 # =========================================================
@@ -311,23 +481,22 @@ if "photo_record_date" not in st.session_state:
 render_page_header(
     title="写真で記録",
     subtitle=(
-        "食事の写真を残して、"
-        "かんたんに今日の食事を記録できます。"
+        "食事の写真から内容を自動で読み取り、"
+        "かんたんに記録できます。"
     ),
-    icon_file="ShufuMate_home_icons_8/camera.png",
+    icon_file=(
+        "ShufuMate_home_icons_8/"
+        "camera.png"
+    ),
     emoji="📷",
 )
 
 
-# =========================================================
-# ページ説明
-# =========================================================
 intro_html = (
     '<div class="photo-intro">'
-    '食事を細かく入力するのが面倒な日は、'
-    '写真を1枚残して簡単に記録。'
-    '食べたものを少し入力しておけば、'
-    'あとの相談にも使いやすくなります。'
+    '食事の写真を撮るか選ぶと、'
+    'ShufuMateが写真を見て食事内容を自動で読み取ります。'
+    '結果を確認・修正してから記録できます。'
     '</div>'
 )
 
@@ -338,26 +507,22 @@ st.markdown(
 
 
 # =========================================================
-# STEP 1
 # 写真
 # =========================================================
 st.markdown(
-    '<div style="color:#5c4033; font-size:1.35rem; '
-    'font-weight:900; margin:28px 0 14px;">'
+    '<div style="color:#5c4033; '
+    'font-size:1.35rem; font-weight:900; '
+    'margin:28px 0 14px;">'
     '食事の写真'
     '</div>',
     unsafe_allow_html=True,
 )
 
 
-step1_html = (
+st.markdown(
     '<div class="photo-step">'
     '写真を撮るか、保存してある写真を選びます。'
-    '</div>'
-)
-
-st.markdown(
-    step1_html,
+    '</div>',
     unsafe_allow_html=True,
 )
 
@@ -398,38 +563,195 @@ else:
 
 
 # =========================================================
-# 写真プレビュー
+# 写真選択後
 # =========================================================
 if uploaded_photo is not None:
 
     st.image(
         uploaded_photo,
-        caption="記録する写真",
+        caption="解析する写真",
         use_container_width=True,
+    )
+
+    image_bytes = uploaded_file_bytes(
+        uploaded_photo
+    )
+
+    current_hash = image_hash(
+        image_bytes
+    )
+
+    mime_type = getattr(
+        uploaded_photo,
+        "type",
+        "image/jpeg",
+    )
+
+    # =====================================================
+    # 新しい写真なら自動解析
+    # 同じ写真ではAPIを繰り返し呼ばない
+    # =====================================================
+    if (
+        current_hash
+        and current_hash
+        != st.session_state[
+            "photo_analysis_hash"
+        ]
+    ):
+
+        with st.spinner(
+            "写真から食事内容を読み取っています…"
+        ):
+
+            try:
+
+                analysis = analyze_meal_photo(
+                    image_bytes,
+                    mime_type,
+                )
+
+                st.session_state[
+                    "photo_analysis_hash"
+                ] = current_hash
+
+                st.session_state[
+                    "photo_analysis_foods"
+                ] = analysis[
+                    "foods"
+                ]
+
+                st.session_state[
+                    "photo_analysis_balance"
+                ] = analysis[
+                    "balance"
+                ]
+
+                st.session_state[
+                    "photo_analysis_improvement"
+                ] = analysis[
+                    "improvement"
+                ]
+
+                st.session_state[
+                    "photo_analysis_score"
+                ] = analysis[
+                    "score"
+                ]
+
+                # 編集欄にもAI結果を入れる
+                st.session_state[
+                    "photo_food_text"
+                ] = analysis[
+                    "foods"
+                ]
+
+                # 新しい写真なので保存済み表示を解除
+                st.session_state[
+                    "photo_record_saved"
+                ] = False
+
+            except Exception as e:
+
+                st.error(
+                    "写真を解析できませんでした。"
+                )
+
+                st.caption(
+                    f"エラー内容：{e}"
+                )
+
+
+# =========================================================
+# AI解析結果
+# =========================================================
+analysis_foods = clean_text(
+    st.session_state.get(
+        "photo_analysis_foods",
+        "",
+    )
+)
+
+analysis_balance = clean_text(
+    st.session_state.get(
+        "photo_analysis_balance",
+        "",
+    )
+)
+
+analysis_improvement = clean_text(
+    st.session_state.get(
+        "photo_analysis_improvement",
+        "",
+    )
+)
+
+analysis_score = st.session_state.get(
+    "photo_analysis_score",
+    0,
+)
+
+
+if uploaded_photo is not None and analysis_foods:
+
+    render_section_header(
+        title="ShufuMateの写真分析",
+        icon_file=(
+            "ShufuMate_home_icons_8/"
+            "advice.png"
+        ),
+        emoji="🌿",
+    )
+
+    score_html = (
+        '<div class="photo-result-card">'
+        '<div class="photo-result-title">'
+        '食事バランス'
+        '</div>'
+        f'<div class="photo-score">'
+        f'{analysis_score}点'
+        '</div>'
+        f'<div>{safe_html_with_br(analysis_balance)}</div>'
+        '</div>'
+    )
+
+    st.markdown(
+        score_html,
+        unsafe_allow_html=True,
+    )
+
+    improvement_html = (
+        '<div class="photo-result-card">'
+        '<div class="photo-result-title">'
+        'もう少し整えるなら'
+        '</div>'
+        f'{safe_html_with_br(analysis_improvement)}'
+        '</div>'
+    )
+
+    st.markdown(
+        improvement_html,
+        unsafe_allow_html=True,
     )
 
 
 # =========================================================
-# STEP 2
 # 食事内容
 # =========================================================
 st.markdown(
-    '<div style="color:#5c4033; font-size:1.35rem; '
-    'font-weight:900; margin:28px 0 14px;">'
+    '<div style="color:#5c4033; '
+    'font-size:1.35rem; font-weight:900; '
+    'margin:28px 0 14px;">'
     '食事の内容'
     '</div>',
     unsafe_allow_html=True,
 )
 
-step2_html = (
-    '<div class="photo-step">'
-    '分かる範囲で食べたものを入力します。'
-    '細かい量まで入力しなくても大丈夫です。'
-    '</div>'
-)
 
 st.markdown(
-    step2_html,
+    '<div class="photo-step">'
+    'AIが読み取った内容を確認してください。'
+    '違うところがあれば、そのまま修正できます。'
+    '</div>',
     unsafe_allow_html=True,
 )
 
@@ -451,10 +773,9 @@ meal_type = st.radio(
 food_text = st.text_area(
     "食べたもの",
     placeholder=(
-        "例：鮭おにぎり、味噌汁、"
-        "納豆、キウイ"
+        "写真を選ぶとAIが自動入力します。"
     ),
-    height=100,
+    height=120,
     key="photo_food_text",
 )
 
@@ -471,33 +792,28 @@ note_text = st.text_area(
 
 
 # =========================================================
-# STEP 3
 # 保存
 # =========================================================
 st.markdown(
-    '<div style="color:#5c4033; font-size:1.35rem; '
-    'font-weight:900; margin:28px 0 14px;">'
+    '<div style="color:#5c4033; '
+    'font-size:1.35rem; font-weight:900; '
+    'margin:28px 0 14px;">'
     '記録する'
     '</div>',
     unsafe_allow_html=True,
 )
 
 
-step3_html = (
-    '<div class="photo-step">'
-    '内容を確認して食事の記録として保存します。'
-    '</div>'
-)
-
 st.markdown(
-    step3_html,
+    '<div class="photo-step">'
+    'AIの解析結果と食事内容を確認して保存します。'
+    '</div>',
     unsafe_allow_html=True,
 )
 
 
 # =========================================================
 # 最新体組成
-# 表示のみ
 # =========================================================
 latest_weight, latest_fat, latest_muscle = (
     latest_body_values()
@@ -511,7 +827,6 @@ with st.expander(
 
     col1, col2, col3 = st.columns(3)
 
-
     with col1:
 
         st.metric(
@@ -523,7 +838,6 @@ with st.expander(
             ),
         )
 
-
     with col2:
 
         st.metric(
@@ -534,7 +848,6 @@ with st.expander(
                 else "—"
             ),
         )
-
 
     with col3:
 
@@ -548,20 +861,6 @@ with st.expander(
         )
 
 
-    body_note_html = (
-        '<div class="photo-body-note">'
-        'ここに表示している体組成は、'
-        '「記録する」に保存されている最新データです。'
-        '写真を保存しても、体組成を重複して保存しません。'
-        '</div>'
-    )
-
-    st.markdown(
-        body_note_html,
-        unsafe_allow_html=True,
-    )
-
-
 # =========================================================
 # 保存ボタン
 # =========================================================
@@ -571,22 +870,17 @@ if st.button(
     use_container_width=True,
 ):
 
-    # -----------------------------------------
-    # 入力確認
-    # -----------------------------------------
     if uploaded_photo is None:
 
         st.warning(
             "食事の写真を撮るか選んでください。"
         )
 
-
     elif not clean_text(food_text):
 
         st.warning(
-            "食べたものを入力してください。"
+            "食事内容を確認してください。"
         )
-
 
     else:
 
@@ -600,27 +894,73 @@ if st.button(
             note_text
         )
 
+        cleaned_balance = clean_text(
+            analysis_balance
+        )
+
+        cleaned_improvement = clean_text(
+            analysis_improvement
+        )
+
+        meal_memo_parts = [
+            f"【写真で記録・{meal_type}】",
+            cleaned_food,
+        ]
+
+        if cleaned_note:
+
+            meal_memo_parts.append(
+                f"メモ：{cleaned_note}"
+            )
+
+        if cleaned_balance:
+
+            meal_memo_parts.append(
+                f"バランス：{cleaned_balance}"
+            )
+
+        if cleaned_improvement:
+
+            meal_memo_parts.append(
+                f"改善ポイント：{cleaned_improvement}"
+            )
+
+        if analysis_score:
+
+            meal_memo_parts.append(
+                f"食事スコア：{analysis_score}点"
+            )
+
+        meal_memo = "\n".join(
+            meal_memo_parts
+        )
 
         try:
 
-            # =====================================
-            # 写真記録として保存
-            #
-            # DietLogsには保存しない。
-            # 体組成の重複を防止する。
-            # =====================================
-            save_photo_meal_log(
-                user_id=user_id,
-                log_date=save_date,
-                meal_type=meal_type,
-                food_text=cleaned_food,
-                note_text=cleaned_note,
+            # =============================================
+            # DietLogsへ永続保存
+            # 体組成は空欄にして重複させない
+            # =============================================
+            save_diet_log(
+                user_id,
+                {
+                    "log_date":
+                        save_date,
+
+                    "weight":
+                        "",
+
+                    "body_fat":
+                        "",
+
+                    "muscle_mass":
+                        "",
+
+                    "meal_memo":
+                        meal_memo,
+                },
             )
 
-
-            # =====================================
-            # 保存結果表示用
-            # =====================================
             st.session_state[
                 "photo_record_saved"
             ] = True
@@ -641,11 +981,9 @@ if st.button(
                 "photo_record_date"
             ] = save_date
 
-
             st.success(
                 "食事を記録しました ✨"
             )
-
 
         except Exception as e:
 
@@ -695,16 +1033,13 @@ if st.session_state.get(
         )
     )
 
-
     result_parts = []
-
 
     if saved_date:
 
         result_parts.append(
             f'<div>{safe_html(saved_date)}</div>'
         )
-
 
     if saved_meal:
 
@@ -714,7 +1049,6 @@ if st.session_state.get(
             '</div>'
         )
 
-
     if saved_food:
 
         result_parts.append(
@@ -722,7 +1056,6 @@ if st.session_state.get(
             f'{safe_html_with_br(saved_food)}'
             '</div>'
         )
-
 
     if saved_note:
 
@@ -733,7 +1066,6 @@ if st.session_state.get(
             '</div>'
         )
 
-
     result_html = (
         '<div class="photo-result-card">'
         '<div class="photo-result-title">'
@@ -743,7 +1075,6 @@ if st.session_state.get(
         + '</div>'
     )
 
-
     st.markdown(
         result_html,
         unsafe_allow_html=True,
@@ -751,50 +1082,13 @@ if st.session_state.get(
 
 
 # =========================================================
-# これからできること
-# =========================================================
-render_section_header(
-    title="これからできること",
-    icon_file="ShufuMate_home_icons_8/advice.png",
-    emoji="✨",
-)
-
-
-future_html = (
-    '<div class="photo-result-card">'
-    '<div class="photo-result-title">'
-    '写真から自動で記録'
-    '</div>'
-    '今後は写真を見て、料理や食材を'
-    'ShufuMateが候補として表示。'
-    '内容を確認・修正して、'
-    'そのまま記録できるようにします。'
-    '<br><br>'
-    'さらに記録した食事から、'
-    '「今日はたんぱく質が少なそう」'
-    '「夜は野菜を足そう」など、'
-    '次の食事につながる提案も'
-    'できる形にします。'
-    '</div>'
-)
-
-st.markdown(
-    future_html,
-    unsafe_allow_html=True,
-)
-
-
-# =========================================================
 # 注意書き
 # =========================================================
 note_html = (
     '<div class="photo-small">'
-    '現在は写真を見ながら食事内容を入力して記録する方式です。'
-    '写真そのものの永続保存と自動解析は、'
-    '今後追加する機能です。'
-    '自動解析を追加した後も、'
-    '最終的な食事内容は確認・修正してから'
-    '保存できる設計にします。'
+    '写真の解析結果はAIによる推定です。'
+    '料理や食材、量を正確に判定できない場合があります。'
+    '内容を確認・修正してから記録してください。'
     '</div>'
 )
 
