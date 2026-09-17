@@ -352,7 +352,6 @@ st.markdown(
 
 step1_html = (
     '<div class="photo-step">'
-    '<span class="photo-step-number">1</span>'
     '写真を撮るか、保存してある写真を選びます。'
     '</div>'
 )
@@ -424,7 +423,6 @@ st.markdown(
 
 step2_html = (
     '<div class="photo-step">'
-    '<span class="photo-step-number">2</span>'
     '分かる範囲で食べたものを入力します。'
     '細かい量まで入力しなくても大丈夫です。'
     '</div>'
@@ -487,7 +485,6 @@ st.markdown(
 
 step3_html = (
     '<div class="photo-step">'
-    '<span class="photo-step-number">3</span>'
     '内容を確認して食事の記録として保存します。'
     '</div>'
 )
