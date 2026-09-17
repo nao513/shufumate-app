@@ -1056,6 +1056,27 @@ def get_or_create_user_settings_sheet():
 
         return sheet
 
+    # =====================================================
+    # シートの列数を必要数まで自動拡張
+    # =====================================================
+    required_columns = max(
+        30,
+        len(USER_SETTINGS_HEADERS),
+    )
+
+    if sheet.col_count < required_columns:
+
+        sheet.resize(
+            rows=max(
+                sheet.row_count,
+                1000,
+            ),
+            cols=required_columns,
+        )
+
+    # =====================================================
+    # 現在のデータ取得
+    # =====================================================
     values = sheet.get_all_values()
 
     # -----------------------------------------
@@ -1079,7 +1100,7 @@ def get_or_create_user_settings_sheet():
     ]
 
     # -----------------------------------------
-    # 不足列を右側へ追加
+    # 不足ヘッダーを追加
     # -----------------------------------------
     missing_headers = [
         header
@@ -1137,7 +1158,6 @@ def get_or_create_user_settings_sheet():
         )
 
     return sheet
-
 
 # =========================================================
 # UserSettings 読み込み
