@@ -1027,6 +1027,448 @@ USER_SETTINGS_HEADERS = [
 ]
 
 # =========================================================
+# UserSettings シート取得・不足列自動追加
+# =========================================================
+def get_or_create_user_settings_sheet():
+
+    spreadsheet = get_spreadsheet()
+
+    try:
+        sheet = spreadsheet.worksheet(
+            "UserSettings"
+        )
+
+    except gspread.WorksheetNotFound:
+
+        sheet = spreadsheet.add_worksheet(
+            title="UserSettings",
+            rows=1000,
+            cols=max(
+                30,
+                len(USER_SETTINGS_HEADERS),
+            ),
+        )
+
+        sheet.append_row(
+            USER_SETTINGS_HEADERS,
+            value_input_option="RAW",
+        )
+
+        return sheet
+
+    values = sheet.get_all_values()
+
+    # -----------------------------------------
+    # 完全に空のシート
+    # -----------------------------------------
+    if not values:
+
+        sheet.append_row(
+            USER_SETTINGS_HEADERS,
+            value_input_option="RAW",
+        )
+
+        return sheet
+
+    # -----------------------------------------
+    # 現在のヘッダー
+    # -----------------------------------------
+    current_headers = [
+        clean_text(value)
+        for value in values[0]
+    ]
+
+    # -----------------------------------------
+    # 不足列を右側へ追加
+    # -----------------------------------------
+    missing_headers = [
+        header
+        for header in USER_SETTINGS_HEADERS
+        if header not in current_headers
+    ]
+
+    if missing_headers:
+
+        start_col = (
+            len(current_headers) + 1
+        )
+
+        end_col = (
+            start_col
+            + len(missing_headers)
+            - 1
+        )
+
+        def column_letter(number):
+
+            result = ""
+
+            while number:
+
+                number, remainder = divmod(
+                    number - 1,
+                    26,
+                )
+
+                result = (
+                    chr(65 + remainder)
+                    + result
+                )
+
+            return result
+
+        start_letter = column_letter(
+            start_col
+        )
+
+        end_letter = column_letter(
+            end_col
+        )
+
+        sheet.update(
+            range_name=(
+                f"{start_letter}1:"
+                f"{end_letter}1"
+            ),
+            values=[
+                missing_headers
+            ],
+            value_input_option="RAW",
+        )
+
+    return sheet
+
+
+# =========================================================
+# UserSettings 読み込み
+# =========================================================
+def load_user_settings(
+    user_id=None,
+):
+
+    if user_id is None:
+        user_id = get_user_id()
+
+    user_id = clean_text(
+        user_id
+    )
+
+    if not user_id:
+        return {}
+
+    sheet = (
+        get_or_create_user_settings_sheet()
+    )
+
+    values = sheet.get_all_values()
+
+    if len(values) <= 1:
+        return {}
+
+    headers = [
+        clean_text(value)
+        for value in values[0]
+    ]
+
+    if "user_id" not in headers:
+        return {}
+
+    user_id_index = headers.index(
+        "user_id"
+    )
+
+    for row in values[1:]:
+
+        row = row + [""] * max(
+            0,
+            len(headers) - len(row),
+        )
+
+        if clean_text(
+            row[user_id_index]
+        ) != user_id:
+
+            continue
+
+        settings = {}
+
+        for index, header in enumerate(
+            headers
+        ):
+
+            if not header:
+                continue
+
+            value = (
+                row[index]
+                if index < len(row)
+                else ""
+            )
+
+            # constitution_traits は
+            # multiselect用にlistへ戻す
+            if header == "constitution_traits":
+
+                text = clean_text(
+                    value
+                )
+
+                if text:
+
+                    text = text.replace(
+                        ",",
+                        "、",
+                    )
+
+                    settings[header] = [
+                        item.strip()
+                        for item in text.split(
+                            "、"
+                        )
+                        if item.strip()
+                    ]
+
+                else:
+
+                    settings[header] = []
+
+            else:
+
+                settings[header] = (
+                    clean_text(value)
+                )
+
+        return settings
+
+    return {}
+
+
+# =========================================================
+# UserSettings 保存
+# =========================================================
+def save_user_settings(
+    user_id,
+    settings_data,
+):
+
+    user_id = clean_text(
+        user_id
+    )
+
+    if not user_id:
+        return False
+
+    if settings_data is None:
+        settings_data = {}
+
+    sheet = (
+        get_or_create_user_settings_sheet()
+    )
+
+    values = sheet.get_all_values()
+
+    if not values:
+
+        sheet.append_row(
+            USER_SETTINGS_HEADERS,
+            value_input_option="RAW",
+        )
+
+        values = sheet.get_all_values()
+
+    headers = [
+        clean_text(value)
+        for value in values[0]
+    ]
+
+    # -----------------------------------------
+    # 念のため不足列を再確認
+    # -----------------------------------------
+    for header in USER_SETTINGS_HEADERS:
+
+        if header not in headers:
+
+            headers.append(
+                header
+            )
+
+            sheet.update_cell(
+                1,
+                len(headers),
+                header,
+            )
+
+    # -----------------------------------------
+    # 既存設定を読み込む
+    # -----------------------------------------
+    existing = load_user_settings(
+        user_id
+    )
+
+    merged = {}
+
+    if existing:
+        merged.update(
+            existing
+        )
+
+    merged.update(
+        settings_data
+    )
+
+    merged["user_id"] = user_id
+    merged["updated_at"] = (
+        jst_datetime_str()
+    )
+
+    # -----------------------------------------
+    # リストをSheets保存用文字列へ
+    # -----------------------------------------
+    row_values = []
+
+    for header in headers:
+
+        value = merged.get(
+            header,
+            "",
+        )
+
+        if isinstance(
+            value,
+            (list, tuple, set),
+        ):
+
+            value = "、".join(
+                clean_text(item)
+                for item in value
+                if clean_text(item)
+            )
+
+        elif isinstance(
+            value,
+            datetime,
+        ):
+
+            value = value.strftime(
+                "%Y-%m-%d %H:%M:%S"
+            )
+
+        elif isinstance(
+            value,
+            date,
+        ):
+
+            value = value.strftime(
+                "%Y-%m-%d"
+            )
+
+        row_values.append(
+            value
+        )
+
+    # -----------------------------------------
+    # 同じuser_idの行を探す
+    # -----------------------------------------
+    user_id_col = (
+        headers.index("user_id")
+    )
+
+    target_row = None
+
+    current_values = (
+        sheet.get_all_values()
+    )
+
+    for row_number, row in enumerate(
+        current_values[1:],
+        start=2,
+    ):
+
+        current_user_id = ""
+
+        if len(row) > user_id_col:
+
+            current_user_id = clean_text(
+                row[user_id_col]
+            )
+
+        if current_user_id == user_id:
+
+            target_row = row_number
+            break
+
+    # -----------------------------------------
+    # 新規 or 更新
+    # -----------------------------------------
+    if target_row is None:
+
+        sheet.append_row(
+            row_values,
+            value_input_option="USER_ENTERED",
+        )
+
+    else:
+
+        def column_letter(number):
+
+            result = ""
+
+            while number:
+
+                number, remainder = divmod(
+                    number - 1,
+                    26,
+                )
+
+                result = (
+                    chr(65 + remainder)
+                    + result
+                )
+
+            return result
+
+        end_column = column_letter(
+            len(headers)
+        )
+
+        sheet.update(
+            range_name=(
+                f"A{target_row}:"
+                f"{end_column}{target_row}"
+            ),
+            values=[
+                row_values
+            ],
+            value_input_option="USER_ENTERED",
+        )
+
+    # -----------------------------------------
+    # nicknameは現在セッションにも反映
+    # -----------------------------------------
+    if (
+        user_id == get_user_id()
+        and "nickname" in settings_data
+    ):
+
+        st.session_state[
+            "nickname"
+        ] = clean_text(
+            settings_data.get(
+                "nickname"
+            )
+        )
+
+    return True
+
+
+# =========================================================
+# UserSettings 互換名
+# =========================================================
+load_settings = load_user_settings
+save_settings = save_user_settings
+load_profile_settings = load_user_settings
+save_profile_settings = save_user_settings
+# =========================================================
 # 写真記録
 # =========================================================
 def detect_meal_type_by_time(now=None):
