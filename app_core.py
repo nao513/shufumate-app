@@ -354,6 +354,9 @@ def login(login_id, password):
 
 def logout():
 
+    # =====================================================
+    # ログイン情報を削除
+    # =====================================================
     for key in [
         "logged_in",
         "user_id",
@@ -366,6 +369,48 @@ def logout():
             None,
         )
 
+    # =====================================================
+    # 設定ページのウィジェット状態を削除
+    #
+    # 次回ログイン時はGoogle Sheetsの
+    # UserSettingsから初期値を読み直す
+    # =====================================================
+    settings_keys = [
+        key
+        for key in list(
+            st.session_state.keys()
+        )
+        if str(key).startswith(
+            "settings_"
+        )
+    ]
+
+    for key in settings_keys:
+
+        st.session_state.pop(
+            key,
+            None,
+        )
+
+    # =====================================================
+    # 相談ページの一時状態も削除
+    # =====================================================
+    consult_keys = [
+        key
+        for key in list(
+            st.session_state.keys()
+        )
+        if str(key).startswith(
+            "shufumate_consult_"
+        )
+    ]
+
+    for key in consult_keys:
+
+        st.session_state.pop(
+            key,
+            None,
+        )
 
 def require_login():
 
