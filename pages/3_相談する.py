@@ -1,12 +1,15 @@
 # =========================================================
 # ShufuMate
 # pages/3_相談する.py
-# 最終完全版
+# AI相談・写真対応 完全版
 # =========================================================
 
-import streamlit as st
-import pandas as pd
+import base64
 import html
+
+import pandas as pd
+import streamlit as st
+from openai import OpenAI
 
 from app_core import (
     require_login,
@@ -33,31 +36,19 @@ st.set_page_config(
     layout="centered",
 )
 
-
-# =========================================================
-# 共通デザイン
-# =========================================================
 inject_shufumate_css()
-
-
-# =========================================================
-# ログイン確認
-# =========================================================
 require_login()
 
 user_id = get_user_id()
 
 
 # =========================================================
-# ページ専用CSS
+# CSS
 # =========================================================
 st.markdown(
     """
 <style>
 
-/* -----------------------------------------
-   説明カード
------------------------------------------ */
 .consult-intro {
     background: rgba(255,250,244,.92);
     border: 1px solid rgba(139,100,72,.12);
@@ -68,10 +59,6 @@ st.markdown(
     margin-bottom: 22px;
 }
 
-
-/* -----------------------------------------
-   テーマ説明
------------------------------------------ */
 .consult-theme {
     background: rgba(255,255,255,.80);
     border: 1px solid rgba(139,100,72,.12);
@@ -83,10 +70,16 @@ st.markdown(
     margin-bottom: 18px;
 }
 
+.consult-photo-help {
+    background: rgba(255,250,244,.72);
+    border-radius: 16px;
+    padding: 12px 15px;
+    color: #7b6559;
+    line-height: 1.7;
+    margin: 5px 0 12px;
+    font-size: .9rem;
+}
 
-/* -----------------------------------------
-   回答
------------------------------------------ */
 .consult-answer {
     background:
         linear-gradient(
@@ -99,8 +92,7 @@ st.markdown(
     padding: 20px 21px;
     color: #5d473b;
     line-height: 1.95;
-    box-shadow:
-        0 5px 18px rgba(91,64,49,.05);
+    box-shadow: 0 5px 18px rgba(91,64,49,.05);
     margin-top: 10px;
     margin-bottom: 18px;
 }
@@ -112,10 +104,6 @@ st.markdown(
     margin-bottom: 10px;
 }
 
-
-/* -----------------------------------------
-   質問表示
------------------------------------------ */
 .consult-question {
     background: rgba(255,255,255,.72);
     border-left: 4px solid #c7a891;
@@ -133,10 +121,6 @@ st.markdown(
     margin-bottom: 3px;
 }
 
-
-/* -----------------------------------------
-   注意書き
------------------------------------------ */
 .consult-small {
     font-size: .84rem;
     color: #927c70;
@@ -145,28 +129,25 @@ st.markdown(
     margin-bottom: 18px;
 }
 
-
-/* -----------------------------------------
-   入力欄
------------------------------------------ */
 div[data-testid="stTextArea"] textarea {
     border-radius: 16px !important;
 }
 
+div[data-testid="stFileUploader"] {
+    background: rgba(255,255,255,.60);
+    border-radius: 18px;
+}
 
-/* -----------------------------------------
-   Expander
------------------------------------------ */
+div[data-testid="stImage"] img {
+    border-radius: 17px;
+}
+
 div[data-testid="stExpander"] {
     background: rgba(255,255,255,.60);
     border: 1px solid rgba(139,100,72,.10);
     border-radius: 17px;
 }
 
-
-/* -----------------------------------------
-   モバイル
------------------------------------------ */
 @media (max-width: 640px) {
 
     .consult-intro {
@@ -188,28 +169,15 @@ div[data-testid="stExpander"] {
 # =========================================================
 # 補助関数
 # =========================================================
-def text_value(value):
-    """文字列を安全に整える"""
-    return clean_text(value)
-
-
 def safe_html(value):
-    """HTML特殊文字をエスケープ"""
-    return html.escape(
-        str(value or "")
-    )
+    return html.escape(str(value or ""))
 
 
 def safe_html_with_br(value):
-    """改行を <br> に変換"""
-    return safe_html(value).replace(
-        "\n",
-        "<br>"
-    )
+    return safe_html(value).replace("\n", "<br>")
 
 
 def latest_numeric(df, column):
-    """指定列の最新の有効数値"""
 
     if (
         df is None
@@ -223,20 +191,16 @@ def latest_numeric(df, column):
         errors="coerce",
     )
 
-    series = series[
-        series > 0
-    ]
+    series = series.dropna()
+    series = series[series > 0]
 
     if series.empty:
         return None
 
-    return float(
-        series.iloc[-1]
-    )
+    return float(series.iloc[-1])
 
 
 def previous_numeric(df, column):
-    """指定列の1つ前の有効数値"""
 
     if (
         df is None
@@ -250,43 +214,34 @@ def previous_numeric(df, column):
         errors="coerce",
     )
 
-    series = series[
-        series > 0
-    ]
+    series = series.dropna()
+    series = series[series > 0]
 
     if len(series) < 2:
         return None
 
-    return float(
-        series.iloc[-2]
+    return float(series.iloc[-2])
+
+
+def image_to_data_url(uploaded_file):
+
+    image_bytes = uploaded_file.getvalue()
+
+    encoded = base64.b64encode(
+        image_bytes
+    ).decode("utf-8")
+
+    mime_type = (
+        getattr(
+            uploaded_file,
+            "type",
+            None,
+        )
+        or "image/jpeg"
     )
 
-
-def change_text(
-    latest,
-    previous,
-    unit,
-):
-    """前回との差を表示"""
-
-    if (
-        latest is None
-        or previous is None
-    ):
-        return ""
-
-    diff = latest - previous
-
-    if abs(diff) < 0.05:
-        return "前回とほぼ同じ"
-
-    if diff > 0:
-        return (
-            f"前回より +{diff:.1f}{unit}"
-        )
-
     return (
-        f"前回より {diff:.1f}{unit}"
+        f"data:{mime_type};base64,{encoded}"
     )
 
 
@@ -294,16 +249,11 @@ def change_text(
 # 設定読み込み
 # =========================================================
 try:
-
     settings = (
-        load_user_settings(
-            user_id
-        )
+        load_user_settings(user_id)
         or {}
     )
-
 except Exception:
-
     settings = {}
 
 
@@ -311,10 +261,7 @@ except Exception:
 # 記録読み込み
 # =========================================================
 try:
-
-    df = load_diet_dataframe(
-        user_id
-    )
+    df = load_diet_dataframe(user_id)
 
 except Exception:
 
@@ -334,13 +281,11 @@ if not df.empty:
 
     df = df.sort_values(
         "log_date"
-    ).reset_index(
-        drop=True
-    )
+    ).reset_index(drop=True)
 
 
 # =========================================================
-# 最新データ
+# 最新値
 # =========================================================
 latest_weight = latest_numeric(
     df,
@@ -357,10 +302,6 @@ latest_muscle = latest_numeric(
     "muscle_mass",
 )
 
-
-# =========================================================
-# 前回データ
-# =========================================================
 previous_weight = previous_numeric(
     df,
     "weight",
@@ -378,94 +319,324 @@ previous_muscle = previous_numeric(
 
 
 # =========================================================
-# 最新食事メモ
+# 最近の食事記録
 # =========================================================
-latest_meal = ""
+recent_meals = []
 
 if (
     not df.empty
     and "meal_memo" in df.columns
 ):
 
-    latest_meal = text_value(
-        df.iloc[-1].get(
-            "meal_memo",
-            ""
+    for _, row in df.tail(5).iterrows():
+
+        meal = clean_text(
+            row.get(
+                "meal_memo",
+                ""
+            )
         )
-    )
 
-    # -----------------------------------------
-    # 旧データの列ずれ対策
-    # 数字だけなら食事メモとして使わない
-    # -----------------------------------------
-    if latest_meal:
+        if not meal:
+            continue
 
+        # 古い列ずれ対策
         try:
-
-            float(latest_meal)
-
-            latest_meal = ""
-
+            float(meal)
+            continue
         except Exception:
-
             pass
+
+        log_date = clean_text(
+            row.get(
+                "log_date",
+                ""
+            )
+        )
+
+        recent_meals.append(
+            f"{log_date}：{meal}"
+        )
 
 
 # =========================================================
 # 設定値
 # =========================================================
-goal = text_value(
+goal = clean_text(
     settings.get(
         "user_type",
         "健康維持",
     )
 )
 
-activity = text_value(
+activity = clean_text(
     settings.get(
         "activity_level",
         "普通",
     )
 )
 
-food_style = text_value(
+food_style = clean_text(
     settings.get(
         "food_style",
         "",
     )
 )
 
-workout = text_value(
+workout = clean_text(
     settings.get(
         "workout_today",
         "",
     )
 )
 
-fridge_items = text_value(
+fridge_items = clean_text(
     settings.get(
         "fridge_items",
         "",
     )
 )
 
-avoid_foods = text_value(
+avoid_foods = clean_text(
     settings.get(
         "avoid_foods",
         "",
     )
 )
 
-favorite_meals = text_value(
+favorite_meals = clean_text(
     settings.get(
         "favorite_meals",
         "",
     )
 )
 
+target_weight = clean_text(
+    settings.get(
+        "target_weight",
+        "",
+    )
+)
+
+target_body_fat = clean_text(
+    settings.get(
+        "target_body_fat",
+        "",
+    )
+)
+
+target_muscle = clean_text(
+    settings.get(
+        "target_muscle_mass",
+        "",
+    )
+)
+
 
 # =========================================================
-# ページヘッダー
+# AI相談
+# =========================================================
+def ask_shufumate_ai(
+    selected_theme,
+    question_text,
+    uploaded_photo=None,
+):
+
+    api_key = clean_text(
+        st.secrets.get(
+            "OPENAI_API_KEY",
+            ""
+        )
+    )
+
+    if not api_key:
+
+        raise ValueError(
+            "OPENAI_API_KEY が設定されていません。"
+        )
+
+    client = OpenAI(
+        api_key=api_key
+    )
+
+    question_text = clean_text(
+        question_text
+    )
+
+    body_info = []
+
+    if latest_weight is not None:
+        body_info.append(
+            f"最新体重：{latest_weight:.1f}kg"
+        )
+
+    if latest_fat is not None:
+        body_info.append(
+            f"最新体脂肪率：{latest_fat:.1f}%"
+        )
+
+    if latest_muscle is not None:
+        body_info.append(
+            f"最新筋肉量：{latest_muscle:.1f}kg"
+        )
+
+    if previous_weight is not None:
+        body_info.append(
+            f"前回体重：{previous_weight:.1f}kg"
+        )
+
+    if previous_fat is not None:
+        body_info.append(
+            f"前回体脂肪率：{previous_fat:.1f}%"
+        )
+
+    if previous_muscle is not None:
+        body_info.append(
+            f"前回筋肉量：{previous_muscle:.1f}kg"
+        )
+
+    settings_info = []
+
+    if goal:
+        settings_info.append(
+            f"目的：{goal}"
+        )
+
+    if activity:
+        settings_info.append(
+            f"活動量：{activity}"
+        )
+
+    if food_style:
+        settings_info.append(
+            f"食事スタイル：{food_style}"
+        )
+
+    if workout:
+        settings_info.append(
+            f"普段の運動：{workout}"
+        )
+
+    if fridge_items:
+        settings_info.append(
+            f"冷蔵庫・家にある食材：{fridge_items}"
+        )
+
+    if avoid_foods:
+        settings_info.append(
+            f"避けたい食品：{avoid_foods}"
+        )
+
+    if favorite_meals:
+        settings_info.append(
+            f"好きなメニュー：{favorite_meals}"
+        )
+
+    if target_weight:
+        settings_info.append(
+            f"目標体重：{target_weight}kg"
+        )
+
+    if target_body_fat:
+        settings_info.append(
+            f"目標体脂肪率：{target_body_fat}%"
+        )
+
+    if target_muscle:
+        settings_info.append(
+            f"目標筋肉量：{target_muscle}kg"
+        )
+
+    recent_meal_text = (
+        "\n".join(recent_meals)
+        if recent_meals
+        else "記録なし"
+    )
+
+    prompt = f"""
+あなたは生活サポートアプリ「ShufuMate」の相談AIです。
+
+ユーザーの日々の食事・運動・体組成・生活を、
+やさしく、具体的に、一緒に整理してください。
+
+【相談テーマ】
+{selected_theme}
+
+【相談内容】
+{question_text if question_text else "文章での相談はありません。添付写真を見て相談に答えてください。"}
+
+【現在の体組成】
+{chr(10).join(body_info) if body_info else "記録なし"}
+
+【ユーザー設定】
+{chr(10).join(settings_info) if settings_info else "設定なし"}
+
+【最近の食事記録】
+{recent_meal_text}
+
+回答ルール：
+・日本語で答える
+・相談内容に最初に直接答える
+・一般論だけで終わらせない
+・登録済みの設定や記録が関係するときだけ自然に利用する
+・記録にないことを事実として決めつけない
+・写真がある場合は、写真で確認できる内容を相談への回答に利用する
+・写真から分からない量や食材は断定しない
+・食事相談では、実際に食べやすい具体例を出す
+・運動相談では、疲労や休養も考慮する
+・体組成は1回の数値だけで過度に評価しない
+・医療診断はしない
+・強い症状や緊急性が疑われる場合は医療機関への相談を案内する
+・説教調にしない
+・長すぎない
+・見出しを多用しない
+・最後に、今日すぐできることを1つ具体的に示す
+"""
+
+    content = [
+        {
+            "type": "input_text",
+            "text": prompt,
+        }
+    ]
+
+    if uploaded_photo is not None:
+
+        content.append(
+            {
+                "type": "input_image",
+                "image_url":
+                    image_to_data_url(
+                        uploaded_photo
+                    ),
+                "detail": "auto",
+            }
+        )
+
+    response = client.responses.create(
+        model="gpt-4o-mini",
+        input=[
+            {
+                "role": "user",
+                "content": content,
+            }
+        ],
+    )
+
+    answer = clean_text(
+        response.output_text
+    )
+
+    if not answer:
+        raise ValueError(
+            "AIから回答を取得できませんでした。"
+        )
+
+    return answer
+
+
+# =========================================================
+# ヘッダー
 # =========================================================
 render_page_header(
     title="相談する",
@@ -478,15 +649,12 @@ render_page_header(
 )
 
 
-# =========================================================
-# 説明
-# =========================================================
 intro_html = (
     '<div class="consult-intro">'
     '「今日何を食べたらいい？」'
     '「運動した方がいい？」'
-    '「最近の数字はどう？」など、'
-    '気になっていることをそのまま入力してください。'
+    '「この写真の食事はどう？」など、'
+    '気になっていることをそのまま相談してください。'
     '</div>'
 )
 
@@ -566,17 +734,15 @@ theme = st.radio(
     ],
     horizontal=True,
     label_visibility="collapsed",
+    key="consult_theme",
 )
 
 
-# =========================================================
-# テーマ説明
-# =========================================================
 theme_help = {
 
     "食事": (
-        "今日の献立、食べる順番、間食、"
-        "たんぱく質などを相談できます。"
+        "献立、食べる順番、間食、"
+        "写真の食事などを相談できます。"
     ),
 
     "運動": (
@@ -586,7 +752,7 @@ theme_help = {
 
     "からだの変化": (
         "体重・体脂肪率・筋肉量の"
-        "変化について確認できます。"
+        "変化について相談できます。"
     ),
 
     "体調・生活": (
@@ -596,7 +762,7 @@ theme_help = {
 
     "なんでも相談": (
         "気になっていることを"
-        "自由に入力してください。"
+        "自由に相談できます。"
     ),
 }
 
@@ -614,13 +780,13 @@ st.markdown(
 
 
 # =========================================================
-# 質問入力
+# 相談内容
 # =========================================================
 question = st.text_area(
     "相談したいこと",
     placeholder=(
-        "例：今日は筋トレをしました。"
-        "夜ごはんは何を食べるのがいい？"
+        "例：今日のお昼はこれを食べました。"
+        "夜は何を食べたらいい？"
     ),
     height=125,
     key="consult_question_input",
@@ -628,376 +794,69 @@ question = st.text_area(
 
 
 # =========================================================
-# 回答生成
+# 写真
 # =========================================================
-def build_answer(
-    selected_theme,
-    question_text,
-):
+st.markdown(
+    "#### 写真を添付する（任意）"
+)
 
-    question_text = clean_text(
-        question_text
+
+photo_help_html = (
+    '<div class="consult-photo-help">'
+    '食事・冷蔵庫・食品など、'
+    '相談したいものの写真がある場合だけ添付してください。'
+    '</div>'
+)
+
+st.markdown(
+    photo_help_html,
+    unsafe_allow_html=True,
+)
+
+
+photo_method = st.radio(
+    "写真の選び方",
+    [
+        "写真なし",
+        "カメラで撮る",
+        "写真を選ぶ",
+    ],
+    horizontal=True,
+    label_visibility="collapsed",
+    key="consult_photo_method",
+)
+
+
+consult_photo = None
+
+
+if photo_method == "カメラで撮る":
+
+    consult_photo = st.camera_input(
+        "相談する写真を撮影",
+        key="consult_camera",
     )
 
-    answer_parts = []
 
+elif photo_method == "写真を選ぶ":
 
-    # =====================================================
-    # 導入
-    # =====================================================
-    if question_text:
+    consult_photo = st.file_uploader(
+        "相談する写真を選択",
+        type=[
+            "jpg",
+            "jpeg",
+            "png",
+        ],
+        key="consult_photo_upload",
+    )
 
-        answer_parts.append(
-            "今の記録と設定、相談内容を合わせて考えると、"
-            "次のように整えるのがおすすめです。"
-        )
 
-    else:
+if consult_photo is not None:
 
-        answer_parts.append(
-            "今の記録から、今日意識するとよいことをまとめます。"
-        )
-
-
-    # =====================================================
-    # 食事
-    # =====================================================
-    if selected_theme == "食事":
-
-        if food_style:
-
-            answer_parts.append(
-                f"食事スタイルは「{food_style}」で設定されています。"
-                "このスタイルを基本にしながら、"
-                "主食・たんぱく質・野菜を"
-                "極端に抜かないようにしましょう。"
-            )
-
-
-        if fridge_items:
-
-            answer_parts.append(
-                f"家にある食材は「{fridge_items}」。"
-                "この中から、まずたんぱく質になるものを1品、"
-                "次に野菜や汁物を選ぶと献立を決めやすくなります。"
-            )
-
-
-        if avoid_foods:
-
-            answer_parts.append(
-                f"「{avoid_foods}」は避ける条件として考えます。"
-            )
-
-
-        if favorite_meals:
-
-            answer_parts.append(
-                f"好きなメニューとして"
-                f"「{favorite_meals}」が登録されています。"
-                "無理に特別な食事へ変えるより、"
-                "好きなメニューを整えて続ける方法もおすすめです。"
-            )
-
-
-        if latest_meal:
-
-            answer_parts.append(
-                "最新の食事記録もあるので、"
-                "同じ食品に偏りすぎていないか、"
-                "たんぱく質や野菜が不足していないかを"
-                "確認しながら次の食事を決めましょう。"
-            )
-
-
-        answer_parts.append(
-            "迷った日は、"
-            "①たんぱく質を1品、"
-            "②野菜または汁物、"
-            "③その日の活動量に合わせた主食、"
-            "の3つをそろえるだけでも十分です。"
-        )
-
-
-    # =====================================================
-    # 運動
-    # =====================================================
-    elif selected_theme == "運動":
-
-        if activity:
-
-            answer_parts.append(
-                f"普段の活動量は「{activity}」で設定されています。"
-            )
-
-
-        if workout:
-
-            answer_parts.append(
-                f"普段の運動は「{workout}」。"
-                "同じ部位へ強い負荷が続かないように、"
-                "筋トレ・有酸素運動・柔軟性・休養を"
-                "組み合わせるのがおすすめです。"
-            )
-
-
-        if (
-            latest_muscle is not None
-            and previous_muscle is not None
-        ):
-
-            diff = (
-                latest_muscle
-                - previous_muscle
-            )
-
-            if diff < -0.1:
-
-                answer_parts.append(
-                    "筋肉量は前回より少し下がっています。"
-                    "今日は運動量だけを増やすより、"
-                    "食事・睡眠・回復までセットで考えましょう。"
-                )
-
-            elif diff > 0.1:
-
-                answer_parts.append(
-                    "筋肉量は前回より増えています。"
-                    "今の運動習慣を大きく変えず、"
-                    "継続を優先するのがよさそうです。"
-                )
-
-            else:
-
-                answer_parts.append(
-                    "筋肉量は前回と大きく変わっていません。"
-                    "急に負荷を増やすより、"
-                    "今の習慣を安定して続ける方がよさそうです。"
-                )
-
-
-        answer_parts.append(
-            "疲労が強い日は、"
-            "強い運動か完全休養かの二択にせず、"
-            "軽いストレッチ・ヨガ・散歩へ"
-            "切り替える方法もあります。"
-        )
-
-
-    # =====================================================
-    # からだの変化
-    # =====================================================
-    elif selected_theme == "からだの変化":
-
-        body_messages = []
-
-
-        if latest_weight is not None:
-
-            text = change_text(
-                latest_weight,
-                previous_weight,
-                "kg",
-            )
-
-            if text:
-
-                body_messages.append(
-                    f"体重は {latest_weight:.1f}kgで、{text}です。"
-                )
-
-
-        if latest_fat is not None:
-
-            text = change_text(
-                latest_fat,
-                previous_fat,
-                "%",
-            )
-
-            if text:
-
-                body_messages.append(
-                    f"体脂肪率は {latest_fat:.1f}%で、{text}です。"
-                )
-
-
-        if latest_muscle is not None:
-
-            text = change_text(
-                latest_muscle,
-                previous_muscle,
-                "kg",
-            )
-
-            if text:
-
-                body_messages.append(
-                    f"筋肉量は {latest_muscle:.1f}kgで、{text}です。"
-                )
-
-
-        if body_messages:
-
-            answer_parts.extend(
-                body_messages
-            )
-
-        else:
-
-            answer_parts.append(
-                "比較できる記録がまだ十分にありません。"
-                "記録が増えると、前回との変化を確認できます。"
-            )
-
-
-        answer_parts.append(
-            "1回の測定値だけで判断せず、"
-            "数週間単位の傾向を見るのがおすすめです。"
-            "体重だけでなく、体脂肪率と筋肉量を"
-            "一緒に見ると変化が分かりやすくなります。"
-        )
-
-
-    # =====================================================
-    # 体調・生活
-    # =====================================================
-    elif selected_theme == "体調・生活":
-
-        answer_parts.append(
-            "体調は運動だけでなく、"
-            "睡眠・食事・疲労・水分・生活リズムなどの"
-            "影響も受けます。"
-        )
-
-
-        answer_parts.append(
-            "今日は「頑張れるか」だけで決めず、"
-            "睡眠・疲れ・食欲・からだの重さを確認して、"
-            "その日の負荷を決めるのがおすすめです。"
-        )
-
-
-        if activity:
-
-            answer_parts.append(
-                f"普段の活動量は「{activity}」。"
-                "日常生活ですでによく動いた日は、"
-                "追加の運動を軽めにしても構いません。"
-            )
-
-
-    # =====================================================
-    # なんでも相談
-    # =====================================================
-    else:
-
-        if goal:
-
-            answer_parts.append(
-                f"現在の目的は「{goal}」。"
-                "この目的から大きく外れない範囲で、"
-                "無理なく続けられる方法を優先しましょう。"
-            )
-
-
-        if latest_muscle is not None:
-
-            answer_parts.append(
-                "体重だけでなく筋肉量も記録できているので、"
-                "数字を減らすことだけを目標にせず、"
-                "からだの中身の変化も一緒に見ていくのがおすすめです。"
-            )
-
-
-    # =====================================================
-    # 質問内容から追加アドバイス
-    # =====================================================
-
-    # 夜ごはん
-    if (
-        "夜" in question_text
-        and (
-            "食" in question_text
-            or "ごはん" in question_text
-            or "夕食" in question_text
-        )
-    ):
-
-        answer_parts.append(
-            "夜ごはんについては、"
-            "たんぱく質＋野菜・汁物を先に決め、"
-            "主食はその日の運動量と空腹感に合わせると"
-            "調整しやすくなります。"
-        )
-
-
-    # 間食
-    if (
-        "間食" in question_text
-        or "おやつ" in question_text
-    ):
-
-        answer_parts.append(
-            "間食は我慢だけで調整せず、"
-            "ヨーグルトや果物など、"
-            "次の食事に響きにくいものを"
-            "少量選ぶ方法があります。"
-        )
-
-
-    # 疲労
-    if (
-        "疲" in question_text
-        or "だる" in question_text
-    ):
-
-        answer_parts.append(
-            "疲れやだるさが強い日は、"
-            "運動強度を落として回復を優先してください。"
-        )
-
-
-    # 筋トレ
-    if (
-        "筋トレ" in question_text
-        or "トレーニング" in question_text
-    ):
-
-        answer_parts.append(
-            "筋トレをした日は、"
-            "運動だけで終わらせず、"
-            "食事・水分・睡眠まで含めて"
-            "回復を考えるのがおすすめです。"
-        )
-
-
-    # ヨガ
-    if "ヨガ" in question_text:
-
-        answer_parts.append(
-            "ヨガをする日は、"
-            "柔軟性だけを追わず、"
-            "呼吸や疲労感を確認しながら"
-            "無理のない範囲で動きましょう。"
-        )
-
-
-    # ランニング
-    if (
-        "ランニング" in question_text
-        or "走" in question_text
-    ):
-
-        answer_parts.append(
-            "走った日は脚への負荷も考えて、"
-            "追加の下半身トレーニングを"
-            "やりすぎないように調整するとよいでしょう。"
-        )
-
-
-    return "\n\n".join(
-        answer_parts
+    # 写真で記録ページより小さめ
+    st.image(
+        consult_photo,
+        width=360,
     )
 
 
@@ -1010,24 +869,58 @@ if st.button(
     use_container_width=True,
 ):
 
-    answer = build_answer(
-        theme,
-        question,
-    )
+    if (
+        not clean_text(question)
+        and consult_photo is None
+    ):
 
-    st.session_state[
-        "shufumate_consult_answer"
-    ] = answer
+        st.warning(
+            "相談したいことを入力するか、写真を添付してください。"
+        )
 
-    st.session_state[
-        "shufumate_consult_question"
-    ] = clean_text(
-        question
-    )
+    else:
 
-    st.session_state[
-        "shufumate_consult_theme"
-    ] = theme
+        with st.spinner(
+            "ShufuMateが一緒に考えています…"
+        ):
+
+            try:
+
+                answer = ask_shufumate_ai(
+                    selected_theme=theme,
+                    question_text=question,
+                    uploaded_photo=consult_photo,
+                )
+
+                st.session_state[
+                    "shufumate_consult_answer"
+                ] = answer
+
+                st.session_state[
+                    "shufumate_consult_question"
+                ] = clean_text(
+                    question
+                )
+
+                st.session_state[
+                    "shufumate_consult_theme"
+                ] = theme
+
+                st.session_state[
+                    "shufumate_consult_had_photo"
+                ] = (
+                    consult_photo is not None
+                )
+
+            except Exception as e:
+
+                st.error(
+                    "相談への回答を作成できませんでした。"
+                )
+
+                st.caption(
+                    f"エラー内容：{e}"
+                )
 
 
 # =========================================================
@@ -1043,6 +936,11 @@ saved_question = st.session_state.get(
     "",
 )
 
+had_photo = st.session_state.get(
+    "shufumate_consult_had_photo",
+    False,
+)
+
 
 if answer:
 
@@ -1053,9 +951,6 @@ if answer:
     )
 
 
-    # -----------------------------------------
-    # 質問内容
-    # -----------------------------------------
     if saved_question:
 
         question_html = (
@@ -1073,13 +968,27 @@ if answer:
         )
 
 
-    # -----------------------------------------
-    # 回答
-    # -----------------------------------------
+    elif had_photo:
+
+        question_html = (
+            '<div class="consult-question">'
+            '<div class="consult-question-label">'
+            '相談したこと'
+            '</div>'
+            '添付した写真について相談'
+            '</div>'
+        )
+
+        st.markdown(
+            question_html,
+            unsafe_allow_html=True,
+        )
+
+
     answer_html = (
         '<div class="consult-answer">'
         '<div class="consult-answer-title">'
-        '今日のアドバイス'
+        'ShufuMateのアドバイス'
         '</div>'
         f'{safe_html_with_br(answer)}'
         '</div>'
@@ -1106,13 +1015,11 @@ with st.expander(
         f"活動量：{activity or '未設定'}"
     )
 
-
     if food_style:
 
         st.write(
             f"食事スタイル：{food_style}"
         )
-
 
     if workout:
 
@@ -1120,13 +1027,11 @@ with st.expander(
             f"普段の運動：{workout}"
         )
 
-
     if latest_weight is not None:
 
         st.write(
             f"最新体重：{latest_weight:.1f} kg"
         )
-
 
     if latest_fat is not None:
 
@@ -1134,13 +1039,17 @@ with st.expander(
             f"最新体脂肪率：{latest_fat:.1f} %"
         )
 
-
     if latest_muscle is not None:
 
         st.write(
             f"最新筋肉量：{latest_muscle:.1f} kg"
         )
 
+    if target_muscle:
+
+        st.write(
+            f"目標筋肉量：{target_muscle} kg"
+        )
 
     if fridge_items:
 
@@ -1148,23 +1057,23 @@ with st.expander(
             f"家にある食材：{fridge_items}"
         )
 
-
     if avoid_foods:
 
         st.write(
             f"避けたい食品：{avoid_foods}"
         )
 
-
-    if latest_meal:
-
-        st.write(
-            "最新の食事・メモ："
-        )
+    if recent_meals:
 
         st.write(
-            latest_meal
+            "最近の食事・メモ："
         )
+
+        for meal in recent_meals:
+
+            st.write(
+                meal
+            )
 
 
 # =========================================================
@@ -1173,7 +1082,8 @@ with st.expander(
 notice_html = (
     '<div class="consult-small">'
     'ShufuMateの提案は、毎日の生活を整えるための参考情報です。'
-    '強い痛みや体調不良がある場合は、運動を無理に続けず、'
+    '写真の内容はAIによる推定を含みます。'
+    '強い痛みや体調不良がある場合は無理をせず、'
     '必要に応じて医療機関へ相談してください。'
     '</div>'
 )
