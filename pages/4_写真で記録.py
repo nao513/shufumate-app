@@ -85,33 +85,33 @@ st.markdown(
             rgba(249,239,227,.98)
         );
     border: 1px solid rgba(139,100,72,.14);
-    border-radius: 21px;
-    padding: 18px 20px;
+    border-radius: 20px;
+    padding: 16px 18px;
     color: #5d473b;
-    line-height: 1.9;
-    margin-top: 12px;
-    margin-bottom: 14px;
+    line-height: 1.75;
+    margin-top: 8px;
+    margin-bottom: 10px;
 }
 
 .photo-result-title {
     color: #5c4033;
     font-weight: 900;
-    font-size: 1.05rem;
-    margin-bottom: 7px;
+    font-size: 1.03rem;
+    margin-bottom: 6px;
 }
 
 .photo-score {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 82px;
-    height: 82px;
+    width: 72px;
+    height: 72px;
     border-radius: 50%;
     background: #9b7a69;
     color: white;
-    font-size: 1.35rem;
+    font-size: 1.2rem;
     font-weight: 900;
-    margin: 5px 0 12px;
+    margin: 3px 0 9px;
 }
 
 .photo-small {
@@ -149,6 +149,17 @@ div[data-testid="stImage"] img {
         padding: 17px 18px;
     }
 }
+
+    .photo-result-card {
+        padding: 14px 16px;
+        margin-bottom: 8px;
+    }
+
+    .photo-score {
+        width: 66px;
+        height: 66px;
+        font-size: 1.1rem;
+    }
 
 </style>
     """,
@@ -568,10 +579,9 @@ else:
 if uploaded_photo is not None:
 
     st.image(
-        uploaded_photo,
-        caption="解析する写真",
-        use_container_width=True,
-    )
+    uploaded_photo,
+    use_container_width=True,
+)
 
     image_bytes = uploaded_file_bytes(
         uploaded_photo
