@@ -1,11 +1,14 @@
 # =========================================================
 # ShufuMate
 # pages/1_設定.py
-# 完全置換版
+# フォーム一括保存 完全版
 # =========================================================
 
-import streamlit as st
+import html
 from datetime import date, datetime
+
+import pandas as pd
+import streamlit as st
 
 from app_core import *
 
@@ -161,12 +164,14 @@ def calculate_age(birth_date_value):
                 "%Y-%m-%d",
             ).date()
 
-        elif isinstance(birth_date_value, datetime):
+        elif isinstance(
+            birth_date_value,
+            datetime,
+        ):
 
             birth = birth_date_value.date()
 
         else:
-
             birth = birth_date_value
 
         today = date.today()
@@ -266,7 +271,6 @@ except Exception:
 
 # =========================================================
 # DietLogs読み込み
-# 現在値は「記録する」の最新データを使う
 # =========================================================
 try:
 
@@ -296,6 +300,23 @@ latest_muscle_mass = get_latest_numeric(
 
 
 # =========================================================
+# Usersプロフィール
+# =========================================================
+try:
+
+    profile = (
+        load_current_user_profile(
+            user_id
+        )
+        or {}
+    )
+
+except Exception:
+
+    profile = {}
+
+
+# =========================================================
 # 初期値
 # =========================================================
 nickname_default = clean_text(
@@ -304,21 +325,6 @@ nickname_default = clean_text(
         "",
     )
 )
-
-
-# UserSettingsに無い場合はUsersのプロフィールも確認
-profile = {}
-
-try:
-    profile = (
-        load_current_user_profile(
-            user_id
-        )
-        or {}
-    )
-except Exception:
-    profile = {}
-
 
 if not nickname_default:
 
@@ -345,7 +351,6 @@ if not birth_source:
             "",
         )
     )
-
 
 birth_default = parse_birth_date(
     birth_source
@@ -453,13 +458,12 @@ favorite_default = clean_text(
 
 
 # =========================================================
-# からだで気になること
+# 保存済み「気になること」
 # =========================================================
 saved_traits = settings.get(
     "constitution_traits",
     [],
 )
-
 
 if isinstance(saved_traits, str):
 
@@ -474,7 +478,6 @@ if isinstance(saved_traits, str):
         for item in saved_traits
         if item.strip()
     ]
-
 
 if not isinstance(
     saved_traits,
@@ -495,13 +498,11 @@ goal_options = [
     "食生活を整えたい",
 ]
 
-
 activity_options = [
     "少ない",
     "普通",
     "多い",
 ]
-
 
 food_style_options = [
     "特に決めていない",
@@ -511,7 +512,6 @@ food_style_options = [
     "糖質を少し控えたい",
     "脂質を少し控えたい",
 ]
-
 
 trait_options = [
     "冷え",
@@ -524,7 +524,6 @@ trait_options = [
     "食欲の波",
 ]
 
-
 tone_options = [
     "やさしく",
     "シンプルに",
@@ -533,21 +532,18 @@ tone_options = [
 
 
 # =========================================================
-# 不正な保存値への対応
+# 保存値チェック
 # =========================================================
 if user_type_default not in goal_options:
     user_type_default = "健康維持"
 
-
 if activity_default not in activity_options:
     activity_default = "普通"
-
 
 if food_style_default not in food_style_options:
     food_style_default = (
         "特に決めていない"
     )
-
 
 if advice_tone_default not in tone_options:
     advice_tone_default = "やさしく"
@@ -570,25 +566,13 @@ render_page_header(
 )
 
 
-# =========================================================
-# 基本設定
-# =========================================================
-st.markdown(
-    '<div class="settings-section-title">'
-    '基本設定'
-    '</div>',
-    unsafe_allow_html=True,
-)
-
-
 intro_html = (
     '<div class="settings-intro">'
-    'ここで設定した内容は、'
-    'ShufuMateの相談やおすすめを'
-    'あなた向けに調整するために使います。'
+    'すべての項目を入力してから、'
+    '最後に「設定を保存する」を押してください。'
+    '入力途中ではGoogle Sheetsへ保存されません。'
     '</div>'
 )
-
 
 st.markdown(
     intro_html,
@@ -597,383 +581,364 @@ st.markdown(
 
 
 # =========================================================
-# ニックネーム
+# 設定フォーム
 # =========================================================
-nickname = st.text_input(
-    "ニックネーム",
-    value=nickname_default,
-    placeholder="表示する名前",
-    key="settings_nickname",
-)
+with st.form(
+    "settings_form",
+    clear_on_submit=False,
+):
 
-
-# =========================================================
-# 生年月日
-# =========================================================
-birth_date_value = st.date_input(
-    "生年月日",
-    value=birth_default,
-    min_value=date(1920, 1, 1),
-    max_value=date.today(),
-    format="YYYY/MM/DD",
-    key="settings_birth_date",
-)
-
-
-age = calculate_age(
-    birth_date_value
-)
-
-
-if age is not None:
-
-    age_html = (
-        '<div class="settings-age-card">'
-        '現在の年齢：'
-        f'<strong>{age}歳</strong>'
-        '</div>'
-    )
-
+    # =====================================================
+    # 基本設定
+    # =====================================================
     st.markdown(
-        age_html,
+        '<div class="settings-section-title">'
+        '基本設定'
+        '</div>',
         unsafe_allow_html=True,
     )
 
 
-# =========================================================
-# 身長
-# =========================================================
-height = st.number_input(
-    "身長（cm）",
-    min_value=100.0,
-    max_value=220.0,
-    value=max(
-        100.0,
-        min(
-            220.0,
-            height_default,
-        ),
-    ),
-    step=0.1,
-    format="%.1f",
-    key="settings_height",
-)
+    nickname = st.text_input(
+        "ニックネーム",
+        value=nickname_default,
+        placeholder="表示する名前",
+    )
 
 
-# =========================================================
-# 体組成
-# =========================================================
-st.markdown(
-    '<div class="settings-section-title">'
-    '体組成'
-    '</div>',
-    unsafe_allow_html=True,
-)
+    birth_date_value = st.date_input(
+        "生年月日",
+        value=birth_default,
+        min_value=date(1920, 1, 1),
+        max_value=date.today(),
+        format="YYYY/MM/DD",
+    )
 
 
-current_note = (
-    '<div class="settings-current-note">'
-    '現在値は「記録する」の最新記録から'
-    '自動で反映されます。'
-    '</div>'
-)
+    age = calculate_age(
+        birth_date_value
+    )
+
+    if age is not None:
+
+        age_html = (
+            '<div class="settings-age-card">'
+            '現在の年齢：'
+            f'<strong>{age}歳</strong>'
+            '</div>'
+        )
+
+        st.markdown(
+            age_html,
+            unsafe_allow_html=True,
+        )
 
 
-st.markdown(
-    current_note,
-    unsafe_allow_html=True,
-)
-
-
-# =========================================================
-# 体重
-# =========================================================
-col1, col2 = st.columns(2)
-
-
-with col1:
-
-    st.number_input(
-        "現在の体重（kg）",
-        min_value=0.0,
-        max_value=250.0,
-        value=(
-            float(latest_weight)
-            if latest_weight is not None
-            else 0.0
+    height = st.number_input(
+        "身長（cm）",
+        min_value=100.0,
+        max_value=220.0,
+        value=max(
+            100.0,
+            min(
+                220.0,
+                height_default,
+            ),
         ),
         step=0.1,
         format="%.1f",
-        disabled=True,
-        key="settings_current_weight",
     )
 
 
-with col2:
-
-    target_weight = st.number_input(
-        "目標体重（kg）",
-        min_value=0.0,
-        max_value=250.0,
-        value=target_weight_default,
-        step=0.1,
-        format="%.1f",
-        key="settings_target_weight",
+    # =====================================================
+    # 体組成
+    # =====================================================
+    st.markdown(
+        '<div class="settings-section-title">'
+        '体組成'
+        '</div>',
+        unsafe_allow_html=True,
     )
 
 
-# =========================================================
-# 体脂肪率
-# =========================================================
-col1, col2 = st.columns(2)
+    current_note = (
+        '<div class="settings-current-note">'
+        '現在値は「記録する」の最新記録から'
+        '自動で反映されます。'
+        '</div>'
+    )
+
+    st.markdown(
+        current_note,
+        unsafe_allow_html=True,
+    )
 
 
-with col1:
+    col1, col2 = st.columns(2)
 
-    st.number_input(
-        "現在の体脂肪率（%）",
-        min_value=0.0,
-        max_value=70.0,
-        value=(
-            float(latest_body_fat)
-            if latest_body_fat is not None
-            else 0.0
+    with col1:
+
+        st.number_input(
+            "現在の体重（kg）",
+            min_value=0.0,
+            max_value=250.0,
+            value=(
+                float(latest_weight)
+                if latest_weight is not None
+                else 0.0
+            ),
+            step=0.1,
+            format="%.1f",
+            disabled=True,
+        )
+
+    with col2:
+
+        target_weight = st.number_input(
+            "目標体重（kg）",
+            min_value=0.0,
+            max_value=250.0,
+            value=target_weight_default,
+            step=0.1,
+            format="%.1f",
+        )
+
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+
+        st.number_input(
+            "現在の体脂肪率（%）",
+            min_value=0.0,
+            max_value=70.0,
+            value=(
+                float(latest_body_fat)
+                if latest_body_fat is not None
+                else 0.0
+            ),
+            step=0.1,
+            format="%.1f",
+            disabled=True,
+        )
+
+    with col2:
+
+        target_body_fat = st.number_input(
+            "目標体脂肪率（%）",
+            min_value=0.0,
+            max_value=70.0,
+            value=target_body_fat_default,
+            step=0.1,
+            format="%.1f",
+        )
+
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+
+        st.number_input(
+            "現在の筋肉量（kg）",
+            min_value=0.0,
+            max_value=100.0,
+            value=(
+                float(latest_muscle_mass)
+                if latest_muscle_mass is not None
+                else 0.0
+            ),
+            step=0.1,
+            format="%.1f",
+            disabled=True,
+        )
+
+    with col2:
+
+        target_muscle_mass = (
+            st.number_input(
+                "目標筋肉量（kg）",
+                min_value=0.0,
+                max_value=100.0,
+                value=(
+                    target_muscle_mass_default
+                ),
+                step=0.1,
+                format="%.1f",
+            )
+        )
+
+
+    # =====================================================
+    # 相談・提案
+    # =====================================================
+    render_section_header(
+        title="相談・提案",
+        icon_file=(
+            "ShufuMate_home_icons_8/"
+            "advice.png"
         ),
-        step=0.1,
-        format="%.1f",
-        disabled=True,
-        key="settings_current_body_fat",
+        emoji="🌿",
     )
 
 
-with col2:
+    description_html = (
+        '<div class="settings-description">'
+        '今の目的や生活スタイルを設定すると、'
+        '食事・運動の提案を調整しやすくなります。'
+        '</div>'
+    )
 
-    target_body_fat = st.number_input(
-        "目標体脂肪率（%）",
-        min_value=0.0,
-        max_value=70.0,
-        value=target_body_fat_default,
-        step=0.1,
-        format="%.1f",
-        key="settings_target_body_fat",
+    st.markdown(
+        description_html,
+        unsafe_allow_html=True,
     )
 
 
-# =========================================================
-# 筋肉量
-# =========================================================
-col1, col2 = st.columns(2)
-
-
-with col1:
-
-    st.number_input(
-        "現在の筋肉量（kg）",
-        min_value=0.0,
-        max_value=100.0,
-        value=(
-            float(latest_muscle_mass)
-            if latest_muscle_mass is not None
-            else 0.0
+    user_type = st.selectbox(
+        "今の目的",
+        goal_options,
+        index=goal_options.index(
+            user_type_default
         ),
-        step=0.1,
-        format="%.1f",
-        disabled=True,
-        key="settings_current_muscle_mass",
     )
 
 
-with col2:
+    activity_level = st.selectbox(
+        "普段の活動量",
+        activity_options,
+        index=activity_options.index(
+            activity_default
+        ),
+    )
 
-    target_muscle_mass = st.number_input(
-        "目標筋肉量（kg）",
-        min_value=0.0,
-        max_value=100.0,
-        value=target_muscle_mass_default,
-        step=0.1,
-        format="%.1f",
-        key="settings_target_muscle_mass",
+
+    food_style = st.selectbox(
+        "食事スタイル",
+        food_style_options,
+        index=food_style_options.index(
+            food_style_default
+        ),
+    )
+
+
+    constitution_traits = (
+        st.multiselect(
+            "からだで気になること",
+            trait_options,
+            default=[
+                item
+                for item in saved_traits
+                if item in trait_options
+            ],
+            placeholder="選択してください",
+        )
+    )
+
+
+    advice_tone = st.selectbox(
+        "アドバイスの雰囲気",
+        tone_options,
+        index=tone_options.index(
+            advice_tone_default
+        ),
+    )
+
+
+    # =====================================================
+    # 運動
+    # =====================================================
+    render_section_header(
+        title="運動",
+        icon_file=(
+            "ShufuMate_home_icons_8/"
+            "exercise.png"
+        ),
+        emoji="🧘",
+    )
+
+
+    exercise_description = (
+        '<div class="settings-description">'
+        '普段よく行う運動を入力してください。'
+        '複数ある場合は「、」で区切って入力できます。'
+        '</div>'
+    )
+
+    st.markdown(
+        exercise_description,
+        unsafe_allow_html=True,
+    )
+
+
+    workout_today = st.text_area(
+        "よく行う運動",
+        value=workout_default,
+        placeholder=(
+            "例：ヨガ、筋トレ、"
+            "ウォーキング、ランニング"
+        ),
+        height=90,
+    )
+
+
+    # =====================================================
+    # 食材・冷蔵庫
+    # =====================================================
+    render_section_header(
+        title="食材・冷蔵庫",
+        icon_file=(
+            "ShufuMate_home_icons_8/"
+            "fridge.png"
+        ),
+        emoji="🥕",
+    )
+
+
+    fridge_items = st.text_area(
+        "よく家にある食材",
+        value=fridge_default,
+        placeholder=(
+            "例：卵、納豆、豆腐、"
+            "鶏肉、しめじ、青菜"
+        ),
+        height=90,
+    )
+
+
+    avoid_foods = st.text_area(
+        "避けたい食品・苦手なもの",
+        value=avoid_default,
+        placeholder=(
+            "例：辛すぎるもの、脂っこいもの"
+        ),
+        height=80,
+    )
+
+
+    favorite_meals = st.text_area(
+        "好きなメニュー・定番メニュー",
+        value=favorite_default,
+        placeholder=(
+            "例：味噌汁、おにぎり、"
+            "豚しゃぶ、納豆うどん"
+        ),
+        height=90,
+    )
+
+
+    render_divider()
+
+
+    submitted = st.form_submit_button(
+        "設定を保存する",
+        use_container_width=True,
     )
 
 
 # =========================================================
-# 相談・提案
+# 一括保存
 # =========================================================
-render_section_header(
-    title="相談・提案",
-    icon_file=(
-        "ShufuMate_home_icons_8/"
-        "advice.png"
-    ),
-    emoji="🌿",
-)
-
-
-description_html = (
-    '<div class="settings-description">'
-    '今の目的や生活スタイルを設定すると、'
-    '食事・運動の提案を調整しやすくなります。'
-    '</div>'
-)
-
-
-st.markdown(
-    description_html,
-    unsafe_allow_html=True,
-)
-
-
-user_type = st.selectbox(
-    "今の目的",
-    goal_options,
-    index=goal_options.index(
-        user_type_default
-    ),
-    key="settings_user_type",
-)
-
-
-activity_level = st.selectbox(
-    "普段の活動量",
-    activity_options,
-    index=activity_options.index(
-        activity_default
-    ),
-    key="settings_activity_level",
-)
-
-
-food_style = st.selectbox(
-    "食事スタイル",
-    food_style_options,
-    index=food_style_options.index(
-        food_style_default
-    ),
-    key="settings_food_style",
-)
-
-
-constitution_traits = st.multiselect(
-    "からだで気になること",
-    trait_options,
-    default=[
-        item
-        for item in saved_traits
-        if item in trait_options
-    ],
-    placeholder="選択してください",
-    key="settings_constitution_traits",
-)
-
-
-advice_tone = st.selectbox(
-    "アドバイスの雰囲気",
-    tone_options,
-    index=tone_options.index(
-        advice_tone_default
-    ),
-    key="settings_advice_tone",
-)
-
-
-# =========================================================
-# 運動
-# =========================================================
-render_section_header(
-    title="運動",
-    icon_file=(
-        "ShufuMate_home_icons_8/"
-        "exercise.png"
-    ),
-    emoji="🧘",
-)
-
-
-exercise_description = (
-    '<div class="settings-description">'
-    '普段よく行う運動を入力してください。'
-    '複数ある場合は「、」で区切って入力できます。'
-    '</div>'
-)
-
-
-st.markdown(
-    exercise_description,
-    unsafe_allow_html=True,
-)
-
-
-workout_today = st.text_area(
-    "よく行う運動",
-    value=workout_default,
-    placeholder=(
-        "例：ヨガ、筋トレ、"
-        "ウォーキング、ランニング"
-    ),
-    height=90,
-    key="settings_workout",
-)
-
-
-# =========================================================
-# 食材・冷蔵庫
-# =========================================================
-render_section_header(
-    title="食材・冷蔵庫",
-    icon_file=(
-        "ShufuMate_home_icons_8/"
-        "fridge.png"
-    ),
-    emoji="🥕",
-)
-
-
-fridge_items = st.text_area(
-    "よく家にある食材",
-    value=fridge_default,
-    placeholder=(
-        "例：卵、納豆、豆腐、"
-        "鶏肉、しめじ、青菜"
-    ),
-    height=90,
-    key="settings_fridge_items",
-)
-
-
-avoid_foods = st.text_area(
-    "避けたい食品・苦手なもの",
-    value=avoid_default,
-    placeholder=(
-        "例：辛すぎるもの、脂っこいもの"
-    ),
-    height=80,
-    key="settings_avoid_foods",
-)
-
-
-favorite_meals = st.text_area(
-    "好きなメニュー・定番メニュー",
-    value=favorite_default,
-    placeholder=(
-        "例：味噌汁、おにぎり、"
-        "豚しゃぶ、納豆うどん"
-    ),
-    height=90,
-    key="settings_favorite_meals",
-)
-
-
-# =========================================================
-# 保存
-# =========================================================
-render_divider()
-
-
-if st.button(
-    "設定を保存する",
-    key="settings_save_button",
-    use_container_width=True,
-):
+if submitted:
 
     settings_data = {
 
@@ -988,8 +953,6 @@ if st.button(
         "height":
             height,
 
-        # 現在値も最新DietLogs値を保存しておく
-        # 他ページとの互換用
         "current_weight":
             (
                 latest_weight
@@ -1064,14 +1027,13 @@ if st.button(
             settings_data,
         )
 
-        # Usersシート側のニックネームも同期
         update_current_user_profile(
             user_id,
             nickname=nickname,
         )
 
         st.success(
-            "設定を保存しました ✨"
+            "設定をまとめて保存しました ✨"
         )
 
     except Exception as e:
@@ -1087,6 +1049,7 @@ if st.button(
 
 # =========================================================
 # アカウント
+# フォームの外
 # =========================================================
 render_divider()
 
@@ -1099,13 +1062,9 @@ st.markdown(
 )
 
 
-# =========================================================
-# ログインID
-# =========================================================
 login_id_display = clean_text(
     get_login_id()
 )
-
 
 if not login_id_display:
 
@@ -1115,7 +1074,6 @@ if not login_id_display:
             "",
         )
     )
-
 
 if not login_id_display:
     login_id_display = user_id
@@ -1127,11 +1085,10 @@ account_html = (
     'ログインID'
     '</div>'
     '<div class="account-value">'
-    f'{safe_text(login_id_display)}'
+    f'{html.escape(str(login_id_display))}'
     '</div>'
     '</div>'
 )
-
 
 st.markdown(
     account_html,
@@ -1152,7 +1109,6 @@ with st.expander(
         type="password",
         key="settings_password_new",
     )
-
 
     new_password_confirm = st.text_input(
         "新しいパスワード（確認）",
@@ -1187,7 +1143,6 @@ with st.expander(
                 "入力してください。"
             )
 
-
         elif (
             new_password_clean
             != confirm_clean
@@ -1197,7 +1152,6 @@ with st.expander(
                 "確認用パスワードが"
                 "一致しません。"
             )
-
 
         else:
 
