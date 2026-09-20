@@ -1,11 +1,13 @@
 # =========================================================
 # ShufuMate
-# 0_新規登録.py
-# 完全置換版
+# pages/0_新規登録.py
+# メールアドレス対応 完全版
 # =========================================================
 
-import streamlit as st
+import re
 from datetime import date
+
+import streamlit as st
 
 from app_core import *
 
@@ -15,7 +17,10 @@ from app_core import *
 # =========================================================
 st.set_page_config(
     page_title="新規登録｜ShufuMate",
-    page_icon="🌿",
+    page_icon=get_page_icon(
+        "ShufuMate_home_icons_8/state.png",
+        "🌿",
+    ),
     layout="centered",
 )
 
@@ -23,11 +28,12 @@ inject_shufumate_css()
 
 
 # =========================================================
-# ページ専用CSS
+# CSS
 # =========================================================
 st.markdown(
     """
 <style>
+
 .register-intro {
     background: rgba(255,250,244,.94);
     border: 1px solid rgba(139,100,72,.12);
@@ -50,23 +56,6 @@ st.markdown(
     margin-bottom: 16px;
 }
 
-.register-success {
-    background: rgba(249,243,231,.95);
-    border: 1px solid rgba(139,100,72,.14);
-    border-radius: 20px;
-    padding: 18px 20px;
-    color: #60493d;
-    line-height: 1.9;
-    margin-bottom: 18px;
-}
-
-.register-success-title {
-    color: #5c4033;
-    font-weight: 900;
-    font-size: 1.08rem;
-    margin-bottom: 7px;
-}
-
 div[data-testid="stForm"] {
     background: rgba(255,255,255,.70);
     border: 1px solid rgba(139,100,72,.12);
@@ -77,6 +66,7 @@ div[data-testid="stForm"] {
 div[data-baseweb="input"] > div {
     border-radius: 14px !important;
 }
+
 </style>
     """,
     unsafe_allow_html=True,
@@ -84,36 +74,54 @@ div[data-baseweb="input"] > div {
 
 
 # =========================================================
-# すでにログイン済み
+# メール形式
 # =========================================================
-if get_user_id():
+def valid_email(email):
+
+    email = clean_text(
+        email
+    ).lower()
+
+    pattern = (
+        r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
+    )
+
+    return bool(
+        re.match(
+            pattern,
+            email,
+        )
+    )
+
+
+# =========================================================
+# ログイン済み
+# =========================================================
+if is_logged_in():
 
     render_page_header(
         title="新規登録",
         subtitle="現在ログインしています。",
-        icon_file="ShufuMate_home_icons_8/state.png",
+        icon_file=(
+            "ShufuMate_home_icons_8/"
+            "state.png"
+        ),
         emoji="🌿",
     )
 
-    logged_html = (
-        '<div class="register-intro">'
-        'すでにアカウントへログインしています。'
-        '<br>'
-        '新しく登録する必要はありません。'
-        '</div>'
-    )
-
-    st.markdown(
-        logged_html,
-        unsafe_allow_html=True,
+    st.info(
+        "すでにアカウントへ"
+        "ログインしています。"
     )
 
     if st.button(
         "Homeへ",
-        key="register_logged_home",
         use_container_width=True,
     ):
-        st.switch_page("Home.py")
+
+        st.switch_page(
+            "Home.py"
+        )
 
     st.stop()
 
@@ -127,7 +135,10 @@ render_page_header(
         "ShufuMateをあなた専用にするための"
         "最初の設定です。"
     ),
-    icon_file="ShufuMate_home_icons_8/state.png",
+    icon_file=(
+        "ShufuMate_home_icons_8/"
+        "state.png"
+    ),
     emoji="🌿",
 )
 
@@ -136,8 +147,8 @@ intro_html = (
     '<div class="register-intro">'
     'まずはログインに必要な情報を登録します。'
     '<br>'
-    '体重や食事などの詳しい設定は、'
-    '登録後に「設定」ページから変更できます。'
+    'メールアドレスは、将来パスワードを'
+    '忘れた場合の本人確認に使用します。'
     '</div>'
 )
 
@@ -148,18 +159,20 @@ st.markdown(
 
 
 # =========================================================
-# 新規登録フォーム
+# 登録フォーム
 # =========================================================
 with st.form(
-    "shufumate_register_form"
+    "shufumate_register_form",
+    clear_on_submit=False,
 ):
 
-    st.markdown("### アカウント")
+    st.markdown(
+        "### アカウント"
+    )
 
     login_id = st.text_input(
         "ログインID",
         placeholder="例：nao0513",
-        key="register_login_id",
         help=(
             "ログインするときに使うIDです。"
             "半角英数字をおすすめします。"
@@ -168,60 +181,89 @@ with st.form(
 
     nickname = st.text_input(
         "ニックネーム",
-        placeholder="ShufuMateで表示する名前",
-        key="register_nickname",
+        placeholder=(
+            "ShufuMateで表示する名前"
+        ),
+    )
+
+    email = st.text_input(
+        "メールアドレス",
+        placeholder=(
+            "例：sample@example.com"
+        ),
+        help=(
+            "パスワードを忘れた場合の"
+            "本人確認に使用します。"
+        ),
     )
 
     st.markdown("---")
 
-    st.markdown("### 生年月日")
+    st.markdown(
+        "### 生年月日"
+    )
 
     birth_date = st.date_input(
         "生年月日",
-        value=date(1980, 1, 1),
-        min_value=date(1920, 1, 1),
+        value=date(
+            1980,
+            1,
+            1,
+        ),
+        min_value=date(
+            1920,
+            1,
+            1,
+        ),
         max_value=date.today(),
-        key="register_birth_date",
+        format="YYYY/MM/DD",
     )
 
     st.markdown("---")
 
-    st.markdown("### パスワード")
+    st.markdown(
+        "### パスワード"
+    )
 
     password = st.text_input(
         "パスワード",
         type="password",
-        placeholder="4文字以上",
-        key="register_password",
+        placeholder=(
+            "英字と数字を組み合わせて8文字以上"
+        ),
     )
 
     password_confirm = st.text_input(
         "パスワード（確認）",
         type="password",
-        placeholder="もう一度入力",
-        key="register_password_confirm",
+        placeholder=(
+            "もう一度入力"
+        ),
     )
 
     agree = st.checkbox(
-        "入力した内容をShufuMateの記録・相談機能で使用することに同意します。",
-        key="register_agree",
+        "入力した内容をShufuMateの"
+        "記録・相談機能で使用することに"
+        "同意します。"
     )
 
-    submitted = st.form_submit_button(
-        "ShufuMateをはじめる",
-        use_container_width=True,
+    submitted = (
+        st.form_submit_button(
+            "ShufuMateをはじめる",
+            use_container_width=True,
+        )
     )
 
 
 # =========================================================
 # パスワード案内
 # =========================================================
-password_note = (
+note_html = (
     '<div class="register-note">'
     '<strong>パスワードについて</strong>'
     '<br>'
-    '数字だけでも登録できますが、'
-    '英字と数字を組み合わせるとより安全です。'
+    '英字と数字を組み合わせた'
+    '8文字以上をおすすめします。'
     '<br>'
     '他のサービスと同じパスワードの'
     '使い回しは避けてください。'
@@ -229,29 +271,39 @@ password_note = (
 )
 
 st.markdown(
-    password_note,
+    note_html,
     unsafe_allow_html=True,
 )
 
 
 # =========================================================
-# 登録処理
+# 登録
 # =========================================================
 if submitted:
 
-    login_id_clean = clean_text(login_id)
-    nickname_clean = clean_text(nickname)
-    password_clean = clean_text(password)
+    login_id_clean = clean_text(
+        login_id
+    )
+
+    nickname_clean = clean_text(
+        nickname
+    )
+
+    email_clean = clean_text(
+        email
+    ).lower()
+
+    password_clean = clean_text(
+        password
+    )
+
     password_confirm_clean = clean_text(
         password_confirm
     )
 
-    error_message = None
+    error_message = ""
 
 
-    # -----------------------------------------------------
-    # 入力チェック
-    # -----------------------------------------------------
     if not login_id_clean:
 
         error_message = (
@@ -267,7 +319,8 @@ if submitted:
     elif len(login_id_clean) < 3:
 
         error_message = (
-            "ログインIDは3文字以上で入力してください。"
+            "ログインIDは3文字以上で"
+            "入力してください。"
         )
 
     elif not nickname_clean:
@@ -276,10 +329,46 @@ if submitted:
             "ニックネームを入力してください。"
         )
 
-    elif len(password_clean) < 4:
+    elif not email_clean:
 
         error_message = (
-            "パスワードは4文字以上で入力してください。"
+            "メールアドレスを入力してください。"
+        )
+
+    elif not valid_email(
+        email_clean
+    ):
+
+        error_message = (
+            "メールアドレスの形式を"
+            "確認してください。"
+        )
+
+    elif len(password_clean) < 8:
+
+        error_message = (
+            "パスワードは8文字以上で"
+            "入力してください。"
+        )
+
+    elif not any(
+        c.isalpha()
+        for c in password_clean
+    ):
+
+        error_message = (
+            "パスワードには英字を"
+            "1文字以上入れてください。"
+        )
+
+    elif not any(
+        c.isdigit()
+        for c in password_clean
+    ):
+
+        error_message = (
+            "パスワードには数字を"
+            "1文字以上入れてください。"
         )
 
     elif (
@@ -288,29 +377,24 @@ if submitted:
     ):
 
         error_message = (
-            "確認用パスワードが一致しません。"
+            "確認用パスワードが"
+            "一致しません。"
         )
 
     elif not agree:
 
         error_message = (
-            "内容を確認して同意欄にチェックしてください。"
+            "内容を確認して同意欄に"
+            "チェックしてください。"
         )
 
 
-    # -----------------------------------------------------
-    # エラー
-    # -----------------------------------------------------
     if error_message:
 
         st.warning(
             error_message
         )
 
-
-    # -----------------------------------------------------
-    # 新規登録
-    # -----------------------------------------------------
     else:
 
         try:
@@ -319,121 +403,96 @@ if submitted:
                 login_id=login_id_clean,
                 password=password_clean,
                 nickname=nickname_clean,
-                birth_date=birth_date.strftime(
-                    "%Y-%m-%d"
-                ),
+                birth_date=birth_date,
+                email=email_clean,
             )
 
 
-            # =================================================
-            # create_userの戻り値に対応
-            # =================================================
-            created_user_id = ""
-
-
-            if isinstance(
-                result,
-                str,
+            # ---------------------------------
+            # ID重複
+            # ---------------------------------
+            if (
+                isinstance(result, dict)
+                and
+                result.get("error")
+                ==
+                "duplicate_login_id"
             ):
 
-                created_user_id = (
-                    clean_text(result)
+                st.error(
+                    "このログインIDは"
+                    "すでに使用されています。"
                 )
 
 
-            elif isinstance(
-                result,
-                dict,
+            # ---------------------------------
+            # メール重複
+            # ---------------------------------
+            elif (
+                isinstance(result, dict)
+                and
+                result.get("error")
+                ==
+                "duplicate_email"
             ):
 
-                created_user_id = (
-                    clean_text(
-                        result.get(
-                            "user_id"
-                        )
-                    )
+                st.error(
+                    "このメールアドレスは"
+                    "すでに登録されています。"
                 )
 
 
-            elif result is True:
+            # ---------------------------------
+            # 登録失敗
+            # ---------------------------------
+            elif not result:
 
-                # ---------------------------------------------
-                # create_userがTrueのみ返す場合は
-                # 登録直後に認証してuser_id取得
-                # ---------------------------------------------
-                auth_result = authenticate_user(
+                st.error(
+                    "アカウントを"
+                    "作成できませんでした。"
+                )
+
+
+            # ---------------------------------
+            # 登録成功
+            # ---------------------------------
+            else:
+
+                # 正式なlogin()を使って
+                # ログイン状態にする
+                success = login(
                     login_id_clean,
                     password_clean,
                 )
 
-                if isinstance(
-                    auth_result,
-                    str,
-                ):
+                if not success:
 
-                    created_user_id = (
-                        clean_text(
-                            auth_result
-                        )
+                    st.warning(
+                        "登録は完了しましたが、"
+                        "自動ログインできませんでした。"
                     )
 
-                elif isinstance(
-                    auth_result,
-                    dict,
-                ):
-
-                    created_user_id = (
-                        clean_text(
-                            auth_result.get(
-                                "user_id"
-                            )
-                        )
+                    st.info(
+                        "ログインページから"
+                        "ログインしてください。"
                     )
 
+                else:
 
-            # =================================================
-            # create_userまたはauthenticate_user側で
-            # session_state設定済みの場合
-            # =================================================
-            if not created_user_id:
+                    user_id = get_user_id()
 
-                created_user_id = (
-                    clean_text(
-                        get_user_id()
-                    )
-                )
-
-
-            # =================================================
-            # セッション設定
-            # =================================================
-            if created_user_id:
-
-                st.session_state[
-                    "user_id"
-                ] = created_user_id
-
-                st.session_state[
-                    "user_id_cookie"
-                ] = created_user_id
-
-
-                # ---------------------------------------------
-                # ログインIDも保持
-                # ---------------------------------------------
-                st.session_state[
-                    "login_id"
-                ] = login_id_clean
-
-
-                # ---------------------------------------------
-                # 初期設定も作成
-                # ---------------------------------------------
-                try:
-
+                    # -------------------------
+                    # 初期設定
+                    # -------------------------
                     initial_settings = {
+
                         "nickname":
                             nickname_clean,
+
+                        "birth_date":
+                            birth_date.strftime(
+                                "%Y-%m-%d"
+                            ),
 
                         "height":
                             "",
@@ -448,6 +507,12 @@ if submitted:
                             "",
 
                         "target_body_fat":
+                            "",
+
+                        "current_muscle_mass":
+                            "",
+
+                        "target_muscle_mass":
                             "",
 
                         "user_type":
@@ -479,144 +544,56 @@ if submitted:
                     }
 
                     save_user_settings(
-                        created_user_id,
+                        user_id,
                         initial_settings,
                     )
 
-                except Exception:
-                    # 初期設定保存に失敗しても
-                    # アカウント作成自体は有効
-                    pass
+                    st.success(
+                        "登録できました ✨"
+                    )
 
+                    st.info(
+                        "続けて、目標や食事・"
+                        "運動について設定しましょう。"
+                    )
 
-                # ---------------------------------------------
-                # 完了状態
-                # ---------------------------------------------
-                st.session_state[
-                    "registration_complete"
-                ] = True
+                    if st.button(
+                        "設定へ進む",
+                        key=(
+                            "register_to_settings"
+                        ),
+                        use_container_width=True,
+                    ):
 
-                st.session_state[
-                    "registration_nickname"
-                ] = nickname_clean
-
-                st.rerun()
-
-
-            else:
-
-                st.error(
-                    "登録は行われましたが、"
-                    "ログイン情報を取得できませんでした。"
-                )
-
-                st.info(
-                    "ログインページから、"
-                    "登録したIDとパスワードで"
-                    "ログインしてください。"
-                )
+                        st.switch_page(
+                            "pages/1_設定.py"
+                        )
 
 
         except Exception as e:
 
-            error_text = str(e)
+            st.error(
+                "新規登録中に"
+                "エラーが発生しました。"
+            )
 
-            # ---------------------------------------------
-            # 重複IDなど
-            # ---------------------------------------------
-            if (
-                "duplicate" in error_text.lower()
-                or
-                "already" in error_text.lower()
-                or
-                "存在" in error_text
-            ):
-
-                st.error(
-                    "このログインIDはすでに使用されています。"
-                )
-
-                st.info(
-                    "別のログインIDを入力してください。"
-                )
-
-            else:
-
-                st.error(
-                    "新規登録中にエラーが発生しました。"
-                )
-
-                st.caption(
-                    error_text
-                )
+            st.caption(
+                str(e)
+            )
 
 
 # =========================================================
-# 登録完了
-# =========================================================
-if st.session_state.get(
-    "registration_complete",
-    False,
-):
-
-    nickname_saved = clean_text(
-        st.session_state.get(
-            "registration_nickname",
-            "",
-        )
-    )
-
-    success_html = (
-        '<div class="register-success">'
-        '<div class="register-success-title">'
-        '登録できました ✨'
-        '</div>'
-        'ShufuMateを使い始められます。'
-        '<br>'
-        '次に「設定」で、目標や食事・運動の'
-        'スタイルを登録すると、'
-        'あなたに合った提案がしやすくなります。'
-        '</div>'
-    )
-
-    st.markdown(
-        success_html,
-        unsafe_allow_html=True,
-    )
-
-
-    if st.button(
-        "Homeへ",
-        key="register_complete_home",
-        use_container_width=True,
-    ):
-
-        st.session_state[
-            "registration_complete"
-        ] = False
-
-        st.switch_page(
-            "Home.py"
-        )
-
-
-# =========================================================
-# すでにアカウントがある方
+# ログインへ
 # =========================================================
 render_divider()
 
-
-existing_html = (
+st.markdown(
     '<div class="register-note">'
     '<strong>すでに登録済みの方</strong>'
     '<br>'
-    '新しく登録せず、'
-    'ログインページから続けられます。'
-    '</div>'
-)
-
-st.markdown(
-    existing_html,
+    '新しく登録せず、ログインページから'
+    '続けられます。'
+    '</div>',
     unsafe_allow_html=True,
 )
 
