@@ -249,6 +249,69 @@ def is_active_user(user_record):
         "無効",
     ]
 
+# =========================================================
+# Users シート email列
+# =========================================================
+def ensure_users_email_column():
+
+    sheet = get_sheet("Users")
+    values = sheet.get_all_values()
+
+    if not values:
+
+        sheet.append_row(
+            [
+                "user_id",
+                "login_id",
+                "password_hash",
+                "password_salt",
+                "nickname",
+                "birth_date",
+                "created_at",
+                "updated_at",
+                "is_active",
+                "email",
+            ],
+            value_input_option="RAW",
+        )
+
+        return True
+
+    headers = [
+        clean_text(value)
+        for value in values[0]
+    ]
+
+    if "email" not in headers:
+
+        sheet.update_cell(
+            1,
+            len(headers) + 1,
+            "email",
+        )
+
+    return True
+
+
+def find_user_by_email(email):
+
+    email = clean_text(email).lower()
+
+    if not email:
+        return None
+
+    ensure_users_email_column()
+
+    for user in load_users():
+
+        current_email = clean_text(
+            user.get("email")
+        ).lower()
+
+        if current_email == email:
+            return user
+
+    return None
 
 # =========================================================
 # ログイン状態
@@ -463,17 +526,18 @@ def create_user_id(login_id):
         if candidate not in existing:
             return candidate
 
-
 def create_user(
     login_id,
     password,
     nickname="",
     birth_date=None,
+    email="",
 ):
 
     login_id = clean_text(login_id)
     password = clean_text(password)
     nickname = clean_text(nickname)
+    email = clean_text(email).lower()
 
     if not login_id:
         return None
@@ -481,8 +545,24 @@ def create_user(
     if len(password) < 4:
         return None
 
+    ensure_users_email_column()
+
     if find_user_by_login_id(login_id):
-        return None
+
+        return {
+            "success": False,
+            "error": "duplicate_login_id",
+        }
+
+    if (
+        email
+        and find_user_by_email(email)
+    ):
+
+        return {
+            "success": False,
+            "error": "duplicate_email",
+        }
 
     user_id = create_user_id(
         login_id
@@ -509,24 +589,15 @@ def create_user(
 
     now = jst_datetime_str()
 
-    row = [
-        user_id,
-        login_id,
-        password_hash,
-        password_salt,
-        nickname,
-        birth_text,
-        now,
-        now,
-        "TRUE",
+    sheet = get_sheet("Users")
+    values = sheet.get_all_values()
+
+    headers = [
+        clean_text(value)
+        for value in values[0]
     ]
 
-    get_sheet("Users").append_row(
-        row,
-        value_input_option="RAW",
-    )
-
-    return {
+    user_data = {
         "user_id": user_id,
         "login_id": login_id,
         "password_hash": password_hash,
@@ -536,6 +607,29 @@ def create_user(
         "created_at": now,
         "updated_at": now,
         "is_active": "TRUE",
+        "email": email,
+    }
+
+    row = [
+        user_data.get(
+            header,
+            "",
+        )
+        for header in headers
+    ]
+
+    sheet.append_row(
+        row,
+        value_input_option="RAW",
+    )
+
+    return {
+        "success": True,
+        "user_id": user_id,
+        "login_id": login_id,
+        "nickname": nickname,
+        "birth_date": birth_text,
+        "email": email,
     }
 
 
